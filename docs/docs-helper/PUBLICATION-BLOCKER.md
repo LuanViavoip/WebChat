@@ -10,6 +10,11 @@
 | Pacote | `docs/docs-helper/dist/viavoip-webchat-docs.zip`, sha256 `534b60eeda002e45b641a2fe71a1390ba6c6c307a3d1d507975b0c5abe7c6e01` |
 | Conteúdo | 36 documentos (12 módulos + 24 páginas), 24 HTMLs, 15 imagens |
 | Código documentado | commit `d65d40d` |
+| Documentação publicada | estado do commit `72e7d08` |
+
+## Divergência entre o repositório e o publicado
+
+O commit `02a446c` (WIP de terceiros) alterou `docs/deployment/environments.md` e `docs/local-development.md`. O `html/` e o ZIP gerados a partir de `HEAD` já refletem essa mudança em `ambientes.html`, **mas a versão publicada não**: a página "Ambientes" no Docs Helper é a do commit `72e7d08`. O sha256 acima é o do ZIP publicado; o ZIP regenerado de `HEAD` é diferente. Reimporte quando o WIP for validado e integrado.
 
 ## Verificação pós-publicação (executada)
 
