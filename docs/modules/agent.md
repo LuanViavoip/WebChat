@@ -4,7 +4,7 @@ Console em `/console/` (`apps/console`), namespace WebSocket `/agent`.
 
 ## Autenticação
 
-`POST /auth/login { email, password }` → `{ token, role, name }`; `GET /auth/me` devolve `selfId`, filas, classificações e `maxConcurrentAssignments`; `POST /auth/logout` apaga a sessão. **Sem limite de tentativas** (F4-04). Logout não derruba sockets abertos (F4-03).
+`POST /auth/login { email, password }` → `{ token, role, name }`; `GET /auth/me` devolve `selfId`, filas, classificações e `maxConcurrentAssignments`; `POST /auth/logout` apaga a sessão. Login usa limite por IP e conta compartilhado no PostgreSQL. Logout e expiração encerram sockets; revogação entre réplicas exige Redis.
 
 ## Filas autorizadas
 

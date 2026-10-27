@@ -15,4 +15,4 @@ Tabelas: `announcements`, `announcement_sectors`, `announcement_revisions`, `ann
 | Auditoria | `announcement.publish`, `.update`, `.archive` em `audit_events` |
 | Eventos | `announcement.published`, `announcement.updated` — só avisam quem está conectado; o dado fica no Postgres |
 
-Estado derivado de timestamps: arquivado, expirado ou vigente. Limitação: o console não oferece fixar, expirar, editar nem arquivar (F4-06).
+Estado derivado de timestamps: arquivado, expirado ou vigente. O console oferece fixação, expiração, edição e arquivamento conforme as permissões.

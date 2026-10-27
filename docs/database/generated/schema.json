@@ -1241,6 +1241,36 @@
             "def": "now()"
         },
         {
+            "t": "login_rate_limits",
+            "n": 1,
+            "col": "key_hash",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "login_rate_limits",
+            "n": 2,
+            "col": "window_started_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "login_rate_limits",
+            "n": 3,
+            "col": "attempts",
+            "typ": "integer",
+            "udt": "int4",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
             "t": "messages",
             "n": 1,
             "col": "id",
@@ -2657,6 +2687,24 @@
             "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
         },
         {
+            "t": "login_rate_limits",
+            "name": "login_rate_limits_attempts_check",
+            "kind": "c",
+            "def": "CHECK ((attempts > 0))"
+        },
+        {
+            "t": "login_rate_limits",
+            "name": "login_rate_limits_key_hash_check",
+            "kind": "c",
+            "def": "CHECK ((key_hash ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+            "t": "login_rate_limits",
+            "name": "login_rate_limits_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (key_hash)"
+        },
+        {
             "t": "messages",
             "name": "messages_body_check",
             "kind": "c",
@@ -3238,6 +3286,16 @@
             "tablename": "internal_reads",
             "indexname": "internal_reads_pkey",
             "indexdef": "CREATE UNIQUE INDEX internal_reads_pkey ON public.internal_reads USING btree (conversation_id, agent_id)"
+        },
+        {
+            "tablename": "login_rate_limits",
+            "indexname": "login_rate_limits_pkey",
+            "indexdef": "CREATE UNIQUE INDEX login_rate_limits_pkey ON public.login_rate_limits USING btree (key_hash)"
+        },
+        {
+            "tablename": "login_rate_limits",
+            "indexname": "login_rate_limits_window",
+            "indexdef": "CREATE INDEX login_rate_limits_window ON public.login_rate_limits USING btree (window_started_at)"
         },
         {
             "tablename": "messages",
@@ -3822,6 +3880,11 @@
             "t": "internal_reads",
             "enabled": true,
             "forced": true
+        },
+        {
+            "t": "login_rate_limits",
+            "enabled": false,
+            "forced": false
         },
         {
             "t": "messages",

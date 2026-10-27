@@ -5,7 +5,8 @@ import {
   type InternalMessage,
 } from '@viavoip/protocol';
 import type { Pool, PoolClient } from 'pg';
-import { withTenant } from '../db/tenant.js';
+import { withTenant, withTenantAdvisoryLock } from '../db/tenant.js';
+import { internalConversationLockKey, internalSectorLockKey } from '../db/locks.js';
 import { isStaff } from '../domain/access.js';
 import { DomainError } from '../domain/errors.js';
 import type { AgentPrincipal } from '../domain/types.js';
@@ -81,9 +82,12 @@ export class InternalChatService {
   async send(
     principal: AgentPrincipal,
     input: { conversationId: string; requestId: string; body: string },
-  ): Promise<{ message: InternalMessage; created: boolean }> {
-    return withTenant(this.pool, principal.tenantId, async (client) => {
+    afterCommit?: (message: InternalMessage, recipientAgentIds: string[]) => Promise<void> | void,
+  ): Promise<{ message: InternalMessage; created: boolean; recipientAgentIds: string[] }> {
+    const lockKey = await this.deliveryLockKey(principal.tenantId, input.conversationId);
+    return withTenantAdvisoryLock(this.pool, principal.tenantId, lockKey, async (client) => {
       const conversation = await requireWritable(client, principal, input.conversationId);
+      const recipients = await activeParticipantsIn(client, input.conversationId, principal.tenantId);
       const inserted = await client.query<MessageRow>(
         `INSERT INTO internal_messages (tenant_id, conversation_id, sender_id, request_id, body)
          VALUES ($1, $2, $3, $4, $5)
@@ -92,7 +96,7 @@ export class InternalChatService {
         [principal.tenantId, conversation.id, principal.agentId, input.requestId, input.body, principal.name],
       );
       const createdRow = inserted.rows[0];
-      if (createdRow) return { message: mapMessage(createdRow), created: true };
+      if (createdRow) return { message: mapMessage(createdRow), created: true, recipientAgentIds: recipients };
       const existing = await client.query<MessageRow>(
         `SELECT message.id, message.conversation_id, message.sender_id, agent.name AS sender_name,
                 message.request_id, message.body, message.created_at
@@ -103,7 +107,9 @@ export class InternalChatService {
       );
       const row = existing.rows[0];
       if (!row) throw new DomainError('conflict', 'Mensagem não pôde ser confirmada');
-      return { message: mapMessage(row), created: false };
+      return { message: mapMessage(row), created: false, recipientAgentIds: recipients };
+    }, async (result) => {
+      if (result.created) await afterCommit?.(result.message, result.recipientAgentIds);
     });
   }
 
@@ -165,9 +171,12 @@ export class InternalChatService {
     principal: AgentPrincipal,
     conversationId: string,
     messageId: string,
-  ): Promise<{ advanced: boolean }> {
-    return withTenant(this.pool, principal.tenantId, async (client) => {
+    afterCommit?: (recipientAgentIds: string[]) => Promise<void> | void,
+  ): Promise<{ advanced: boolean; recipientAgentIds: string[] }> {
+    const lockKey = await this.deliveryLockKey(principal.tenantId, conversationId);
+    return withTenantAdvisoryLock(this.pool, principal.tenantId, lockKey, async (client) => {
       await requireVisibleMessage(client, principal, conversationId, messageId);
+      const recipients = await activeParticipantsIn(client, conversationId, principal.tenantId);
       const updated = await client.query(
         `INSERT INTO internal_reads (conversation_id, agent_id, tenant_id, last_read_message_id)
          VALUES ($1, $2, $3, $4)
@@ -184,8 +193,23 @@ export class InternalChatService {
          RETURNING conversation_id`,
         [conversationId, principal.agentId, principal.tenantId, messageId],
       );
-      return { advanced: Boolean(updated.rows[0]) };
+      return { advanced: Boolean(updated.rows[0]), recipientAgentIds: recipients };
+    }, async (result) => {
+      if (result.advanced) await afterCommit?.(result.recipientAgentIds);
     });
+  }
+
+  private async deliveryLockKey(tenantId: string, conversationId: string): Promise<string> {
+    const conversation = await withTenant(this.pool, tenantId, async (client) => {
+      const result = await client.query<{ kind: 'direct' | 'group'; sector_id: string | null }>(
+        `SELECT kind, sector_id FROM internal_conversations WHERE id = $1 AND tenant_id = $2`,
+        [conversationId, tenantId],
+      );
+      return result.rows[0];
+    });
+    return conversation?.kind === 'group' && conversation.sector_id
+      ? internalSectorLockKey(tenantId, conversation.sector_id)
+      : internalConversationLockKey(tenantId, conversationId);
   }
 
   async roomsFor(principal: AgentPrincipal): Promise<{ conversationIds: string[]; sectorIds: string[] }> {
@@ -264,6 +288,25 @@ export class InternalChatService {
 
 function directPairKey(left: string, right: string): string {
   return [left, right].sort().join(':');
+}
+
+async function activeParticipantsIn(client: PoolClient, conversationId: string, tenantId: string): Promise<string[]> {
+  const result = await client.query<{ agent_id: string }>(
+    `SELECT participant.agent_id
+     FROM internal_participants AS participant
+     JOIN internal_conversations AS conversation
+       ON conversation.id = participant.conversation_id
+      AND conversation.tenant_id = participant.tenant_id
+     LEFT JOIN sectors AS sector
+       ON sector.id = conversation.sector_id
+      AND sector.tenant_id = conversation.tenant_id
+     WHERE participant.conversation_id = $1
+       AND participant.tenant_id = $2
+       AND participant.removed_at IS NULL
+       AND (conversation.kind <> 'group' OR sector.active = true)`,
+    [conversationId, tenantId],
+  );
+  return result.rows.map((row) => row.agent_id);
 }
 
 async function assertCanDirect(client: PoolClient, principal: AgentPrincipal, peerId: string): Promise<void> {

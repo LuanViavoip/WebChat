@@ -8,6 +8,9 @@ import {
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../src/db/tenant.js';
+import { InternalChatService } from '../src/modules/internal-chat.js';
+import { SectorService } from '../src/modules/sectors.js';
+import type { AgentPrincipal } from '../src/domain/types.js';
 import { demoAccounts, demoIds, demoPassword } from '../src/demo/ids.js';
 import { connectSocket, emitAck, login, startTestApp, waitConnect, waitEvent, type TestApp } from './helpers.js';
 
@@ -22,6 +25,75 @@ afterAll(async () => {
 });
 
 describe('chat interno', () => {
+  it('demonstra que falha após commit não é repetida no reenvio idempotente', async () => {
+    const sofia: AgentPrincipal = {
+      kind: 'supervisor', tenantId: demoIds.tenantA, agentId: demoIds.supervisorSofia,
+      sessionId: randomUUID(), expiresAt: new Date(Date.now() + 60_000).toISOString(), name: 'Sofia',
+    };
+    const service = new InternalChatService(app.pool);
+    const input = { conversationId: demoIds.groupSupportA, requestId: randomUUID(), body: 'falha após commit' };
+    await expect(service.send(sofia, input, () => { throw new Error('falha simulada de entrega'); }))
+      .rejects.toThrow('falha simulada de entrega');
+
+    let deliveries = 0;
+    const retry = await service.send(sofia, input, () => { deliveries += 1; });
+    expect(retry.created).toBe(false);
+    expect(deliveries).toBe(0);
+    const history = await service.history(sofia, { conversationId: input.conversationId });
+    expect(history.filter((message) => message.requestId === input.requestId)).toHaveLength(1);
+  });
+
+  it('serializa entrega e remoção entre pools e não depende da saída da room', async () => {
+    const second = await startTestApp();
+    const ana: AgentPrincipal = {
+      kind: 'agent', tenantId: demoIds.tenantA, agentId: demoIds.agentAna,
+      sessionId: randomUUID(), expiresAt: new Date(Date.now() + 60_000).toISOString(), name: 'Ana',
+    };
+    const sofia: AgentPrincipal = {
+      kind: 'supervisor', tenantId: demoIds.tenantA, agentId: demoIds.supervisorSofia,
+      sessionId: randomUUID(), expiresAt: new Date(Date.now() + 60_000).toISOString(), name: 'Sofia',
+    };
+    const firstChat = new InternalChatService(app.pool);
+    const secondChat = new InternalChatService(second.pool);
+    const secondSectors = new SectorService(second.pool);
+    let releaseDelivery!: () => void;
+    const deliveryGate = new Promise<void>((resolve) => { releaseDelivery = resolve; });
+    let signalDelivery!: () => void;
+    const deliveryStarted = new Promise<void>((resolve) => { signalDelivery = resolve; });
+    const delivered: string[][] = [];
+    try {
+      await secondSectors.addMember(sofia, demoIds.sectorSupportA, demoIds.agentAna);
+      const sending = firstChat.send(ana, {
+        conversationId: demoIds.groupSupportA, requestId: randomUUID(), body: 'antes da remoção',
+      }, async (_message, recipients) => {
+        delivered.push(recipients);
+        signalDelivery();
+        await deliveryGate;
+      });
+      await deliveryStarted;
+      let removalSettled = false;
+      const removing = secondSectors.removeMember(sofia, demoIds.sectorSupportA, demoIds.agentAna)
+        .finally(() => { removalSettled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 75));
+      expect(removalSettled).toBe(false);
+      releaseDelivery();
+      await sending;
+      await removing;
+      expect(delivered[0]).toContain(demoIds.agentAna);
+
+      const laterRecipients: string[][] = [];
+      await secondChat.send(sofia, {
+        conversationId: demoIds.groupSupportA, requestId: randomUUID(), body: 'após a remoção',
+      }, (_message, recipients) => { laterRecipients.push(recipients); });
+      expect(laterRecipients).toHaveLength(1);
+      expect(laterRecipients[0]).not.toContain(demoIds.agentAna);
+    } finally {
+      releaseDelivery();
+      await new SectorService(app.pool).addMember(sofia, demoIds.sectorSupportA, demoIds.agentAna);
+      await second.app.close();
+    }
+  });
+
   it('abre uma única direta, entrega em tempo real e não duplica o request', async () => {
     const anaLogin = await login(app.baseUrl, demoAccounts.ana, demoPassword);
     const sofiaLogin = await login(app.baseUrl, demoAccounts.sofia, demoPassword);

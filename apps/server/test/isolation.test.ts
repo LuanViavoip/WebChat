@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../src/db/tenant.js';
 import { demoAccounts, demoIds, demoPassword, demoSites } from '../src/demo/ids.js';
-import { connectSocket, emitAck, login, openVisitor, startConversation, startTestApp, type TestApp, waitConnect } from './helpers.js';
+import { connectSocket, emitAck, login, openVisitor, startConversation, startTestApp, trackTestSocket, type TestApp, waitConnect } from './helpers.js';
 
 let app: TestApp;
 
@@ -89,12 +89,12 @@ describe('isolamento entre tenants', () => {
     expect(claim.ok).toBe(false);
     if (!claim.ok) expect(claim.error.code).toBe('not_found');
 
-    const handshake = io(`${app.baseUrl}/agent`, {
+    const handshake = trackTestSocket(io(`${app.baseUrl}/agent`, {
       auth: { token: agentB.token, tenantId: demoIds.tenantA },
       transports: ['websocket'],
       reconnection: false,
       forceNew: true,
-    });
+    }));
     const handshakeError = await new Promise<Error>((resolve, reject) => {
       handshake.once('connect', () => reject(new Error('conexão indevida')));
       handshake.once('connect_error', (cause: Error) => resolve(cause));

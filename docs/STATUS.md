@@ -1,45 +1,20 @@
-# Status de implementação (commit `d65d40d`)
+# Status de implementação — Fase 4
 
-Legenda: **Implementado**, **Parcial**, **Planejado**, **Depende do SM**.
+Estado verificado em 27 de outubro de 2026. O teste integrado fornecido pelo responsável terminou com 62 testes passando, incluindo PostgreSQL e Redis descartáveis. Isso não comprova entrega durável após falhas nem constitui aprovação irrestrita para produção.
 
-| Área | Status | Observações |
+| Área | Estado | Observações |
 |---|---|---|
-| Multi-tenancy (RLS forçada, `withTenant`) | Implementado | 34 de 35 tabelas com RLS; `schema_migrations` sem RLS |
-| Autenticação de agentes (sessão opaca, argon2id) | Implementado | Sem limite de tentativas no login (F4-04) |
-| Sessões de visitante e allowlist de origens | Implementado | A allowlist não autentica o site hospedeiro |
-| Widget ChatWeb (loader + iframe) | Implementado | Loader só trata `resize`; sem API JS de controle |
-| Fila, claim, transferência para fila, devolução, encerramento em duas etapas | Implementado | Transferência direta a agente fora do escopo |
-| Pesquisa de satisfação | Implementado | Uma resposta por atendimento |
-| Reconexão do visitante (`history.sync`) | Implementado | Sem reenvio automático de mensagem falha |
-| Central do agente (console) | Implementado | Atendimentos simultâneos limitados por tenant (padrão 3) |
-| Chat interno (direto e grupo de setor) | Parcial | Sem paginação na UI; sem ressincronização da thread na reconexão (F4-09); falhas de sala F4-01/F4-05 |
-| Setores | Parcial | UI cria setor e edita membros; não edita setor/supervisores (F4-06) |
-| Anúncios | Parcial | UI publica sem fixar/expirar e sem editar/arquivar (F4-06); backend completo |
-| Presença | Implementado | Calculada no servidor; heartbeat 15 s |
-| Atividades e alocações | Parcial | Backend completo; UI sem gestão de tipos (F4-06) |
-| Central do supervisor | Parcial | Escopo por setor limitado à lista de agentes; métricas e conversas são do tenant inteiro (F4-02) |
-| Auditoria | Parcial | Gravada para conversation.watch, setores, anúncios e atividades; sem tela de consulta identificada |
-| `sector_queues` (setor ↔ fila) | Planejado | Tabela existe; nenhum código a lê ou escreve neste commit |
-| Redis | Implementado (opcional) | Apenas adapter do Socket.IO |
-| Outbox / entrega confiável de eventos e SM | Planejado | F4-07 |
-| Revogação de sockets no logout/expiração | Planejado | F4-03 |
-| Retenção e purge de dados | Planejado | Não definidos |
-| Integração real com o SM | Depende do SM | Apenas `MockSMAdapter` |
+| Multi-tenancy | Implementado e testado | RLS nas tabelas de negócio; controles de tenant, participantes e setor. `login_rate_limits` é global com chaves HMAC e não contém tenant. |
+| Autenticação e sessões | Implementado e testado | Argon2id, tokens opacos e limite compartilhado por IP e conta; logout distribuído depende do Redis. |
+| Widget e central do agente | Implementados e testados | Filas, claim, transferência, encerramento, pesquisa e reconexão cobertos por testes existentes. |
+| Chat interno | Implementado e testado | Histórico paginado, reconexão, participantes ativos e coordenação por advisory lock no PostgreSQL. |
+| Setores e filas | Implementados e testados | Conceitos distintos; `sector_queues` limita o escopo de supervisão. Ambientes existentes precisam de vínculos corretos. |
+| Anúncios e atividades | Implementados, validação parcial | Operações de backend e controles de interface presentes; não há suíte E2E de navegador. |
+| Supervisor | Implementado e testado | Consultas e eventos limitados por setor/fila; administrador tem escopo do tenant. |
+| Redis | Implementado e testado | Testes de entrega interna e logout entre duas instâncias com Redis descartável. |
+| Entrega durável de eventos / SM | Pendente | Falha pós-commit pode deixar mensagem persistida sem reenviar o evento; não há outbox/retry. |
+| Integração real com SM | Depende de contrato externo | Mock disponível; ausência do contrato real não é defeito desta fase. |
 
-## Achados abertos da auditoria (documentados como limitações, não como comportamento esperado)
+## Auditoria e limitações
 
-Fonte: [audits/FASE4_FINDINGS.md](audits/FASE4_FINDINGS.md) e [FASE4_CODE_REVIEW.md](audits/FASE4_CODE_REVIEW.md); veredito da auditoria: **REPROVADO** para avançar à Fase 5. Plano de correção: [audits/FASE4_CORRECTION_PLAN.md](audits/FASE4_CORRECTION_PLAN.md).
-
-| ID | Sev. | Resumo | Confirmado no commit |
-|---|---|---|---|
-| F4-01 | P1 | Participante removido reentra na sala do chat interno via `internal.history` | sim (`staff-channel.ts` entra na sala) |
-| F4-02 | P1 | Supervisor lê/transfere atendimentos e recebe eventos fora do seu setor | sim (`access.ts`: supervisor/admin sem restrição) |
-| F4-03 | P1 | Logout/expiração não derrubam sockets abertos | não reverificado |
-| F4-04 | P1 | `/auth/login` sem limitação de tentativas | sim (limiter só em `/visitor/sessions`) |
-| F4-05 | P1 | Salas de grupo não acompanham mudanças de setor; admin não participante entra | não reverificado |
-| F4-06 | P2 | UI corporativa incompleta | confirmado pela auditoria |
-| F4-07 | P2 | Eventos e notificações ao SM fora da transação (sem outbox/retry) | sim (`safeNotify`) |
-| F4-08 | P2 | Suíte de integração não verificável no ambiente da auditoria | ver abaixo |
-| F4-09 | P2 | Chat interno não ressincroniza ao reconectar | confirmado pela auditoria |
-
-**Testes:** o README do projeto afirma 46 testes passando; a auditoria não conseguiu executá-los. Ver o resultado da execução feita para esta documentação em [docs-helper/VALIDATION.md](docs-helper/VALIDATION.md).
+Os achados originais são históricos; as correções e seus limites estão em [FASE4_REVIEW_POS_CORRECOES.md](audits/FASE4_REVIEW_POS_CORRECOES.md). A suíte passou, porém não substitui testes E2E em navegador nem validação de falha de infraestrutura em produção. A entrega pós-commit continua sem garantia durável (F4-07). Revogação entre réplicas exige Redis; a coordenação de mensagens de grupo requer PostgreSQL compartilhado. Eventos autorizados antes da remoção podem chegar posteriormente por atraso de transporte.

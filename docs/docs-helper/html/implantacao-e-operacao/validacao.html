@@ -7,9 +7,7 @@
 <body>
 <article>
 <h1 id="valida%C3%A7%C3%A3o" tabindex="-1">Validação</h1>
-<p>Commit documentado: <code>d65d40d</code>.</p>
-<h2 id="testes-do-c%C3%B3digo-(executados-para-esta-documenta%C3%A7%C3%A3o)" tabindex="-1">Testes do código (executados para esta documentação)</h2>
-<p>Executados em uma cópia exportada do commit (<code>git archive</code>), isolada das alterações não commitadas de terceiros, com <code>pnpm install --frozen-lockfile</code> e <code>pnpm test</code>, Docker acessível:</p>
+<p>Estado de trabalho verificado em 27 de outubro de 2026. O responsável executou <code>pnpm test</code> em terminal com Docker, usando PostgreSQL e Redis descartáveis. O comando terminou com saída 0.</p>
 <table>
 <thead>
 <tr>
@@ -19,30 +17,29 @@
 </thead>
 <tbody>
 <tr>
-<td>packages/protocol</td>
+<td>Protocolo</td>
 <td>5 passaram</td>
 </tr>
 <tr>
-<td>packages/sm-adapter</td>
+<td>Adaptador SM</td>
 <td>2 passaram</td>
 </tr>
 <tr>
-<td>apps/console</td>
-<td>1 passou</td>
+<td>Console</td>
+<td>3 passaram</td>
 </tr>
 <tr>
-<td>apps/server (12 arquivos, Testcontainers)</td>
-<td>38 passaram</td>
+<td>Servidor</td>
+<td>52 passaram em 15 arquivos</td>
 </tr>
 <tr>
 <td><strong>Total</strong></td>
-<td><strong>46 de 46, saída 0</strong></td>
+<td><strong>62 passaram</strong></td>
 </tr>
 </tbody>
 </table>
-<p>Isso confirma o README do projeto e <strong>não reproduz</strong> o bloqueio F4-08 da auditoria (ambiente diferente; causa lá não estabelecida). Não há testes de widget nem E2E.</p>
-<h2 id="documenta%C3%A7%C3%A3o" tabindex="-1">Documentação</h2>
-<p>Ver o relatório gerado por <code>scripts/docs/validate.mjs</code> (cruzamento de tabelas, eventos, links, imagens e índice do Docs Helper) em <a href="manutencao.html">MAINTENANCE.md</a>.</p>
+<p>Os testes incluem comunicação interna e logout entre réplicas via Redis. O teste de falha após commit confirma que o retry idempotente não reenvia o evento: não existe garantia de entrega durável. Não há suíte E2E de navegador. Build e checagem de tipos também passaram na sessão de revisão.</p>
+<p>O dicionário foi regenerado após aplicar as oito migrations em PostgreSQL descartável. Ver <a href="manutencao.html">MAINTENANCE.md</a>.</p>
 </article>
 </body>
 </html>

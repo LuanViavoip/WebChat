@@ -18,11 +18,11 @@
 <h2 id="regras-de-conversa-direta-(assertcandirect)" tabindex="-1">Regras de conversa direta (<code>assertCanDirect</code>)</h2>
 <p>Dois agentes <strong>não</strong> conversam diretamente. Admin abre direta com qualquer pessoa; dois membros da supervisão podem; um agente só com um supervisor com quem compartilhe setor.</p>
 <h2 id="mensagens" tabindex="-1">Mensagens</h2>
-<p><code>internal.message.send { conversationId, requestId, body }</code>: corpo 1–4000 caracteres, idempotente por <code>UNIQUE(conversation_id, request_id)</code>. Evento <code>internal.message.new</code> na sala <code>internal:{id}</code>.</p>
+<p><code>internal.message.send { conversationId, requestId, body }</code>: corpo 1–4000 caracteres, idempotente por <code>UNIQUE(conversation_id, request_id)</code>. Evento <code>internal.message.new</code> para os participantes ativos em suas salas individuais.</p>
 <h2 id="hist%C3%B3rico-e-n%C3%A3o-lidas" tabindex="-1">Histórico e não lidas</h2>
 <p><code>internal.history</code> pagina por cursor (<code>beforeMessageId</code> <strong>ou</strong> <code>afterMessageId</code>, nunca ambos; limite padrão 50, máximo 100). <code>internal.message.read</code> grava o cursor em <code>internal_reads</code> e emite <code>internal.message.read</code>. Contadores de não lidas derivam desse cursor.</p>
 <h2 id="isolamento-e-limita%C3%A7%C3%B5es" tabindex="-1">Isolamento e limitações</h2>
-<p>Tudo passa por <code>withTenant</code>/RLS. Falhas conhecidas no commit documentado: participante removido reentra na sala ao chamar <code>internal.history</code> (F4-01); salas não acompanham mudanças de setor e admin não participante entra em grupos (F4-05); a UI não pagina e não ressincroniza ao reconectar (F4-06/F4-09).</p>
+<p>O histórico é filtrado por participação; mensagens de grupo usam destinatários ativos e advisory lock compartilhado com alterações do setor. O console pagina e sincroniza o histórico após reconexão. Entrega de eventos pós-commit não é durável.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
 <figure><img src="../../assets/internal-chat-sequence.png" alt="Sequência do chat interno"><figcaption>Sequência do chat interno</figcaption></figure>
 </section>

@@ -4,7 +4,7 @@ Independentes da presença: um agente pode estar `available` e alocado a "Treina
 
 ## Tipos
 
-`activity_types` (nome único por tenant, `active`). `activity.type.save` é **exclusivo do admin**; todos os papéis leem `activity.catalog`. A UI não tem gestão de tipos (F4-06).
+`activity_types` (nome único por tenant, `active`). `activity.type.save` é **exclusivo do admin**; todos os papéis leem `activity.catalog`. O console oferece gestão de tipos para administradores.
 
 ## Alocações
 

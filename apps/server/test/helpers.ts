@@ -1,4 +1,6 @@
 import type { AddressInfo } from 'node:net';
+import { randomBytes } from 'node:crypto';
+import { afterEach } from 'vitest';
 import {
   conversationSnapshotAckSchema,
   historySyncAckSchema,
@@ -16,11 +18,36 @@ export type TestApp = WebChatApp & {
   baseUrl: string;
 };
 
+// Replicas in one test file share the limiter namespace; other files do not.
+const testLoginSecret = randomBytes(32).toString('hex');
+const testSockets = new Set<Socket>();
+
+export function trackTestSocket(socket: Socket): Socket {
+  testSockets.add(socket);
+  return socket;
+}
+
+export function closeTestSockets(): void {
+  for (const socket of testSockets) socket.disconnect();
+  testSockets.clear();
+}
+
+afterEach(closeTestSockets);
+
 export async function startTestApp(overrides: Partial<ReturnType<typeof loadConfig>> = {}): Promise<TestApp> {
   const config = loadConfig();
   const sm = new MockSMAdapter();
   const web = await buildApp(
-    { ...config, redisUrl: null, seed: false, serveStatic: false, logger: false, ...overrides },
+    {
+      ...config,
+      redisUrl: null,
+      seed: false,
+      serveStatic: false,
+      logger: false,
+      loginLimit: 10_000,
+      loginRateLimitSecret: testLoginSecret,
+      ...overrides,
+    },
     sm,
   );
   await web.app.listen({ port: 0, host: '127.0.0.1' });
@@ -53,12 +80,12 @@ export async function login(baseUrl: string, email: string, password: string) {
 }
 
 export function connectSocket(baseUrl: string, namespace: string, token: string): Socket {
-  return io(`${baseUrl}${namespace}`, {
+  return trackTestSocket(io(`${baseUrl}${namespace}`, {
     auth: { token },
     transports: ['websocket'],
     reconnection: false,
     forceNew: true,
-  });
+  }));
 }
 
 export function waitConnect(socket: Socket): Promise<void> {

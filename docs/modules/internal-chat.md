@@ -15,7 +15,7 @@ Dois agentes **não** conversam diretamente. Admin abre direta com qualquer pess
 
 ## Mensagens
 
-`internal.message.send { conversationId, requestId, body }`: corpo 1–4000 caracteres, idempotente por `UNIQUE(conversation_id, request_id)`. Evento `internal.message.new` na sala `internal:{id}`.
+`internal.message.send { conversationId, requestId, body }`: corpo 1–4000 caracteres, idempotente por `UNIQUE(conversation_id, request_id)`. Evento `internal.message.new` para os participantes ativos em suas salas individuais.
 
 ## Histórico e não lidas
 
@@ -23,4 +23,4 @@ Dois agentes **não** conversam diretamente. Admin abre direta com qualquer pess
 
 ## Isolamento e limitações
 
-Tudo passa por `withTenant`/RLS. Falhas conhecidas no commit documentado: participante removido reentra na sala ao chamar `internal.history` (F4-01); salas não acompanham mudanças de setor e admin não participante entra em grupos (F4-05); a UI não pagina e não ressincroniza ao reconectar (F4-06/F4-09).
+O histórico é filtrado por participação; mensagens de grupo usam destinatários ativos e advisory lock compartilhado com alterações do setor. O console pagina e sincroniza o histórico após reconexão. Entrega de eventos pós-commit não é durável.

@@ -328,6 +328,7 @@ function registerSupervisor(namespace: Namespace, deps: RealtimeDeps): void {
     const principal = socket.data.principal as AgentPrincipal;
     const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.isSessionActive(principal));
     const ready = afterSessionValidation(socket, sessionReady, async () => {
+      socket.join(rooms.supervisorRefresh(principal.tenantId));
       if (principal.kind === 'admin') {
         socket.join(rooms.supervisors(principal.tenantId));
       } else {

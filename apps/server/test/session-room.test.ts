@@ -1,6 +1,7 @@
 import type { Socket } from 'socket.io';
 import { describe, expect, it } from 'vitest';
 import { afterSessionValidation, joinSessionRoom } from '../src/realtime/bind.js';
+import { rooms } from '../src/realtime/rooms.js';
 
 describe('rooms de sessão', () => {
   it('aguarda validação antes de entrar em salas que recebem eventos', async () => {
@@ -14,6 +15,7 @@ describe('rooms de sessão', () => {
     let enteredDataRoom = false;
     const entering = afterSessionValidation(fake.socket, ready, () => {
       enteredDataRoom = true;
+      fake.socket.join(rooms.supervisorRefresh('tenant-example'));
       fake.socket.join('tenant:example:agent:example');
     });
 
@@ -21,7 +23,11 @@ describe('rooms de sessão', () => {
     expect(enteredDataRoom).toBe(false);
     resolveValidation(true);
     await entering;
-    expect(fake.rooms).toEqual(['session:session-1', 'tenant:example:agent:example']);
+    expect(fake.rooms).toEqual([
+      'session:session-1',
+      rooms.supervisorRefresh('tenant-example'),
+      'tenant:example:agent:example',
+    ]);
     fake.disconnect();
   });
 
@@ -32,7 +38,10 @@ describe('rooms de sessão', () => {
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     }, async () => false);
     let enteredDataRoom = false;
-    await afterSessionValidation(fake.socket, ready, () => { enteredDataRoom = true; });
+    await afterSessionValidation(fake.socket, ready, () => {
+      enteredDataRoom = true;
+      fake.socket.join(rooms.supervisorRefresh('tenant-example'));
+    });
     expect(enteredDataRoom).toBe(false);
     expect(fake.rooms).toEqual(['session:session-revoked']);
     expect(fake.socket.connected).toBe(false);

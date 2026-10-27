@@ -37,7 +37,7 @@ O script de instalação do site A é:
 pnpm test
 ```
 
-A suíte sobe um Postgres descartável, aplica as migrations, carrega o seed e cobre isolamento, claim concorrente, reconexão, mensagem duplicada e evento sem autorização.
+A suíte sobe PostgreSQL e Redis descartáveis, aplica as migrations, carrega o seed e cobre isolamento, concorrência, reconexão, mensagens e comunicação entre réplicas. Uma falha pós-commit ainda pode impedir a entrega de eventos.
 
 ## Documentação
 
@@ -63,7 +63,7 @@ A suíte sobe um Postgres descartável, aplica as migrations, carrega o seed e c
 
 Executado em 27 de outubro de 2026.
 
-- `pnpm test` passou: 5 testes do protocol, 2 do adaptador SM, 1 do console e 38 do servidor. A suíte do servidor sobe um Postgres descartável e cobre o isolamento da Fase 3 mais setores, chat interno, anúncios, presença, atividades e o escopo do supervisor.
+- `pnpm test` passou: 5 testes do protocol, 2 do adaptador SM, 3 do console e 52 do servidor. A suíte do servidor sobe um Postgres descartável e cobre o isolamento da Fase 3 mais setores, chat interno, anúncios, presença, atividades e o escopo do supervisor.
 - A API, o widget e o console sobem em http://localhost:3000; a página cliente, em http://localhost:8090. O Postgres do Compose fica na porta 5434 do host.
 - No navegador, `http://127.0.0.1:8090` carregou `/widget.js` com `data-widget-id="site_a"`, montou um único iframe e concluiu `GET /public/widgets/site_a` e `POST /visitor/sessions`. No console, Ana viu a presença, assumiu a conversa da fila Suporte, respondeu e devolveu à fila; a lista passou a mostrar `posição 1`.
 - O mock registra fila, atribuição, devolução, transferência e encerramento. A saída do visitante antes do atendimento não notifica o SM.

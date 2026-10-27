@@ -18,9 +18,9 @@
 <li><strong>agente</strong>: lista, sem gestão.</li>
 </ul>
 <h2 id="rela%C3%A7%C3%A3o-com-filas" tabindex="-1">Relação com filas</h2>
-<p>A tabela <code>sector_queues</code> existe (com RLS, trigger e grants), mas <strong>no commit documentado nenhum código a lê ou escreve e o seed não a popula</strong>. Portanto a relação setor ↔ fila é uma <strong>lacuna</strong>: o escopo do supervisor por fila (F4-02) não pode se apoiar nela ainda.</p>
+<p>A relação <code>sector_queues</code> vincula setores e filas para limitar o escopo dos supervisores. O seed de demonstração popula vínculos; ambientes existentes precisam configurá-los adequadamente.</p>
 <h2 id="ui" tabindex="-1">UI</h2>
-<p>O console cria setor e edita membros; não edita setor nem supervisores (F4-06).</p>
+<p>O console permite criar e editar setores, responsáveis e membros.</p>
 </article>
 </body>
 </html>

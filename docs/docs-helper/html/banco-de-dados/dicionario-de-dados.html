@@ -33,6 +33,7 @@
 <li><a href="#internal_messages"><code>internal_messages</code></a></li>
 <li><a href="#internal_participants"><code>internal_participants</code></a></li>
 <li><a href="#internal_reads"><code>internal_reads</code></a></li>
+<li><a href="#login_rate_limits"><code>login_rate_limits</code></a></li>
 <li><a href="#messages"><code>messages</code></a></li>
 <li><a href="#presence_intervals"><code>presence_intervals</code></a></li>
 <li><a href="#queues"><code>queues</code></a></li>
@@ -1578,6 +1579,54 @@
 <li><code>internal_reads_agent</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
+<h2 id="login_rate_limits" tabindex="-1">login_rate_limits</h2>
+<p>Contadores globais do limite de login; chaves são HMAC de IP e conta, sem dados em claro.</p>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Nulo?</th>
+<th>Padrão</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>key_hash</code></td>
+<td>text</td>
+<td>não</td>
+<td></td>
+<td>PK</td>
+</tr>
+<tr>
+<td><code>window_started_at</code></td>
+<td>timestamptz</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>attempts</code></td>
+<td>integer</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Chave primária:</strong> <code>key_hash</code></p>
+<p><strong>Constraints (UNIQUE/CHECK):</strong></p>
+<ul>
+<li><code>login_rate_limits_attempts_check</code>: <code>CHECK ((attempts &gt; 0))</code></li>
+<li><code>login_rate_limits_key_hash_check</code>: <code>CHECK ((key_hash ~ '^[0-9a-f]{64}$'::text))</code></li>
+</ul>
+<p><strong>Índices:</strong></p>
+<ul>
+<li><code>login_rate_limits_pkey</code>: <code>CREATE UNIQUE INDEX login_rate_limits_pkey ON public.login_rate_limits USING btree (key_hash)</code></li>
+<li><code>login_rate_limits_window</code>: <code>CREATE INDEX login_rate_limits_window ON public.login_rate_limits USING btree (window_started_at)</code></li>
+</ul>
+<p><strong>RLS:</strong> não habilitada</p>
 <h2 id="messages" tabindex="-1">messages</h2>
 <p>Mensagens de um atendimento externo (idempotentes por <code>request_id</code>).</p>
 <table>
@@ -1908,7 +1957,7 @@
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
 <h2 id="sector_queues" tabindex="-1">sector_queues</h2>
-<p>Vínculo setor ↔ fila. Existe no schema, mas <strong>nenhum código o lê ou escreve</strong> (lacuna).</p>
+<p>Vínculo setor ↔ fila usado para limitar o escopo da supervisão.</p>
 <table>
 <thead>
 <tr>

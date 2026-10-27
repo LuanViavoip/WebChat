@@ -1,11 +1,11 @@
 import { conversationAckSchema, historySyncAckSchema, messageSendAckSchema } from '@viavoip/protocol';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { io } from 'socket.io-client';
 import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { demoAccounts, demoIds, demoPassword, demoSites } from '../src/demo/ids.js';
 import { SharedLoginRateLimiter } from '../src/auth/login-rate-limit.js';
-import { connectSocket, emitAck, login, openVisitor, postJson, startConversation, startTestApp, waitConnect, type TestApp } from './helpers.js';
+import { connectSocket, emitAck, login, openVisitor, postJson, startConversation, startTestApp, trackTestSocket, waitConnect, type TestApp } from './helpers.js';
 
 let app: TestApp;
 
@@ -18,6 +18,22 @@ afterAll(async () => {
 });
 
 describe('eventos sem autorização', () => {
+  it('limita tentativas HTTP entre instâncias sem afetar outras suítes', async () => {
+    const secret = randomBytes(32).toString('hex');
+    const first = await startTestApp({ loginLimit: 2, loginRateLimitSecret: secret });
+    let second: TestApp | undefined;
+    try {
+      second = await startTestApp({ loginLimit: 2, loginRateLimitSecret: secret });
+      const payload = { email: demoAccounts.ana, password: 'senha-incorreta' };
+      expect((await postJson(`${first.baseUrl}/auth/login`, payload)).status).toBe(401);
+      expect((await postJson(`${second.baseUrl}/auth/login`, payload)).status).toBe(401);
+      expect((await postJson(`${first.baseUrl}/auth/login`, payload)).status).toBe(429);
+    } finally {
+      await second?.app.close();
+      await first.app.close();
+    }
+  });
+
   it('compartilha o contador de login entre instâncias', async () => {
     const firstReplica = new SharedLoginRateLimiter(app.pool, 60_000);
     const secondReplica = new SharedLoginRateLimiter(app.pool, 60_000);
@@ -83,12 +99,12 @@ describe('eventos sem autorização', () => {
     expect(agentAsSupervisor.message).toMatch(/unauthorized/i);
 
     const sofia = await login(app.baseUrl, demoAccounts.sofia, demoPassword);
-    const supervisor = io(`${app.baseUrl}/supervisor`, {
+    const supervisor = trackTestSocket(io(`${app.baseUrl}/supervisor`, {
       auth: { token: sofia.token },
       transports: ['websocket'],
       reconnection: false,
       forceNew: true,
-    });
+    }));
     await new Promise<void>((resolve, reject) => {
       supervisor.once('connect', () => resolve());
       supervisor.once('connect_error', (error: Error) => reject(error));
@@ -104,12 +120,12 @@ describe('eventos sem autorização', () => {
     if (!supervisorSend.ok) expect(supervisorSend.error.code).toBe('forbidden');
 
     const carla = await login(app.baseUrl, demoAccounts.carla, demoPassword);
-    const otherTenant = io(`${app.baseUrl}/agent`, {
+    const otherTenant = trackTestSocket(io(`${app.baseUrl}/agent`, {
       auth: { token: carla.token },
       transports: ['websocket'],
       reconnection: false,
       forceNew: true,
-    });
+    }));
     await new Promise<void>((resolve, reject) => {
       otherTenant.once('connect', () => resolve());
       otherTenant.once('connect_error', (error: Error) => reject(error));
@@ -127,12 +143,12 @@ describe('eventos sem autorização', () => {
 });
 
 function rejectedConnect(namespace: string, token: string): Promise<Error> {
-  const socket = io(`${app.baseUrl}${namespace}`, {
+  const socket = trackTestSocket(io(`${app.baseUrl}${namespace}`, {
     auth: { token },
     transports: ['websocket'],
     reconnection: false,
     forceNew: true,
-  });
+  }));
   return new Promise((resolve, reject) => {
     socket.once('connect', () => {
       socket.disconnect();

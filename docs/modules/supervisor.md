@@ -6,18 +6,13 @@ Namespace `/supervisor` (papéis `supervisor` e `admin`). Seções do console: V
 
 conectados, disponíveis, ocupados, ausentes, offline, em espera, em atendimento, aguardando pesquisa, atividades, maior espera (`longestWaitSeconds`) e encerrados no período (`closedInPeriod`). O servidor empurra `supervisor.metrics` a cada mudança.
 
-## Escopo de acesso — limitação importante (F4-02)
+## Escopo de acesso
 
-No commit documentado:
-
-- a **lista de agentes** é filtrada por setor para supervisores;
-- **conversas, métricas de fila e transferência são do tenant inteiro**: `assertCanRead` não restringe supervisor/admin, `listForSupervisor` lista todas as conversas abertas e `message.new` chega a `supervisors` sem filtro de setor.
-
-Ou seja, um supervisor enxerga e pode transferir atendimentos fora dos seus setores. Isto é um **defeito aberto**, não o comportamento desejado. A relação setor ↔ fila (`sector_queues`) ainda não é usada.
+Supervisores acessam agentes de seus setores e atendimentos das filas vinculadas por `sector_queues`. Listas, histórico, métricas, transferências e eventos respeitam esse escopo; administradores têm escopo do tenant.
 
 ## Operações
 
-Monitorar: `conversation.list`, `conversation.watch` (grava auditoria), `history.sync`. Atuar: `conversation.transfer` para qualquer fila do tenant. **Não** envia mensagens nem encerra atendimentos. Gestão: setores, atividades e anúncios conforme as regras de cada módulo.
+Monitorar: `conversation.list`, `conversation.watch` (grava auditoria), `history.sync`. Atuar: `conversation.transfer` para fila autorizada. Não envia mensagens nem encerra atendimentos. Gestão de setores, atividades e anúncios segue as permissões de cada módulo.
 
 ## Auditoria
 

@@ -1,5 +1,11 @@
 # Changelog da documentação
 
+## 2026-10-27 — Correções e validação da Fase 4
+
+- Atualizados escopos, autenticação, interface e resultados: 62 testes passaram com PostgreSQL e Redis descartáveis.
+- Permanece a limitação de entrega de eventos após falha pós-commit; catálogo do banco atualizado até a migration 008.
+- Docs Helper de teste atualizado; a página de status foi verificada com 62 testes e a limitação pós-commit.
+
 ## 2026-10-27 — Primeira versão
 
 - Código documentado: commit `d65d40d` (Fase 4), branch `docs/webchat-technical-documentation`.

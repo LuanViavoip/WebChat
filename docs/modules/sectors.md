@@ -16,8 +16,8 @@
 
 ## Relação com filas
 
-A tabela `sector_queues` existe (com RLS, trigger e grants), mas **no commit documentado nenhum código a lê ou escreve e o seed não a popula**. Portanto a relação setor ↔ fila é uma **lacuna**: o escopo do supervisor por fila (F4-02) não pode se apoiar nela ainda.
+A relação `sector_queues` vincula setores e filas para limitar o escopo dos supervisores. O seed de demonstração popula vínculos; ambientes existentes precisam configurá-los adequadamente.
 
 ## UI
 
-O console cria setor e edita membros; não edita setor nem supervisores (F4-06).
+O console permite criar e editar setores, responsáveis e membros.

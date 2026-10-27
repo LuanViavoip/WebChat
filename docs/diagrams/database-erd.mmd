@@ -89,6 +89,9 @@ erDiagram
     uuid agent_id PK,FK
     uuid last_read_message_id FK
   }
+  login_rate_limits {
+    text key_hash PK
+  }
   messages {
     uuid id PK
     uuid conversation_id FK

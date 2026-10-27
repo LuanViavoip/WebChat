@@ -1,21 +1,15 @@
 # Validação
 
-Commit documentado: `d65d40d`.
-
-## Testes do código (executados para esta documentação)
-
-Executados em uma cópia exportada do commit (`git archive`), isolada das alterações não commitadas de terceiros, com `pnpm install --frozen-lockfile` e `pnpm test`, Docker acessível:
+Estado de trabalho verificado em 27 de outubro de 2026. O responsável executou `pnpm test` em terminal com Docker, usando PostgreSQL e Redis descartáveis. O comando terminou com saída 0.
 
 | Suíte | Resultado |
 |---|---|
-| packages/protocol | 5 passaram |
-| packages/sm-adapter | 2 passaram |
-| apps/console | 1 passou |
-| apps/server (12 arquivos, Testcontainers) | 38 passaram |
-| **Total** | **46 de 46, saída 0** |
+| Protocolo | 5 passaram |
+| Adaptador SM | 2 passaram |
+| Console | 3 passaram |
+| Servidor | 52 passaram em 15 arquivos |
+| **Total** | **62 passaram** |
 
-Isso confirma o README do projeto e **não reproduz** o bloqueio F4-08 da auditoria (ambiente diferente; causa lá não estabelecida). Não há testes de widget nem E2E.
+Os testes incluem comunicação interna e logout entre réplicas via Redis. O teste de falha após commit confirma que o retry idempotente não reenvia o evento: não existe garantia de entrega durável. Não há suíte E2E de navegador. Build e checagem de tipos também passaram na sessão de revisão.
 
-## Documentação
-
-Ver o relatório gerado por `scripts/docs/validate.mjs` (cruzamento de tabelas, eventos, links, imagens e índice do Docs Helper) em [MAINTENANCE.md](../MAINTENANCE.md).
+O dicionário foi regenerado após aplicar as oito migrations em PostgreSQL descartável. Ver [MAINTENANCE.md](../MAINTENANCE.md).

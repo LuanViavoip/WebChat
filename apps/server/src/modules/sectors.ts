@@ -5,7 +5,8 @@ import {
 } from '@viavoip/protocol';
 import type { Pool, PoolClient } from 'pg';
 import { isUniqueViolation } from '../db/pg-error.js';
-import { withTenant } from '../db/tenant.js';
+import { withTenant, withTenantAdvisoryLock } from '../db/tenant.js';
+import { internalSectorLockKey } from '../db/locks.js';
 import { isStaff } from '../domain/access.js';
 import { DomainError } from '../domain/errors.js';
 import type { AgentPrincipal } from '../domain/types.js';
@@ -55,7 +56,7 @@ export class SectorService {
     },
   ): Promise<SectorMutation> {
     if (!isStaff(principal.kind)) throw new DomainError('forbidden', 'Setor restrito à supervisão');
-    return withTenant(this.pool, principal.tenantId, async (client) => {
+    const mutate = async (client: PoolClient): Promise<SectorMutation> => {
       const sectorId = input.sectorId
         ? await updateSector(client, principal, input.sectorId, input)
         : await insertSector(client, principal, input);
@@ -64,11 +65,14 @@ export class SectorService {
       await syncGroupParticipants(client, principal.tenantId, sectorId);
       await writeAudit(client, principal.tenantId, principal.agentId, 'sector.save', 'sector', sectorId);
       return mutation(client, principal, sectorId);
-    });
+    };
+    return input.sectorId
+      ? withTenantAdvisoryLock(this.pool, principal.tenantId, internalSectorLockKey(principal.tenantId, input.sectorId), mutate)
+      : withTenant(this.pool, principal.tenantId, mutate);
   }
 
   async addMember(principal: AgentPrincipal, sectorId: string, agentId: string): Promise<SectorMutation> {
-    return withTenant(this.pool, principal.tenantId, async (client) => {
+    return withTenantAdvisoryLock(this.pool, principal.tenantId, internalSectorLockKey(principal.tenantId, sectorId), async (client) => {
       await assertManages(client, principal, sectorId, true);
       const person = await client.query(`SELECT id FROM agents WHERE id = $1 AND tenant_id = $2`, [
         agentId,
@@ -88,7 +92,7 @@ export class SectorService {
   }
 
   async removeMember(principal: AgentPrincipal, sectorId: string, agentId: string): Promise<SectorMutation> {
-    return withTenant(this.pool, principal.tenantId, async (client) => {
+    return withTenantAdvisoryLock(this.pool, principal.tenantId, internalSectorLockKey(principal.tenantId, sectorId), async (client) => {
       await assertManages(client, principal, sectorId, false);
       await client.query(
         `UPDATE sector_members

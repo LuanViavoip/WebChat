@@ -26,6 +26,7 @@ Convenções: toda tabela de negócio tem `tenant_id` (FK para `tenants`), RLS *
 - [`internal_messages`](#internal_messages)
 - [`internal_participants`](#internal_participants)
 - [`internal_reads`](#internal_reads)
+- [`login_rate_limits`](#login_rate_limits)
 - [`messages`](#messages)
 - [`presence_intervals`](#presence_intervals)
 - [`queues`](#queues)
@@ -642,6 +643,28 @@ Cursor de leitura do chat interno por participante.
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
 
+## login_rate_limits
+
+Contadores globais do limite de login; chaves são HMAC de IP e conta, sem dados em claro.
+
+| Coluna | Tipo | Nulo? | Padrão | Observação |
+|---|---|---|---|---|
+| `key_hash` | text | não |  | PK |
+| `window_started_at` | timestamptz | não |  |  |
+| `attempts` | integer | não |  |  |
+
+**Chave primária:** `key_hash`
+
+**Constraints (UNIQUE/CHECK):**
+- `login_rate_limits_attempts_check`: `CHECK ((attempts > 0))`
+- `login_rate_limits_key_hash_check`: `CHECK ((key_hash ~ '^[0-9a-f]{64}$'::text))`
+
+**Índices:**
+- `login_rate_limits_pkey`: `CREATE UNIQUE INDEX login_rate_limits_pkey ON public.login_rate_limits USING btree (key_hash)`
+- `login_rate_limits_window`: `CREATE INDEX login_rate_limits_window ON public.login_rate_limits USING btree (window_started_at)`
+
+**RLS:** não habilitada
+
 ## messages
 
 Mensagens de um atendimento externo (idempotentes por `request_id`).
@@ -779,7 +802,7 @@ Membros do setor (remoção lógica por `removed_at`).
 
 ## sector_queues
 
-Vínculo setor ↔ fila. Existe no schema, mas **nenhum código o lê ou escreve** (lacuna).
+Vínculo setor ↔ fila usado para limitar o escopo da supervisão.
 
 | Coluna | Tipo | Nulo? | Padrão | Observação |
 |---|---|---|---|---|

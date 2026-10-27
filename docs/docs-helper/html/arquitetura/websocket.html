@@ -74,19 +74,19 @@
 <h2 id="salas-e-fan-out-(realtime%2Frooms.ts%2C-hub.ts)" tabindex="-1">Salas e fan-out (<code>realtime/rooms.ts</code>, <code>hub.ts</code>)</h2>
 <p><code>tenant:{t}:conversation:{id}</code>, <code>queue:{id}</code>, <code>agent:{id}</code>, <code>supervisors</code>, <code>internal:{id}</code>, <code>sector:{id}</code>.</p>
 <ul>
-<li><code>conversation.updated</code> → sala do atendimento (visitante), sala da fila (e da fila anterior em transferência), sala do agente dono e <code>supervisors</code>.</li>
-<li><code>message.new</code> → visitante; fila se <code>queued</code>, agente dono se não; sempre <code>supervisors</code>.</li>
+<li><code>conversation.updated</code> → sala do atendimento (visitante), sala da fila (e da fila anterior em transferência), sala do agente dono e supervisores autorizados pela fila.</li>
+<li><code>message.new</code> → visitante; fila se <code>queued</code>, agente dono se não; administradores e supervisores autorizados pela fila.</li>
 <li><code>supervisor.metrics</code> é empurrado a cada mudança (<code>hub.touch</code> → <code>refreshSupervisors</code>).</li>
 </ul>
 <h2 id="reconex%C3%A3o" tabindex="-1">Reconexão</h2>
 <ul>
 <li>Visitante: <code>history.sync { afterMessageId?, afterEventId? }</code> devolve conversa, mensagens e eventos posteriores, mais <code>lastReadMessageId</code>. Cursor desconhecido → <code>invalid_payload</code>.</li>
 <li>Mensagens usam <code>requestId</code> (UUID) gerado no cliente; reenvio com o mesmo <code>requestId</code> devolve <code>created: false</code> sem novo broadcast.</li>
-<li>Chat interno: o servidor oferece <code>internal.history</code> com cursores, mas o console <strong>não</strong> ressincroniza a thread aberta ao reconectar (F4-09).</li>
+<li>Chat interno: o console usa <code>internal.history</code> com cursores e ressincroniza a conversa aberta ao reconectar.</li>
 <li>Fechar a conexão não retira o contato da fila.</li>
 </ul>
 <h2 id="limita%C3%A7%C3%B5es" tabindex="-1">Limitações</h2>
-<p>Logout/expiração não derrubam sockets já conectados (F4-03). Eventos não passam por outbox (F4-07).</p>
+<p>Logout e expiração desconectam sockets; em múltiplas réplicas, a revogação distribuída depende do Redis. Eventos não passam por outbox (F4-07).</p>
 </article>
 </body>
 </html>

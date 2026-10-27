@@ -9,7 +9,7 @@
 <h1 id="central-do-agente" tabindex="-1">Central do Agente</h1>
 <p>Console em <code>/console/</code> (<code>apps/console</code>), namespace WebSocket <code>/agent</code>.</p>
 <h2 id="autentica%C3%A7%C3%A3o" tabindex="-1">Autenticação</h2>
-<p><code>POST /auth/login { email, password }</code> → <code>{ token, role, name }</code>; <code>GET /auth/me</code> devolve <code>selfId</code>, filas, classificações e <code>maxConcurrentAssignments</code>; <code>POST /auth/logout</code> apaga a sessão. <strong>Sem limite de tentativas</strong> (F4-04). Logout não derruba sockets abertos (F4-03).</p>
+<p><code>POST /auth/login { email, password }</code> → <code>{ token, role, name }</code>; <code>GET /auth/me</code> devolve <code>selfId</code>, filas, classificações e <code>maxConcurrentAssignments</code>; <code>POST /auth/logout</code> apaga a sessão. Login usa limite por IP e conta compartilhado no PostgreSQL. Logout e expiração encerram sockets; revogação entre réplicas exige Redis.</p>
 <h2 id="filas-autorizadas" tabindex="-1">Filas autorizadas</h2>
 <p><code>agent_queues</code> define as filas do agente. <code>queue.subscribe</code> entra nas salas dessas filas. Ler um atendimento <code>queued</code> exige estar na fila; um atendimento <code>assigned</code> só é visível ao agente dono.</p>
 <h2 id="atendimentos-simult%C3%A2neos" tabindex="-1">Atendimentos simultâneos</h2>

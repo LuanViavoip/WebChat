@@ -12,7 +12,11 @@
 | Código documentado | commit `d65d40d` |
 | Documentação publicada | estado do commit `72e7d08` |
 
-## Divergência entre o repositório e o publicado
+## Atualização posterior — 2026-10-27
+
+O pacote com as correções e os 62 testes foi reimportado no sistema existente. A prévia indicou 36 documentos, 15 imagens, nenhum erro e nenhum documento removido. A página de status publicada foi conferida e registra a limitação de entrega pós-commit. SHA-256 do pacote: `10d0d2d02443f581c24990eec53b27129d0512902007372b5c83fe5cb58e5d13`. A integração com a main do Git ainda estava pendente quando o pacote foi publicado.
+
+## Divergência histórica da publicação anterior
 
 O commit `02a446c` (WIP de terceiros) alterou `docs/deployment/environments.md` e `docs/local-development.md`. O `html/` e o ZIP gerados a partir de `HEAD` já refletem essa mudança em `ambientes.html`, **mas a versão publicada não**: a página "Ambientes" no Docs Helper é a do commit `72e7d08`. O sha256 acima é o do ZIP publicado; o ZIP regenerado de `HEAD` é diferente. Reimporte quando o WIP for validado e integrado.
 

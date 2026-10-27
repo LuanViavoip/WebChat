@@ -1,8 +1,8 @@
 # Documentação técnica — ViaVoip Webchat
 
-**Versão documentada:** commit `d65d40d` (branch `docs/webchat-technical-documentation`), implementação até a **Fase 4**. Toda afirmação aqui foi conferida contra esse commit, não contra requisitos planejados.
+**Versão documentada:** estado de trabalho de 27 de outubro de 2026, incluindo as correções da Fase 4. O hash final deve ser registrado após a integração.
 
-> Existem alterações **não commitadas** de terceiros no código (correções dos achados F4-01/02/05 em andamento). Esta documentação **não** as descreve. Ao serem integradas, atualize conforme [MAINTENANCE.md](MAINTENANCE.md).
+O fluxo integrado foi executado em ambiente descartável: 62 testes passaram. A entrega durável após falha de publicação continua pendente; ver [STATUS.md](STATUS.md).
 
 ## Como ler
 

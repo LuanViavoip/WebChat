@@ -133,20 +133,14 @@ export class SocketHub {
     );
   }
 
-  internalMessage(tenantId: string, message: InternalMessage): void {
+  internalMessage(tenantId: string, message: InternalMessage, agentIds: string[]): void {
     const payload = internalMessageSchema.parse(message);
-    const room = rooms.internal(tenantId, payload.conversationId);
-    for (const namespace of staffNamespaces) {
-      this.io.of(namespace).to(room).emit('internal.message.new', payload);
-    }
+    this.emitToPeople(tenantId, agentIds, 'internal.message.new', payload);
   }
 
-  internalRead(tenantId: string, read: MessageRead): void {
+  internalRead(tenantId: string, read: MessageRead, agentIds: string[]): void {
     const payload = messageReadSchema.parse(read);
-    const room = rooms.internal(tenantId, payload.conversationId);
-    for (const namespace of staffNamespaces) {
-      this.io.of(namespace).to(room).emit('internal.message.read', payload);
-    }
+    this.emitToPeople(tenantId, agentIds, 'internal.message.read', payload);
   }
 
   announcementPublished(tenantId: string, agentIds: string[], announcement: Announcement, updated: boolean): void {

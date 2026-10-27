@@ -129,8 +129,9 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
         if (!deps.limiter.allow(`internal:${principal.sessionId}`, deps.messageLimit)) {
           throw new DomainError('rate_limited', 'Muitas mensagens. Tente novamente.');
         }
-        const result = await deps.internalChat.send(principal, input);
-        if (result.created) deps.hub.internalMessage(principal.tenantId, result.message);
+        const result = await deps.internalChat.send(principal, input, (message, recipientAgentIds) => {
+          deps.hub.internalMessage(principal.tenantId, message, recipientAgentIds);
+        });
         return { requestId: result.message.requestId, messageId: result.message.id, created: result.created };
       }),
     'internal.history': (payload: unknown) =>
@@ -147,14 +148,13 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
     'internal.message.read': (payload: unknown) =>
       run(async () => {
         const input = messageReadCommandSchema.parse(payload);
-        const result = await deps.internalChat.markRead(principal, input.conversationId, input.messageId);
-        if (result.advanced) {
+        const result = await deps.internalChat.markRead(principal, input.conversationId, input.messageId, (recipientAgentIds) => {
           deps.hub.internalRead(principal.tenantId, {
             conversationId: input.conversationId,
             agentId: principal.agentId,
             messageId: input.messageId,
-          });
-        }
+          }, recipientAgentIds);
+        });
         return { conversationId: input.conversationId, messageId: input.messageId, advanced: result.advanced };
       }),
     'announcement.list': (payload: unknown) =>

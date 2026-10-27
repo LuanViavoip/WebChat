@@ -13,7 +13,7 @@ Todos os relacionamentos abaixo vêm das FKs reais (`data-dictionary.md`). Toda 
 | Leitura | `conversations` + `agents` → `conversation_reads` (PK composta); `messages` → `conversation_reads.last_read_message_id` | N:N |
 | Pesquisa | `conversations` → `survey_responses` (1:1 por UNIQUE); `survey_definitions` → `survey_responses` | 1:1 / 1:N |
 | Agentes e setores | `sectors` ⇄ `agents` via `sector_members` e via `sector_supervisors` | N:N (remoção lógica) |
-| Setores e filas | `sectors` ⇄ `queues` via `sector_queues` | N:N — **sem uso no código** |
+| Setores e filas | `sectors` ⇄ `queues` via `sector_queues` | N:N — usado para escopo de supervisão |
 | Chat interno | `sectors` → `internal_conversations` (grupo, 1:1 por setor); `internal_conversations` → `internal_participants`, `internal_messages`; `agents` → ambos | 1:N / N:N |
 | Leitura interna | `internal_conversations` + `agents` → `internal_reads`; `internal_messages` → `last_read_message_id` | N:N |
 | Anúncios | `agents` (autor) → `announcements`; `announcements` ⇄ `sectors` via `announcement_sectors`; `announcements` → `announcement_revisions` (editor = `agents`), `announcement_reads` (agente) | 1:N / N:N |

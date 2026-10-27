@@ -42,17 +42,17 @@ Distinção: **comando** = pedido do cliente com ack; **evento** = notificação
 
 `tenant:{t}:conversation:{id}`, `queue:{id}`, `agent:{id}`, `supervisors`, `internal:{id}`, `sector:{id}`.
 
-- `conversation.updated` → sala do atendimento (visitante), sala da fila (e da fila anterior em transferência), sala do agente dono e `supervisors`.
-- `message.new` → visitante; fila se `queued`, agente dono se não; sempre `supervisors`.
+- `conversation.updated` → sala do atendimento (visitante), sala da fila (e da fila anterior em transferência), sala do agente dono e supervisores autorizados pela fila.
+- `message.new` → visitante; fila se `queued`, agente dono se não; administradores e supervisores autorizados pela fila.
 - `supervisor.metrics` é empurrado a cada mudança (`hub.touch` → `refreshSupervisors`).
 
 ## Reconexão
 
 - Visitante: `history.sync { afterMessageId?, afterEventId? }` devolve conversa, mensagens e eventos posteriores, mais `lastReadMessageId`. Cursor desconhecido → `invalid_payload`.
 - Mensagens usam `requestId` (UUID) gerado no cliente; reenvio com o mesmo `requestId` devolve `created: false` sem novo broadcast.
-- Chat interno: o servidor oferece `internal.history` com cursores, mas o console **não** ressincroniza a thread aberta ao reconectar (F4-09).
+- Chat interno: o console usa `internal.history` com cursores e ressincroniza a conversa aberta ao reconectar.
 - Fechar a conexão não retira o contato da fila.
 
 ## Limitações
 
-Logout/expiração não derrubam sockets já conectados (F4-03). Eventos não passam por outbox (F4-07).
+Logout e expiração desconectam sockets; em múltiplas réplicas, a revogação distribuída depende do Redis. Eventos não passam por outbox (F4-07).

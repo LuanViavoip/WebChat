@@ -9,7 +9,7 @@
 <h1 id="atividades-e-aloca%C3%A7%C3%B5es" tabindex="-1">Atividades e alocações</h1>
 <p>Independentes da presença: um agente pode estar <code>available</code> e alocado a &quot;Treinamento&quot; (decisão em <a href="../arquitetura/decisoes.html">decisions.md</a>).</p>
 <h2 id="tipos" tabindex="-1">Tipos</h2>
-<p><code>activity_types</code> (nome único por tenant, <code>active</code>). <code>activity.type.save</code> é <strong>exclusivo do admin</strong>; todos os papéis leem <code>activity.catalog</code>. A UI não tem gestão de tipos (F4-06).</p>
+<p><code>activity_types</code> (nome único por tenant, <code>active</code>). <code>activity.type.save</code> é <strong>exclusivo do admin</strong>; todos os papéis leem <code>activity.catalog</code>. O console oferece gestão de tipos para administradores.</p>
 <h2 id="aloca%C3%A7%C3%B5es" tabindex="-1">Alocações</h2>
 <p><code>activity_assignments</code>: <code>status</code> <code>active</code>/<code>finished</code>, com CHECK ligando status a <code>ended_at</code>. Um índice único parcial garante <strong>uma alocação ativa por agente</strong>.</p>
 <ul>

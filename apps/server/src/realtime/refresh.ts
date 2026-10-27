@@ -4,6 +4,7 @@ import { isStaff } from '../domain/access.js';
 import type { AgentPrincipal } from '../domain/types.js';
 import type { SupervisorService } from '../modules/supervisor.js';
 import type { AppLogger } from './logger.js';
+import { rooms } from './rooms.js';
 
 export async function refreshSupervisors(
   io: Server,
@@ -12,7 +13,7 @@ export async function refreshSupervisors(
   logger: AppLogger,
 ): Promise<void> {
   try {
-    const sockets = await io.of('/supervisor').fetchSockets();
+    const sockets = await io.of('/supervisor').in(rooms.supervisorRefresh(tenantId)).fetchSockets();
     for (const socket of sockets) {
       const principal = socket.data.principal as AgentPrincipal | undefined;
       if (!principal || !isStaff(principal.kind)) continue;
