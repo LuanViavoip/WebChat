@@ -25,6 +25,9 @@ export function AnnouncementsPanel({
   const [audience, setAudience] = useState<'tenant' | 'sectors'>(isAdmin ? 'tenant' : 'sectors');
   const [sectorId, setSectorId] = useState('');
   const [notice, setNotice] = useState('');
+  const [pinned, setPinned] = useState(false);
+  const [expiresAt, setExpiresAt] = useState('');
+  const [editingId, setEditingId] = useState('');
 
   useEffect(() => {
     if (!socket) return;
@@ -58,15 +61,21 @@ export function AnnouncementsPanel({
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (!socket) return;
-    const parsed = announcementAckSchema.safeParse(
-      await emitAck(socket, 'announcement.publish', {
-        title,
-        body,
-        audience,
-        pinned: false,
-        ...(audience === 'sectors' && sectorId ? { sectorIds: [sectorId] } : {}),
-      }),
-    );
+    const expiry = expiresAt ? new Date(expiresAt).toISOString() : null;
+    const parsed = announcementAckSchema.safeParse(await emitAck(
+      socket,
+      editingId ? 'announcement.update' : 'announcement.publish',
+      editingId
+        ? { announcementId: editingId, title, body, pinned, expiresAt: expiry }
+        : {
+            title,
+            body,
+            audience,
+            pinned,
+            ...(audience === 'sectors' && sectorId ? { sectorIds: [sectorId] } : {}),
+            ...(expiry ? { expiresAt: expiry } : {}),
+          },
+    ));
     if (!parsed.success || !parsed.data.ok) {
       setNotice(ackMessage(parsed, 'Publicação recusada'));
       return;
@@ -74,8 +83,35 @@ export function AnnouncementsPanel({
     const announcement = parsed.data.announcement;
     setTitle('');
     setBody('');
-    setNotice('Anúncio publicado');
+    setPinned(false);
+    setExpiresAt('');
+    setNotice(editingId ? 'Anúncio atualizado' : 'Anúncio publicado');
+    setEditingId('');
     setItems((current) => [announcement, ...current.filter((item) => item.id !== announcement.id)]);
+  }
+
+  function edit(item: Announcement) {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setBody(item.body);
+    setPinned(item.pinned);
+    if (item.expiresAt) {
+      const local = new Date(item.expiresAt);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      setExpiresAt(local.toISOString().slice(0, 16));
+    } else setExpiresAt('');
+  }
+
+  async function archive(announcementId: string) {
+    if (!socket) return;
+    const parsed = announcementAckSchema.safeParse(await emitAck(socket, 'announcement.archive', { announcementId }));
+    if (!parsed.success || !parsed.data.ok) {
+      setNotice(ackMessage(parsed, 'Arquivamento recusado'));
+      return;
+    }
+    const archived = parsed.data.announcement;
+    setItems((current) => current.map((item) => item.id === announcementId ? archived : item));
+    setNotice('Anúncio arquivado');
   }
 
   async function markRead(announcementId: string) {
@@ -120,7 +156,14 @@ export function AnnouncementsPanel({
               </select>
             </label>
           ) : null}
-          <button type="submit">Publicar</button>
+          <label><input type="checkbox" checked={pinned} onChange={(event) => setPinned(event.target.checked)} /> Fixar anúncio</label>
+          <label>Expira em<input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
+          <button type="submit">{editingId ? 'Salvar anúncio' : 'Publicar'}</button>
+          {editingId ? (
+            <button type="button" onClick={() => { setEditingId(''); setTitle(''); setBody(''); setPinned(false); setExpiresAt(''); }}>
+              Cancelar edição
+            </button>
+          ) : null}
         </form>
       ) : null}
       {items.map((item) => (
@@ -130,6 +173,12 @@ export function AnnouncementsPanel({
           <p className="muted">{item.authorName} · {formatClock(item.publishedAt)} · {item.unread ? 'Não lido' : 'Lido'}</p>
           {item.unread ? (
             <button type="button" onClick={() => void markRead(item.id)}>Marcar como lido</button>
+          ) : null}
+          {(isAdmin || (item.audience === 'sectors' && item.sectorIds.every((id) => sectors.some((sector) => sector.id === id)))) && !item.archivedAt ? (
+            <div className="stack">
+              <button type="button" onClick={() => edit(item)}>Editar</button>
+              <button type="button" onClick={() => void archive(item.id)}>Arquivar</button>
+            </div>
           ) : null}
         </article>
       ))}

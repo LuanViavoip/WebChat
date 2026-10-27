@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Quadro de anúncios — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="quadro-de-an%C3%BAncios" tabindex="-1">Quadro de anúncios</h1>
+<p>Tabelas: <code>announcements</code>, <code>announcement_sectors</code>, <code>announcement_revisions</code>, <code>announcement_reads</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Tema</th>
+<th>Comportamento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Criação</td>
+<td><code>announcement.publish { title, body, pinned?, audience, sectorIds?, expiresAt? }</code> (título ≤160, corpo ≤4000)</td>
+</tr>
+<tr>
+<td>Público-alvo</td>
+<td><code>audience = tenant</code> (toda a empresa) ou <code>sectors</code> (setores em <code>announcement_sectors</code>)</td>
+</tr>
+<tr>
+<td>Quem publica</td>
+<td>Agente não publica. <code>tenant</code> é exclusivo do admin. Supervisor publica só para setores que supervisiona</td>
+</tr>
+<tr>
+<td>Fixação</td>
+<td>Coluna <code>pinned</code> (a UI atual publica sempre com <code>pinned: false</code>)</td>
+</tr>
+<tr>
+<td>Expiração</td>
+<td><code>expires_at</code>; expirados e arquivados ficam ocultos, salvo <code>includeArchived</code> (apenas supervisão)</td>
+</tr>
+<tr>
+<td>Edição</td>
+<td><code>announcement.update</code> grava uma revisão em <code>announcement_revisions</code>; não permitido se arquivado</td>
+</tr>
+<tr>
+<td>Arquivamento</td>
+<td><code>announcement.archive</code>, idempotente (<code>archived_at</code>)</td>
+</tr>
+<tr>
+<td>Leitura</td>
+<td><code>announcement.read</code> grava <code>announcement_reads</code> por agente</td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td><code>announcement.publish</code>, <code>.update</code>, <code>.archive</code> em <code>audit_events</code></td>
+</tr>
+<tr>
+<td>Eventos</td>
+<td><code>announcement.published</code>, <code>announcement.updated</code> — só avisam quem está conectado; o dado fica no Postgres</td>
+</tr>
+</tbody>
+</table>
+<p>Estado derivado de timestamps: arquivado, expirado ou vigente. Limitação: o console não oferece fixar, expirar, editar nem arquivar (F4-06).</p>
+</article>
+</body>
+</html>

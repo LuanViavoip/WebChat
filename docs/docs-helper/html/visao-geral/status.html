@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Status de implementação e limitações — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="status-de-implementa%C3%A7%C3%A3o-(commit-d65d40d)" tabindex="-1">Status de implementação (commit <code>d65d40d</code>)</h1>
+<p>Legenda: <strong>Implementado</strong>, <strong>Parcial</strong>, <strong>Planejado</strong>, <strong>Depende do SM</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Status</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-tenancy (RLS forçada, <code>withTenant</code>)</td>
+<td>Implementado</td>
+<td>34 de 35 tabelas com RLS; <code>schema_migrations</code> sem RLS</td>
+</tr>
+<tr>
+<td>Autenticação de agentes (sessão opaca, argon2id)</td>
+<td>Implementado</td>
+<td>Sem limite de tentativas no login (F4-04)</td>
+</tr>
+<tr>
+<td>Sessões de visitante e allowlist de origens</td>
+<td>Implementado</td>
+<td>A allowlist não autentica o site hospedeiro</td>
+</tr>
+<tr>
+<td>Widget ChatWeb (loader + iframe)</td>
+<td>Implementado</td>
+<td>Loader só trata <code>resize</code>; sem API JS de controle</td>
+</tr>
+<tr>
+<td>Fila, claim, transferência para fila, devolução, encerramento em duas etapas</td>
+<td>Implementado</td>
+<td>Transferência direta a agente fora do escopo</td>
+</tr>
+<tr>
+<td>Pesquisa de satisfação</td>
+<td>Implementado</td>
+<td>Uma resposta por atendimento</td>
+</tr>
+<tr>
+<td>Reconexão do visitante (<code>history.sync</code>)</td>
+<td>Implementado</td>
+<td>Sem reenvio automático de mensagem falha</td>
+</tr>
+<tr>
+<td>Central do agente (console)</td>
+<td>Implementado</td>
+<td>Atendimentos simultâneos limitados por tenant (padrão 3)</td>
+</tr>
+<tr>
+<td>Chat interno (direto e grupo de setor)</td>
+<td>Parcial</td>
+<td>Sem paginação na UI; sem ressincronização da thread na reconexão (F4-09); falhas de sala F4-01/F4-05</td>
+</tr>
+<tr>
+<td>Setores</td>
+<td>Parcial</td>
+<td>UI cria setor e edita membros; não edita setor/supervisores (F4-06)</td>
+</tr>
+<tr>
+<td>Anúncios</td>
+<td>Parcial</td>
+<td>UI publica sem fixar/expirar e sem editar/arquivar (F4-06); backend completo</td>
+</tr>
+<tr>
+<td>Presença</td>
+<td>Implementado</td>
+<td>Calculada no servidor; heartbeat 15 s</td>
+</tr>
+<tr>
+<td>Atividades e alocações</td>
+<td>Parcial</td>
+<td>Backend completo; UI sem gestão de tipos (F4-06)</td>
+</tr>
+<tr>
+<td>Central do supervisor</td>
+<td>Parcial</td>
+<td>Escopo por setor limitado à lista de agentes; métricas e conversas são do tenant inteiro (F4-02)</td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td>Parcial</td>
+<td>Gravada para conversation.watch, setores, anúncios e atividades; sem tela de consulta identificada</td>
+</tr>
+<tr>
+<td><code>sector_queues</code> (setor ↔ fila)</td>
+<td>Planejado</td>
+<td>Tabela existe; nenhum código a lê ou escreve neste commit</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>Implementado (opcional)</td>
+<td>Apenas adapter do Socket.IO</td>
+</tr>
+<tr>
+<td>Outbox / entrega confiável de eventos e SM</td>
+<td>Planejado</td>
+<td>F4-07</td>
+</tr>
+<tr>
+<td>Revogação de sockets no logout/expiração</td>
+<td>Planejado</td>
+<td>F4-03</td>
+</tr>
+<tr>
+<td>Retenção e purge de dados</td>
+<td>Planejado</td>
+<td>Não definidos</td>
+</tr>
+<tr>
+<td>Integração real com o SM</td>
+<td>Depende do SM</td>
+<td>Apenas <code>MockSMAdapter</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="achados-abertos-da-auditoria-(documentados-como-limita%C3%A7%C3%B5es%2C-n%C3%A3o-como-comportamento-esperado)" tabindex="-1">Achados abertos da auditoria (documentados como limitações, não como comportamento esperado)</h2>
+<p>Fonte: audits/FASE4_FINDINGS.md e FASE4_CODE_REVIEW.md; veredito da auditoria: <strong>REPROVADO</strong> para avançar à Fase 5. Plano de correção: audits/FASE4_CORRECTION_PLAN.md.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Sev.</th>
+<th>Resumo</th>
+<th>Confirmado no commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F4-01</td>
+<td>P1</td>
+<td>Participante removido reentra na sala do chat interno via <code>internal.history</code></td>
+<td>sim (<code>staff-channel.ts</code> entra na sala)</td>
+</tr>
+<tr>
+<td>F4-02</td>
+<td>P1</td>
+<td>Supervisor lê/transfere atendimentos e recebe eventos fora do seu setor</td>
+<td>sim (<code>access.ts</code>: supervisor/admin sem restrição)</td>
+</tr>
+<tr>
+<td>F4-03</td>
+<td>P1</td>
+<td>Logout/expiração não derrubam sockets abertos</td>
+<td>não reverificado</td>
+</tr>
+<tr>
+<td>F4-04</td>
+<td>P1</td>
+<td><code>/auth/login</code> sem limitação de tentativas</td>
+<td>sim (limiter só em <code>/visitor/sessions</code>)</td>
+</tr>
+<tr>
+<td>F4-05</td>
+<td>P1</td>
+<td>Salas de grupo não acompanham mudanças de setor; admin não participante entra</td>
+<td>não reverificado</td>
+</tr>
+<tr>
+<td>F4-06</td>
+<td>P2</td>
+<td>UI corporativa incompleta</td>
+<td>confirmado pela auditoria</td>
+</tr>
+<tr>
+<td>F4-07</td>
+<td>P2</td>
+<td>Eventos e notificações ao SM fora da transação (sem outbox/retry)</td>
+<td>sim (<code>safeNotify</code>)</td>
+</tr>
+<tr>
+<td>F4-08</td>
+<td>P2</td>
+<td>Suíte de integração não verificável no ambiente da auditoria</td>
+<td>ver abaixo</td>
+</tr>
+<tr>
+<td>F4-09</td>
+<td>P2</td>
+<td>Chat interno não ressincroniza ao reconectar</td>
+<td>confirmado pela auditoria</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Testes:</strong> o README do projeto afirma 46 testes passando; a auditoria não conseguiu executá-los. Ver o resultado da execução feita para esta documentação em <a href="../implantacao-e-operacao/validacao.html">docs-helper/VALIDATION.md</a>.</p>
+</article>
+</body>
+</html>

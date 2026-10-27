@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Central do Agente — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="central-do-agente" tabindex="-1">Central do Agente</h1>
+<p>Console em <code>/console/</code> (<code>apps/console</code>), namespace WebSocket <code>/agent</code>.</p>
+<h2 id="autentica%C3%A7%C3%A3o" tabindex="-1">Autenticação</h2>
+<p><code>POST /auth/login { email, password }</code> → <code>{ token, role, name }</code>; <code>GET /auth/me</code> devolve <code>selfId</code>, filas, classificações e <code>maxConcurrentAssignments</code>; <code>POST /auth/logout</code> apaga a sessão. <strong>Sem limite de tentativas</strong> (F4-04). Logout não derruba sockets abertos (F4-03).</p>
+<h2 id="filas-autorizadas" tabindex="-1">Filas autorizadas</h2>
+<p><code>agent_queues</code> define as filas do agente. <code>queue.subscribe</code> entra nas salas dessas filas. Ler um atendimento <code>queued</code> exige estar na fila; um atendimento <code>assigned</code> só é visível ao agente dono.</p>
+<h2 id="atendimentos-simult%C3%A2neos" tabindex="-1">Atendimentos simultâneos</h2>
+<p>Limite por tenant: <code>tenants.max_concurrent_assignments</code> (padrão 3, 1–100). Acima do limite o claim responde <code>capacity</code>. O console mantém vários atendimentos abertos e contadores de não lidas por conversa.</p>
+<h2 id="opera%C3%A7%C3%B5es" tabindex="-1">Operações</h2>
+<table>
+<thead>
+<tr>
+<th>Operação</th>
+<th>Regra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Assumir (<code>conversation.claim</code>)</td>
+<td>Atendimento <code>queued</code>, agente da fila, presença efetiva <code>available</code>. <code>UPDATE</code> atômico; perdedor recebe <code>already_claimed</code></td>
+</tr>
+<tr>
+<td>Devolver (<code>conversation.release</code>)</td>
+<td>Só o agente dono; volta a <code>queued</code>, reseta <code>queued_at</code></td>
+</tr>
+<tr>
+<td>Transferir (<code>conversation.transfer</code>)</td>
+<td>Só para <strong>fila</strong>, e só para fila em que o agente está escalado; volta a <code>queued</code></td>
+</tr>
+<tr>
+<td>Encerrar (<code>conversation.close</code>)</td>
+<td>Exige classificação; vai a <code>awaiting_survey</code></td>
+</tr>
+<tr>
+<td>Mensagem / leitura</td>
+<td>Só o agente dono, com atendimento <code>assigned</code></td>
+</tr>
+</tbody>
+</table>
+<p>Repetir o encerramento com a mesma classificação devolve o estado atual sem novo evento; classificação diferente → <code>conflict</code>. Transferência direta para outro agente <strong>não existe</strong>.</p>
+<h2 id="estados" tabindex="-1">Estados</h2>
+<p><code>queued → assigned → awaiting_survey → closed</code>; <code>release</code> e <code>transfer</code> voltam a <code>queued</code>; <code>leave</code> (visitante) leva <code>queued</code> a <code>closed</code>. Diagrama: attendance-states.</p>
+<h2 id="permiss%C3%B5es" tabindex="-1">Permissões</h2>
+<p>Agentes não publicam anúncios, não gerem setores/tipos de atividade e não enviam mensagens como supervisor. Ver <a href="../visao-geral/status.html">STATUS.md</a>.</p>
+<section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
+<figure><img src="../../assets/attendance-states.png" alt="Estados do atendimento"><figcaption>Estados do atendimento</figcaption></figure>
+</section>
+</article>
+</body>
+</html>

@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> queued: conversation.start (visitante)
+  queued --> assigned: conversation.claim (agente da fila, presença available)
+  assigned --> queued: conversation.release (agente dono)
+  queued --> queued: conversation.transfer (outra fila)
+  assigned --> queued: conversation.transfer (outra fila)
+  queued --> closed: conversation.leave (visitante)
+  assigned --> awaiting_survey: conversation.close (agente, com classificação)
+  awaiting_survey --> closed: survey.submit (visitante)
+  closed --> [*]

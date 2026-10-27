@@ -4,6 +4,7 @@ import type { SMAdapter } from '@viavoip/sm-adapter';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { SessionService } from './auth/sessions.js';
+import { SharedLoginRateLimiter } from './auth/login-rate-limit.js';
 import type { AppConfig } from './config.js';
 import { createPool } from './db/pool.js';
 import { SlidingWindowLimiter } from './http/rate-limit.js';
@@ -57,6 +58,7 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     void refreshSupervisors(io, supervisor, tenantId, app.log);
   });
   const limiter = new SlidingWindowLimiter(config.rateWindowMs);
+  const loginAttempts = new SharedLoginRateLimiter(pool, config.rateWindowMs);
 
   await app.register(cors, { origin: config.corsOrigins, credentials: false });
   registerHttp(app, {
@@ -64,6 +66,10 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     smAdapter: config.smAdapter,
     limiter,
     sessionCreateLimit: config.sessionCreateLimit,
+    loginLimit: config.loginLimit,
+    loginAttempts,
+    loginRateLimitSecret: config.loginRateLimitSecret,
+    io,
   });
   if (config.serveStatic) await registerStatic(app);
   registerRealtime(io, {
@@ -95,9 +101,16 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     });
   }, 15_000);
   timer.unref();
+  const loginRateLimitTimer = setInterval(() => {
+    void loginAttempts.sweepExpired().catch((error: unknown) => {
+      app.log.error({ err: error }, 'falha ao limpar limites de login expirados');
+    });
+  }, 60 * 60 * 1000);
+  loginRateLimitTimer.unref();
 
   app.addHook('onClose', async () => {
     clearInterval(timer);
+    clearInterval(loginRateLimitTimer);
     io.disconnectSockets(true);
     io.close();
     await pool.end();

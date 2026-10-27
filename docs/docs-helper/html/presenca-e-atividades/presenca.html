@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Presença — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="presen%C3%A7a" tabindex="-1">Presença</h1>
+<h2 id="estados" tabindex="-1">Estados</h2>
+<p><code>available</code>, <code>busy</code>, <code>away</code> e <code>offline</code>. O agente só escolhe os três primeiros (<code>presence.set</code>); o servidor <strong>calcula</strong> o estado efetivo (<code>resolveStatus</code> em <code>modules/presence.ts</code>):</p>
+<ol>
+<li>sem conexão com heartbeat recente → <code>offline</code>;</li>
+<li>escolha <code>away</code> → <code>away</code>; escolha <code>busy</code> → <code>busy</code>;</li>
+<li>escolha <code>available</code> → <code>busy</code> se os atendimentos atingiram o limite, senão <code>available</code>.</li>
+</ol>
+<p>Diagrama: presence-states. Não existe tabela de transições permitidas: qualquer estado pode seguir outro conforme as entradas acima.</p>
+<h2 id="presen%C3%A7a-%C3%97-conectividade" tabindex="-1">Presença × conectividade</h2>
+<p><strong>Conectividade</strong> é a existência de linha fresca em <code>agent_connections</code> (uma por socket, com <code>last_heartbeat_at</code>). <strong>Presença</strong> é a escolha do agente (<code>agent_presence.desired_status</code>, padrão efetivo <code>available</code>) combinada com a conectividade e a carga. O console envia <code>presence.heartbeat</code> a cada 15 s; o servidor remove conexões sem heartbeat além de <code>PRESENCE_STALE_MS</code> (padrão 45 s) a cada 15 s (<code>sweep_stale_agent_connections</code>). Fechar uma aba não publica <code>offline</code> se outra conexão do mesmo agente estiver fresca. Queda de rede <strong>não</strong> devolve conversas à fila. Supervisores e admins também registram conexão e enviam heartbeat, mas não usam <code>presence.set</code>.</p>
+<h2 id="efeito" tabindex="-1">Efeito</h2>
+<p>Só <code>available</code> assume atendimento. <code>busy</code>/<code>away</code>/<code>offline</code> mantêm conversas atuais e recusam novos claims (<code>capacity</code> ou <code>invalid_state</code>).</p>
+<h2 id="hist%C3%B3rico" tabindex="-1">Histórico</h2>
+<p><code>presence_intervals</code> registra intervalos (inclui <code>offline</code>), com no máximo um aberto por agente (índice único parcial). Mudança de estado fecha o intervalo e abre outro.</p>
+<p>Evento: <code>presence.updated { agentId, status }</code>.</p>
+<section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
+<figure><img src="../../assets/presence-states.png" alt="Estados de presença"><figcaption>Estados de presença</figcaption></figure>
+</section>
+</article>
+</body>
+</html>

@@ -1,0 +1,30 @@
+flowchart TB
+  %% Diagrama C4 nível 2 — Containers (somente o que existe no repositório)
+  V(["👤 Visitante"])
+  ST(["👤 Agente / Supervisor / Admin"])
+  subgraph WC["ViaVoip Webchat (docker-compose.yml)"]
+    direction TB
+    LOADER["widget.js (loader)<br/>[TypeScript / esbuild]<br/>cria o iframe, trata postMessage"]
+    WIDGET["Widget ChatWeb<br/>[React 19 + Vite]<br/>servido em /widget/"]
+    CONSOLE["Console<br/>[React 19 + Vite]<br/>agente e supervisor, em /console/"]
+    SERVER["Servidor<br/>[Node 22, Fastify 5, Socket.IO 4]<br/>HTTP, WebSocket /visitor /agent /supervisor,<br/>regras de domínio, migrations"]
+    PG[("PostgreSQL 16<br/>SQL puro + RLS<br/>fonte da verdade")]
+    RD[("Redis 7 — opcional<br/>somente adapter do Socket.IO")]
+    DEMO["Demo (nginx :8090)<br/>página de exemplo de site de cliente"]
+  end
+  SM["SM — futuro<br/>hoje: MockSMAdapter em memória"]
+  V -->|"carrega no site do cliente"| LOADER
+  DEMO -->|embute| LOADER
+  LOADER -->|"iframe + postMessage"| WIDGET
+  WIDGET -->|"REST + WebSocket /visitor"| SERVER
+  ST --> CONSOLE
+  CONSOLE -->|"REST + WebSocket /agent e /supervisor"| SERVER
+  SERVER -->|"SQL (withTenant + RLS)"| PG
+  SERVER -.->|"Pub/Sub (se REDIS_URL)"| RD
+  SERVER -.->|"SMAdapter (mock)"| SM
+  classDef c fill:#438dd5,color:#fff,stroke:#2e6295
+  classDef db fill:#2e6295,color:#fff
+  classDef fut fill:#fff,color:#333,stroke:#999,stroke-dasharray:5 5
+  class LOADER,WIDGET,CONSOLE,SERVER,DEMO c
+  class PG,RD db
+  class SM fut

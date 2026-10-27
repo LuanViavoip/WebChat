@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Setup local — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="setup-local" tabindex="-1">Setup local</h1>
+<p>O guia operacional original está em local-development.md. Resumo:</p>
+<pre><code class="language-bash">cp .env.example .env
+docker compose up --build        # server :3000, demo :8090, postgres :5434, redis :6379
+</code></pre>
+<p>Sem reconstruir a imagem: <code>docker compose up postgres redis</code>, <code>pnpm install</code>, <code>pnpm dev</code>.</p>
+<h2 id="testes" tabindex="-1">Testes</h2>
+<pre><code class="language-bash">pnpm test
+</code></pre>
+<p>Os testes do servidor usam Testcontainers (exigem Docker acessível ao usuário). Resultado verificado para esta documentação: <a href="validacao.html">VALIDATION.md</a>.</p>
+<h2 id="regenerar-esta-documenta%C3%A7%C3%A3o" tabindex="-1">Regenerar esta documentação</h2>
+<p>Ver <a href="manutencao.html">MAINTENANCE.md</a> (requer Docker para o schema e os diagramas, e Node 22).</p>
+</article>
+</body>
+</html>

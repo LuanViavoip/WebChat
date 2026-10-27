@@ -36,6 +36,7 @@ services:
       MIGRATE_DATABASE_URL: postgres://postgres:postgres@postgres:5432/webchat
       REDIS_URL: redis://redis:6379
       SM_ADAPTER: mock
+      LOGIN_RATE_LIMIT_SECRET: local-only-shared-login-rate-limit-secret-change-before-deploy
       PORT: "3000"
       HOST: 0.0.0.0
       SEED: "true"

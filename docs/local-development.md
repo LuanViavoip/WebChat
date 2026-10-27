@@ -42,7 +42,9 @@ O Postgres de teste é um container efêmero. O papel `webchat_app` não contorn
 - `SM_ADAPTER` — nesta fase o único valor aceito é `mock`
 - `SEED` — `true` carrega `infra/seed/seed.sql`
 - `SESSION_TTL_HOURS` — validade das sessões opacas
-- `SESSION_CREATE_LIMIT`, `MESSAGE_LIMIT`, `RATE_WINDOW_MS` — limite em memória por processo. O padrão é 1000 ações em 60 segundos. Várias instâncias não compartilham esse contador.
+- `LOGIN_RATE_LIMIT_SECRET` — obrigatório, ao menos 32 caracteres; use o mesmo segredo aleatório em todas as réplicas. O contador de login é persistido no Postgres e usa HMAC de IP/conta, sem gravar email ou IP em claro.
+- `LOGIN_LIMIT`, `RATE_WINDOW_MS` — limite de login por IP e conta e janela compartilhada; padrão 20 tentativas em 60 segundos.
+- `SESSION_CREATE_LIMIT`, `MESSAGE_LIMIT` — limites em memória por processo; várias instâncias não compartilham esses contadores.
 - `PRESENCE_STALE_MS` — janela do heartbeat do agente. O padrão é 45000. O console envia `presence.heartbeat` a cada 15 segundos.
 
 ## Demonstração da central

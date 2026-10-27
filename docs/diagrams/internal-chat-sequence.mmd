@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  actor A as Agente A
+  participant C as Console A
+  participant S as Servidor
+  participant DB as PostgreSQL
+  participant CB as Console B (destinatário)
+  A->>C: abre o console
+  C->>S: POST /auth/login
+  S-->>C: token opaco
+  C->>S: WS /agent (auth.token)
+  S->>DB: lookup_auth_session (hash) → principal + tenant
+  S-->>C: conexão aceita (salas do agente)
+  Note over C,S: Comandos: internal.list, internal.open, internal.history
+  A->>C: seleciona conversa (direta ou de grupo)
+  C->>S: internal.history {conversationId}
+  S->>DB: confere participante ativo (withTenant)
+  S-->>C: página de mensagens + cursor de leitura
+  A->>C: envia texto
+  C->>S: internal.message.send {conversationId, requestId, body}
+  S->>S: valida schema Zod (1-4000 chars) e permissão
+  S->>DB: INSERT internal_messages (UNIQUE conversation_id+request_id)
+  S-->>C: ack {messageId, created}
+  S-)CB: evento internal.message.new (sala internal:{id})
+  CB->>S: internal.message.read {conversationId, messageId}
+  S->>DB: UPSERT internal_reads
+  S-)C: evento internal.message.read

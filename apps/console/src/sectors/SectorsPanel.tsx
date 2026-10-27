@@ -10,6 +10,11 @@ export function SectorsPanel({ socket, canManage }: { socket: Socket | null; can
   const [agentId, setAgentId] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [notice, setNotice] = useState('');
+  const [editingId, setEditingId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [editSupervisorIds, setEditSupervisorIds] = useState('');
 
   useEffect(() => {
     if (!socket) return;
@@ -58,6 +63,35 @@ export function SectorsPanel({ socket, canManage }: { socket: Socket | null; can
     setNotice(action === 'sector.member.add' ? 'Membro incluído' : 'Membro removido');
   }
 
+  function beginEdit(sector: SectorSummary) {
+    setEditingId(sector.id);
+    setEditName(sector.name);
+    setEditDescription(sector.description);
+    setEditActive(sector.active);
+    setEditSupervisorIds(sector.supervisors.map((person) => person.agentId).join(', '));
+  }
+
+  async function saveSector(event: FormEvent) {
+    event.preventDefault();
+    if (!socket || !editingId) return;
+    const supervisorIds = editSupervisorIds.split(',').map((id) => id.trim()).filter(Boolean);
+    const parsed = sectorSaveAckSchema.safeParse(await emitAck(socket, 'sector.save', {
+      sectorId: editingId,
+      name: editName,
+      description: editDescription,
+      active: editActive,
+      supervisorIds,
+    }));
+    if (!parsed.success || !parsed.data.ok) {
+      setNotice(ackMessage(parsed, 'Não foi possível atualizar o setor'));
+      return;
+    }
+    const savedSector = parsed.data.sector;
+    setSectors((current) => current.map((sector) => sector.id === editingId ? savedSector : sector));
+    setEditingId('');
+    setNotice('Setor atualizado');
+  }
+
   return (
     <section className="panel">
       <h2>Setores</h2>
@@ -82,18 +116,35 @@ export function SectorsPanel({ socket, canManage }: { socket: Socket | null; can
           <p>Membros: {sector.members.map((member) => member.name).join(', ') || 'nenhum'}</p>
           <p>Responsáveis: {sector.supervisors.map((person) => person.name).join(', ') || 'nenhum'}</p>
           {sector.canManage ? (
-            <div className="stack">
-              <input
-                placeholder="Id do agente"
-                value={selectedId === sector.id ? agentId : ''}
-                onChange={(event) => {
-                  setSelectedId(sector.id);
-                  setAgentId(event.target.value);
-                }}
-              />
-              <button type="button" onClick={() => void changeMember('sector.member.add')}>Incluir</button>
-              <button type="button" onClick={() => void changeMember('sector.member.remove')}>Remover</button>
-            </div>
+            <>
+              {editingId === sector.id ? (
+                <form className="stack" onSubmit={(event) => void saveSector(event)}>
+                  <label>Nome<input value={editName} onChange={(event) => setEditName(event.target.value)} /></label>
+                  <label>Descrição<input value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label>
+                  <label>
+                    Responsáveis (IDs separados por vírgula)
+                    <input value={editSupervisorIds} onChange={(event) => setEditSupervisorIds(event.target.value)} />
+                  </label>
+                  <label><input type="checkbox" checked={editActive} onChange={(event) => setEditActive(event.target.checked)} /> Setor ativo</label>
+                  <button type="submit">Salvar alterações</button>
+                  <button type="button" onClick={() => setEditingId('')}>Cancelar</button>
+                </form>
+              ) : (
+                <button type="button" onClick={() => beginEdit(sector)}>Editar setor e responsáveis</button>
+              )}
+              <div className="stack">
+                <input
+                  placeholder="Id do agente"
+                  value={selectedId === sector.id ? agentId : ''}
+                  onChange={(event) => {
+                    setSelectedId(sector.id);
+                    setAgentId(event.target.value);
+                  }}
+                />
+                <button type="button" onClick={() => void changeMember('sector.member.add')}>Incluir</button>
+                <button type="button" onClick={() => void changeMember('sector.member.remove')}>Remover</button>
+              </div>
+            </>
           ) : null}
         </article>
       ))}

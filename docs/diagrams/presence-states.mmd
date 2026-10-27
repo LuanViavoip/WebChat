@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> offline
+  offline --> available: conexão fresca + desejado=available + abaixo do limite
+  offline --> busy: conexão fresca + desejado=busy
+  offline --> away: conexão fresca + desejado=away
+  available --> busy: desejado=busy OU limite de atendimentos atingido
+  busy --> available: desejado=available e abaixo do limite
+  available --> away: desejado=away
+  away --> available: desejado=available
+  busy --> away: desejado=away
+  away --> busy: desejado=busy
+  available --> offline: sem conexão fresca (heartbeat > PRESENCE_STALE_MS)
+  busy --> offline: sem conexão fresca
+  away --> offline: sem conexão fresca

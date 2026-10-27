@@ -2,11 +2,12 @@ import {
   activityAssignmentAckSchema,
   activityCatalogAckSchema,
   activityHistoryAckSchema,
+  activityTypeSchema,
   sectorListAckSchema,
   type ActivityAssignment,
   type ActivityType,
 } from '@viavoip/protocol';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { Socket } from 'socket.io-client';
 import { formatClock, formatDuration } from '../desk/format.js';
 import { ackMessage, emitAck } from '../realtime.js';
@@ -15,10 +16,12 @@ export function ActivityPanel({
   socket,
   selfId,
   canAssign,
+  isAdmin,
 }: {
   socket: Socket | null;
   selfId: string;
   canAssign: boolean;
+  isAdmin: boolean;
 }) {
   const [types, setTypes] = useState<ActivityType[]>([]);
   const [current, setCurrent] = useState<ActivityAssignment | null>(null);
@@ -28,6 +31,9 @@ export function ActivityPanel({
   const [activityTypeId, setActivityTypeId] = useState('');
   const [notice, setNotice] = useState('');
   const [now, setNow] = useState(() => Date.now());
+  const [typeName, setTypeName] = useState('');
+  const [typeActive, setTypeActive] = useState(true);
+  const [editingTypeId, setEditingTypeId] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -96,6 +102,34 @@ export function ActivityPanel({
     if (parsed.data.assignment.agentId === selfId) setCurrent(null);
   }
 
+  function editType(type: ActivityType) {
+    setEditingTypeId(type.id);
+    setTypeName(type.name);
+    setTypeActive(type.active);
+  }
+
+  async function saveType(event: FormEvent) {
+    event.preventDefault();
+    if (!socket || !isAdmin) return;
+    const ack = await emitAck(socket, 'activity.type.save', {
+      ...(editingTypeId ? { activityTypeId: editingTypeId } : {}),
+      name: typeName,
+      active: typeActive,
+    });
+    const value = typeof ack === 'object' && ack !== null && 'activityType' in ack ? ack.activityType : null;
+    const parsed = activityTypeSchema.safeParse(value);
+    if (!parsed.success) {
+      setNotice(ackMessage({ success: true, data: ack }, 'Tipo de atividade recusado'));
+      return;
+    }
+    setTypes((current) => [...current.filter((type) => type.id !== parsed.data.id), parsed.data].sort((a, b) => a.name.localeCompare(b.name)));
+    setActivityTypeId((current) => current || (parsed.data.active ? parsed.data.id : ''));
+    setEditingTypeId('');
+    setTypeName('');
+    setTypeActive(true);
+    setNotice('Tipo de atividade salvo');
+  }
+
   return (
     <section className="panel">
       <h2>{canAssign ? 'Atividades' : 'Minha atividade'}</h2>
@@ -122,7 +156,7 @@ export function ActivityPanel({
         <label>
           Atividade
           <select value={activityTypeId} onChange={(event) => setActivityTypeId(event.target.value)}>
-            {types.map((type) => (
+            {types.filter((type) => type.active).map((type) => (
               <option key={type.id} value={type.id}>{type.name}</option>
             ))}
           </select>
@@ -130,6 +164,23 @@ export function ActivityPanel({
         <button type="button" onClick={() => void assign()}>Alocar</button>
         <button type="button" onClick={() => void finish()}>Encerrar</button>
       </div>
+      {isAdmin ? (
+        <div className="stack">
+          <h3>Catálogo de atividades</h3>
+          {types.map((type) => (
+            <div key={type.id}>
+              <span>{type.name} · {type.active ? 'Ativa' : 'Inativa'}</span>
+              <button type="button" onClick={() => editType(type)}>Editar</button>
+            </div>
+          ))}
+          <form onSubmit={(event) => void saveType(event)}>
+            <label>Nome<input value={typeName} onChange={(event) => setTypeName(event.target.value)} /></label>
+            <label><input type="checkbox" checked={typeActive} onChange={(event) => setTypeActive(event.target.checked)} /> Ativa</label>
+            <button type="submit">{editingTypeId ? 'Salvar tipo' : 'Criar tipo'}</button>
+            {editingTypeId ? <button type="button" onClick={() => { setEditingTypeId(''); setTypeName(''); setTypeActive(true); }}>Cancelar</button> : null}
+          </form>
+        </div>
+      ) : null}
       <h3>Histórico</h3>
       <ul className="transfers">
         {history.map((item) => (

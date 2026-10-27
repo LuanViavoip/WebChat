@@ -139,6 +139,27 @@ describe('chat interno', () => {
       if (!visible.ok) return;
       expect(visible.messages.map((message) => message.body)).toContain('um');
       expect(visible.messages.map((message) => message.body)).not.toContain('mensagem posterior');
+
+      const lateMessage = new Promise<boolean>((resolve) => {
+        const onLateMessage = () => {
+          clearTimeout(timer);
+          resolve(true);
+        };
+        const timer = setTimeout(() => {
+          ana.off('internal.message.new', onLateMessage);
+          resolve(false);
+        }, 100);
+        ana.once('internal.message.new', onLateMessage);
+      });
+      const later = messageSendAckSchema.parse(
+        await emitAck(sofia, 'internal.message.send', {
+          conversationId: demoIds.groupSupportA,
+          requestId: randomUUID(),
+          body: 'somente participantes ativos',
+        }),
+      );
+      expect(later.ok).toBe(true);
+      await expect(lateMessage).resolves.toBe(false);
     } finally {
       await emitAck(sofia, 'sector.member.add', { sectorId: demoIds.sectorSupportA, agentId: demoIds.agentAna });
       ana.disconnect();
@@ -175,5 +196,51 @@ describe('chat interno', () => {
     ana.disconnect();
     bruno.disconnect();
     carla.disconnect();
+  });
+
+  it('recupera mais de 100 mensagens em ordem após um cursor estável', async () => {
+    const sofiaLogin = await login(app.baseUrl, demoAccounts.sofia, demoPassword);
+    const sofia = connectSocket(app.baseUrl, '/supervisor', sofiaLogin.token);
+    await waitConnect(sofia);
+    const baseline = internalHistoryAckSchema.parse(
+      await emitAck(sofia, 'internal.history', { conversationId: demoIds.groupSupportA, limit: 1 }),
+    );
+    expect(baseline.ok).toBe(true);
+    if (!baseline.ok) return;
+    const anchor = baseline.messages.at(-1)?.id;
+    if (!anchor) throw new Error('cursor inicial ausente');
+
+    for (let index = 0; index < 205; index += 1) {
+      const sent = messageSendAckSchema.parse(
+        await emitAck(sofia, 'internal.message.send', {
+          conversationId: demoIds.groupSupportA,
+          requestId: randomUUID(),
+          body: `desconectado ${index}`,
+        }),
+      );
+      expect(sent.ok).toBe(true);
+    }
+
+    const recovered: string[] = [];
+    let cursor = anchor;
+    while (true) {
+      const page = internalHistoryAckSchema.parse(
+        await emitAck(sofia, 'internal.history', {
+          conversationId: demoIds.groupSupportA,
+          afterMessageId: cursor,
+          limit: 100,
+        }),
+      );
+      expect(page.ok).toBe(true);
+      if (!page.ok) break;
+      recovered.push(...page.messages.map((message) => message.body));
+      if (page.messages.length < 100) break;
+      cursor = page.messages.at(-1)?.id ?? cursor;
+    }
+    expect(recovered).toHaveLength(205);
+    expect(new Set(recovered).size).toBe(205);
+    expect(recovered).toContain('desconectado 0');
+    expect(recovered).toContain('desconectado 204');
+    sofia.disconnect();
   });
 });

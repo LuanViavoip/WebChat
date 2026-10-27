@@ -23,6 +23,7 @@ import {
   sectorSummarySchema,
 } from '@viavoip/protocol';
 import type { Server } from 'socket.io';
+import type { AgentPrincipal } from '../domain/types.js';
 import { rooms } from './rooms.js';
 
 export type MessageContext = {
@@ -46,6 +47,12 @@ export class SocketHub {
     this.onChange(tenantId);
   }
 
+  private supervisorQueues(tenantId: string, queueIds: string[]) {
+    let target = this.io.of('/supervisor').to(rooms.supervisors(tenantId));
+    for (const queueId of new Set(queueIds)) target = target.to(rooms.supervisorQueue(tenantId, queueId));
+    return target;
+  }
+
   conversationUpdated(tenantId: string, summary: ConversationSummary, previousQueueId: string | null): void {
     this.io.of('/visitor').to(rooms.conversation(tenantId, summary.id)).emit('conversation.updated', summary);
     this.io.of('/agent').to(rooms.queue(tenantId, summary.queueId)).emit('conversation.updated', summary);
@@ -55,7 +62,7 @@ export class SocketHub {
     if (summary.agentId) {
       this.io.of('/agent').to(rooms.agent(tenantId, summary.agentId)).emit('conversation.updated', summary);
     }
-    this.io.of('/supervisor').to(rooms.supervisors(tenantId)).emit('conversation.updated', summary);
+    this.supervisorQueues(tenantId, [summary.queueId, ...(previousQueueId ? [previousQueueId] : [])]).emit('conversation.updated', summary);
     this.touch(tenantId);
   }
 
@@ -66,14 +73,14 @@ export class SocketHub {
     } else if (context.agentId) {
       this.io.of('/agent').to(rooms.agent(tenantId, context.agentId)).emit('message.new', message);
     }
-    this.io.of('/supervisor').to(rooms.supervisors(tenantId)).emit('message.new', message);
+    this.supervisorQueues(tenantId, [context.queueId]).emit('message.new', message);
   }
 
   queuePosition(tenantId: string, position: QueuePosition): void {
     const payload = queuePositionSchema.parse(position);
     this.io.of('/visitor').to(rooms.conversation(tenantId, payload.conversationId)).emit('queue.position', payload);
     this.io.of('/agent').to(rooms.queue(tenantId, payload.queueId)).emit('queue.position', payload);
-    this.io.of('/supervisor').to(rooms.supervisors(tenantId)).emit('queue.position', payload);
+    this.supervisorQueues(tenantId, [payload.queueId]).emit('queue.position', payload);
   }
 
   presenceUpdated(tenantId: string, agentId: string, queueIds: string[], status: PresenceUpdated['status']): void {
@@ -81,14 +88,14 @@ export class SocketHub {
     let broadcast = this.io.of('/agent').to(rooms.agent(tenantId, agentId));
     for (const queueId of queueIds) broadcast = broadcast.to(rooms.queue(tenantId, queueId));
     broadcast.emit('presence.updated', payload);
-    this.io.of('/supervisor').to(rooms.supervisors(tenantId)).emit('presence.updated', payload);
+    // Supervisor snapshots apply sector membership before exposing agent presence.
     this.touch(tenantId);
   }
 
-  messageRead(tenantId: string, read: MessageRead): void {
+  messageRead(tenantId: string, read: MessageRead, queueId: string): void {
     const payload = messageReadSchema.parse(read);
     this.io.of('/agent').to(rooms.agent(tenantId, payload.agentId)).emit('message.read', payload);
-    this.io.of('/supervisor').to(rooms.supervisors(tenantId)).emit('message.read', payload);
+    this.supervisorQueues(tenantId, [queueId]).emit('message.read', payload);
   }
 
   surveyRequired(
@@ -96,11 +103,12 @@ export class SocketHub {
     conversationId: string,
     survey: SurveyPrompt,
     agentId: string | null,
+    queueId: string,
   ): void {
     const payload = { conversationId, survey };
     this.io.of('/visitor').to(rooms.conversation(tenantId, conversationId)).emit('survey.required', payload);
     if (agentId) this.io.of('/agent').to(rooms.agent(tenantId, agentId)).emit('survey.required', payload);
-    this.io.of('/supervisor').to(rooms.supervisors(tenantId)).emit('survey.required', payload);
+    this.supervisorQueues(tenantId, [queueId]).emit('survey.required', payload);
   }
 
   emitToPeople(tenantId: string, agentIds: string[], event: string, payload: unknown): void {
@@ -177,6 +185,47 @@ export class SocketHub {
           }
         }
       }
+    }
+  }
+
+  async reconcileInternalRoom(
+    tenantId: string,
+    conversationId: string,
+    activeAgentIds: string[],
+    getActiveAgentIds: () => Promise<string[]>,
+  ): Promise<void> {
+    const conversationRoom = rooms.internal(tenantId, conversationId);
+    const active = new Set(activeAgentIds);
+    for (const namespace of staffNamespaces) {
+      const current = await this.io.of(namespace).in(conversationRoom).fetchSockets();
+      for (const socket of current) {
+        const principal = socket.data.principal as { agentId?: string } | undefined;
+        if (!principal?.agentId || !active.has(principal.agentId)) socket.leave(conversationRoom);
+      }
+      for (const agentId of active) {
+        const sockets = await this.io.of(namespace).in(rooms.agent(tenantId, agentId)).fetchSockets();
+        for (const socket of sockets) socket.join(conversationRoom);
+      }
+      const verified = new Set(await getActiveAgentIds());
+      const refreshed = await this.io.of(namespace).in(conversationRoom).fetchSockets();
+      for (const socket of refreshed) {
+        const principal = socket.data.principal as { agentId?: string } | undefined;
+        if (!principal?.agentId || !verified.has(principal.agentId)) socket.leave(conversationRoom);
+      }
+    }
+  }
+
+  async reconcileSupervisorQueues(
+    tenantId: string,
+    getQueueIds: (principal: AgentPrincipal) => Promise<string[]>,
+  ): Promise<void> {
+    const prefix = `tenant:${tenantId}:supervisors:queue:`;
+    const sockets = await this.io.of('/supervisor').fetchSockets();
+    for (const socket of sockets) {
+      const principal = socket.data.principal as AgentPrincipal | undefined;
+      if (!principal || principal.tenantId !== tenantId || principal.kind === 'admin') continue;
+      for (const room of socket.rooms) if (room.startsWith(prefix)) socket.leave(room);
+      for (const queueId of await getQueueIds(principal)) socket.join(rooms.supervisorQueue(tenantId, queueId));
     }
   }
 }

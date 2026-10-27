@@ -1,0 +1,236 @@
+{
+  "system": {
+    "name": "ViaVoip Webchat",
+    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 4."
+  },
+  "documents": [
+    {
+      "title": "Visão Geral",
+      "slug": "visao-geral",
+      "type": "module",
+      "children": [
+        {
+          "title": "Visão geral e glossário",
+          "slug": "visao-geral",
+          "type": "page",
+          "file": "html/visao-geral/visao-geral.html"
+        },
+        {
+          "title": "Status de implementação e limitações",
+          "slug": "status",
+          "type": "page",
+          "file": "html/visao-geral/status.html"
+        }
+      ]
+    },
+    {
+      "title": "Arquitetura",
+      "slug": "arquitetura",
+      "type": "module",
+      "children": [
+        {
+          "title": "Visão geral da arquitetura",
+          "slug": "visao-geral",
+          "type": "page",
+          "file": "html/arquitetura/visao-geral.html"
+        },
+        {
+          "title": "Multi-tenancy",
+          "slug": "multi-tenancy",
+          "type": "page",
+          "file": "html/arquitetura/multi-tenancy.html"
+        },
+        {
+          "title": "Servidor WebSocket",
+          "slug": "websocket",
+          "type": "page",
+          "file": "html/arquitetura/websocket.html"
+        },
+        {
+          "title": "Contratos HTTP e WebSocket",
+          "slug": "contratos",
+          "type": "page",
+          "file": "html/arquitetura/contratos.html"
+        },
+        {
+          "title": "Decisões de arquitetura",
+          "slug": "decisoes",
+          "type": "page",
+          "file": "html/arquitetura/decisoes.html"
+        },
+        {
+          "title": "Diagramas",
+          "slug": "diagramas",
+          "type": "page",
+          "file": "html/arquitetura/diagramas.html"
+        }
+      ]
+    },
+    {
+      "title": "Banco de Dados",
+      "slug": "banco-de-dados",
+      "type": "module",
+      "children": [
+        {
+          "title": "Visão geral do banco",
+          "slug": "visao-geral",
+          "type": "page",
+          "file": "html/banco-de-dados/visao-geral.html"
+        },
+        {
+          "title": "Dicionário de dados",
+          "slug": "dicionario-de-dados",
+          "type": "page",
+          "file": "html/banco-de-dados/dicionario-de-dados.html"
+        },
+        {
+          "title": "Relacionamentos",
+          "slug": "relacionamentos",
+          "type": "page",
+          "file": "html/banco-de-dados/relacionamentos.html"
+        }
+      ]
+    },
+    {
+      "title": "Widget ChatWeb",
+      "slug": "widget-chatweb",
+      "type": "module",
+      "children": [
+        {
+          "title": "Widget ChatWeb",
+          "slug": "widget",
+          "type": "page",
+          "file": "html/widget-chatweb/widget.html"
+        }
+      ]
+    },
+    {
+      "title": "Central do Agente",
+      "slug": "central-do-agente",
+      "type": "module",
+      "children": [
+        {
+          "title": "Central do Agente",
+          "slug": "agente",
+          "type": "page",
+          "file": "html/central-do-agente/agente.html"
+        }
+      ]
+    },
+    {
+      "title": "Chat Interno",
+      "slug": "chat-interno",
+      "type": "module",
+      "children": [
+        {
+          "title": "Chat interno",
+          "slug": "chat-interno",
+          "type": "page",
+          "file": "html/chat-interno/chat-interno.html"
+        }
+      ]
+    },
+    {
+      "title": "Setores",
+      "slug": "setores",
+      "type": "module",
+      "children": [
+        {
+          "title": "Setores",
+          "slug": "setores",
+          "type": "page",
+          "file": "html/setores/setores.html"
+        }
+      ]
+    },
+    {
+      "title": "Anúncios",
+      "slug": "anuncios",
+      "type": "module",
+      "children": [
+        {
+          "title": "Quadro de anúncios",
+          "slug": "anuncios",
+          "type": "page",
+          "file": "html/anuncios/anuncios.html"
+        }
+      ]
+    },
+    {
+      "title": "Presença e Atividades",
+      "slug": "presenca-e-atividades",
+      "type": "module",
+      "children": [
+        {
+          "title": "Presença",
+          "slug": "presenca",
+          "type": "page",
+          "file": "html/presenca-e-atividades/presenca.html"
+        },
+        {
+          "title": "Atividades e alocações",
+          "slug": "atividades",
+          "type": "page",
+          "file": "html/presenca-e-atividades/atividades.html"
+        }
+      ]
+    },
+    {
+      "title": "Central do Supervisor",
+      "slug": "central-do-supervisor",
+      "type": "module",
+      "children": [
+        {
+          "title": "Central do Supervisor",
+          "slug": "supervisor",
+          "type": "page",
+          "file": "html/central-do-supervisor/supervisor.html"
+        }
+      ]
+    },
+    {
+      "title": "Integrações",
+      "slug": "integracoes",
+      "type": "module",
+      "children": [
+        {
+          "title": "Integração com o SM",
+          "slug": "sm",
+          "type": "page",
+          "file": "html/integracoes/sm.html"
+        }
+      ]
+    },
+    {
+      "title": "Implantação e Operação",
+      "slug": "implantacao-e-operacao",
+      "type": "module",
+      "children": [
+        {
+          "title": "Ambientes",
+          "slug": "ambientes",
+          "type": "page",
+          "file": "html/implantacao-e-operacao/ambientes.html"
+        },
+        {
+          "title": "Setup local",
+          "slug": "setup-local",
+          "type": "page",
+          "file": "html/implantacao-e-operacao/setup-local.html"
+        },
+        {
+          "title": "Validação",
+          "slug": "validacao",
+          "type": "page",
+          "file": "html/implantacao-e-operacao/validacao.html"
+        },
+        {
+          "title": "Manutenção da documentação",
+          "slug": "manutencao",
+          "type": "page",
+          "file": "html/implantacao-e-operacao/manutencao.html"
+        }
+      ]
+    }
+  ]
+}

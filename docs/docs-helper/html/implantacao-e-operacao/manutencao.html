@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Manutenção da documentação — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="manuten%C3%A7%C3%A3o-da-documenta%C3%A7%C3%A3o" tabindex="-1">Manutenção da documentação</h1>
+<p>Pré-requisitos: Node 22, Docker (usado para um PostgreSQL descartável e para o mermaid-cli 11.4.2 fixado) e acesso à internet na primeira execução (imagens e <code>npm ci</code>). Tudo roda localmente; <strong>nenhum script acessa produção, Supabase ou o Docs Helper</strong>.</p>
+<h2 id="fluxo" tabindex="-1">Fluxo</h2>
+<ol>
+<li><strong>Alterar Markdown</strong> em <code>docs/</code> (não edite <code>database/data-dictionary.md</code> nem <code>docs/diagrams/database-erd*.mmd</code>, que são gerados).</li>
+<li><strong>Atualizar Mermaid</strong> em <code>docs/diagrams/*.mmd</code>. Os ERDs e o dicionário mudam alterando <code>scripts/docs/gen-database.mjs</code> ou as migrations.</li>
+<li><strong>Schema:</strong> <code>scripts/docs/introspect-schema.sh</code> aplica <code>apps/server/migrations/*.sql</code> em um Postgres descartável e extrai o catálogo.</li>
+<li><strong>Renderizar:</strong> <code>scripts/docs/render-diagrams.sh</code> gera <code>docs/diagrams/rendered/*.svg|png</code>; falha se algum <code>.mmd</code> não renderizar. Abra os PNGs e confira a legibilidade.</li>
+<li><strong>Regenerar HTML, índice e ZIP:</strong> <code>node scripts/docs/build.mjs</code>. A hierarquia (Sistema → Módulo → Página) fica em <code>scripts/docs/pages.mjs</code>; para incluir uma página nova, adicione-a lá.</li>
+<li><strong>Validar:</strong> <code>node scripts/docs/validate.mjs</code> (índice, limites, links, âncoras, imagens, sanitização e correspondência tabelas/eventos × código).</li>
+</ol>
+<p>Tudo de uma vez: <code>scripts/docs/run-all.sh</code>.</p>
+<ol start="7">
+<li><strong>Versionar:</strong> commit na branch <code>docs/webchat-technical-documentation</code> (ou derivada). Atualize o hash em <code>docs/README.md</code>, <code>docs/STATUS.md</code>, <code>docs/docs-helper/VALIDATION.md</code> e <code>CHANGELOG.md</code> para o commit do código documentado. Sem force push; integração por Pull Request.</li>
+<li><strong>Reimportar no Docs Helper (manual):</strong> somente após resolver o bloqueio de segurança em docs-helper/PUBLICATION-BLOCKER.md. Em <code>/admin/import</code>, envie <code>docs/docs-helper/dist/viavoip-webchat-docs.zip</code>, revise o preview (adicionados/alterados/removidos, avisos, erros) e confirme. A reimportação <strong>substitui a árvore inteira</strong> do sistema; escolha o sistema de destino existente em vez de criar outro.</li>
+<li><strong>Verificar a publicação:</strong> navegar pela árvore, abrir uma página de cada módulo, conferir imagens (diagramas), tabelas, links entre páginas e a busca por um termo conhecido (ex.: <code>conversations_one_open_per_visitor</code>). Registrar versão e data no <code>CHANGELOG.md</code>.</li>
+</ol>
+<h2 id="quando-atualizar" tabindex="-1">Quando atualizar</h2>
+<p>Qualquer mudança em migrations, <code>packages/protocol/src/events.ts</code>, regras de acesso (<code>domain/access.ts</code>, módulos de setor/anúncio/atividade), configuração de deploy ou no estado dos achados F4-xx. O <code>validate.mjs</code> acusa tabelas/eventos novos ou removidos que a documentação não acompanhe, mas <strong>não</strong> valida texto descritivo: revise <a href="../visao-geral/status.html">STATUS.md</a> manualmente.</p>
+<h2 id="limita%C3%A7%C3%B5es-do-pacote" tabindex="-1">Limitações do pacote</h2>
+<p>O formato <code>docs-index.json</code> do Docs Helper é <strong>provisório</strong> (comentado no código dele) e o validador replica suas regras atuais; se o importador mudar, ajuste <code>build.mjs</code>/<code>validate.mjs</code>. <code>contentUrl</code> remoto não é suportado; todo conteúdo vai como arquivo no ZIP. Diagramas vão como PNG (o SVG é aceito pelo importador, mas PNG é o formato conservador).</p>
+</article>
+</body>
+</html>

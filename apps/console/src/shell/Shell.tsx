@@ -138,7 +138,7 @@ export function Shell({ token, profile, onLogout }: { token: string; profile: Au
       {section === 'announcements' ? (
         <AnnouncementsPanel socket={socket} canPublish={staff} isAdmin={profile.role === 'admin'} />
       ) : null}
-      {section === 'activity' ? <ActivityPanel socket={socket} selfId={profile.selfId} canAssign={staff} /> : null}
+      {section === 'activity' ? <ActivityPanel socket={socket} selfId={profile.selfId} canAssign={staff} isAdmin={profile.role === 'admin'} /> : null}
       {section === 'overview' ? <OverviewPanel socket={socket} mode="overview" /> : null}
       {section === 'agents' ? <OverviewPanel socket={socket} mode="agents" /> : null}
     </main>

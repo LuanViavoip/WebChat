@@ -8,6 +8,8 @@ export type AppConfig = {
   seed: boolean;
   sessionTtlHours: number;
   sessionCreateLimit: number;
+  loginLimit: number;
+  loginRateLimitSecret: string;
   messageLimit: number;
   rateWindowMs: number;
   presenceStaleMs: number;
@@ -33,12 +35,17 @@ function integer(env: NodeJS.ProcessEnv, name: string, fallback: number): number
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const databaseUrl = required(env, 'DATABASE_URL');
+  const loginRateLimitSecret = required(env, 'LOGIN_RATE_LIMIT_SECRET');
+  if (loginRateLimitSecret.length < 32) {
+    throw new Error('Variável LOGIN_RATE_LIMIT_SECRET deve ter ao menos 32 caracteres');
+  }
   const cors = (env.CORS_ORIGINS ?? 'http://localhost:3000,http://127.0.0.1:3000')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
   return {
-    databaseUrl: required(env, 'DATABASE_URL'),
+    databaseUrl,
     migrateDatabaseUrl: required(env, 'MIGRATE_DATABASE_URL'),
     redisUrl: env.REDIS_URL?.trim() || null,
     smAdapter: required(env, 'SM_ADAPTER'),
@@ -47,6 +54,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     seed: env.SEED === 'true',
     sessionTtlHours: integer(env, 'SESSION_TTL_HOURS', 12),
     sessionCreateLimit: integer(env, 'SESSION_CREATE_LIMIT', 1000),
+    loginLimit: integer(env, 'LOGIN_LIMIT', 20),
+    loginRateLimitSecret,
     messageLimit: integer(env, 'MESSAGE_LIMIT', 1000),
     rateWindowMs: integer(env, 'RATE_WINDOW_MS', 60_000),
     presenceStaleMs: integer(env, 'PRESENCE_STALE_MS', 45_000),

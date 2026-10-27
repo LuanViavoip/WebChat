@@ -29,7 +29,7 @@ import type { AnnouncementService } from '../modules/announcements.js';
 import type { InternalChatService } from '../modules/internal-chat.js';
 import type { SectorService } from '../modules/sectors.js';
 import type { SupervisorService } from '../modules/supervisor.js';
-import { bindSocket } from './bind.js';
+import { afterSessionValidation, bindSocket, joinSessionRoom } from './bind.js';
 import { joinOwnRooms, staffHandlers, type StaffDeps } from './staff-channel.js';
 import { SocketHub } from './hub.js';
 import type { SlidingWindowLimiter } from '../http/rate-limit.js';
@@ -78,8 +78,10 @@ function registerVisitor(namespace: Namespace, deps: RealtimeDeps): void {
 
   namespace.on('connection', (socket) => {
     const principal = socket.data.principal as VisitorPrincipal;
-    void deps.conversations.openConversation(principal).then((conversation) => {
-      if (conversation) socket.join(rooms.conversation(principal.tenantId, conversation.id));
+    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.isSessionActive(principal));
+    void afterSessionValidation(socket, sessionReady, async () => {
+      const conversation = await deps.conversations.openConversation(principal);
+      if (conversation && socket.connected) socket.join(rooms.conversation(principal.tenantId, conversation.id));
     }).catch((error: unknown) => {
       deps.logger.error({ err: error }, 'falha ao entrar na conversa aberta');
     });
@@ -160,10 +162,12 @@ function registerAgent(namespace: Namespace, deps: RealtimeDeps): void {
 
   namespace.on('connection', (socket) => {
     const principal = socket.data.principal as AgentPrincipal;
-    socket.join(rooms.agent(principal.tenantId, principal.agentId));
-    const ready = prepareAgent(socket, principal, deps).then(() =>
-      joinOwnRooms(deps.internalChat, socket, principal),
-    );
+    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.isSessionActive(principal));
+    const ready = afterSessionValidation(socket, sessionReady, async () => {
+      socket.join(rooms.agent(principal.tenantId, principal.agentId));
+      await prepareAgent(socket, principal, deps);
+      if (socket.connected) await joinOwnRooms(deps.internalChat, socket, principal);
+    });
     socket.on('disconnect', () => {
       void ready
         .catch(() => undefined)
@@ -247,7 +251,13 @@ function registerAgent(namespace: Namespace, deps: RealtimeDeps): void {
             }),
           );
           deps.hub.conversationUpdated(principal.tenantId, result.conversation, null);
-          deps.hub.surveyRequired(principal.tenantId, result.conversation.id, result.survey, principal.agentId);
+          deps.hub.surveyRequired(
+            principal.tenantId,
+            result.conversation.id,
+            result.survey,
+            principal.agentId,
+            result.conversation.queueId,
+          );
           await publishAgentPresence(deps, principal.tenantId, principal.agentId);
         }
         return { conversation: result.conversation, survey: result.survey };
@@ -281,11 +291,12 @@ function registerAgent(namespace: Namespace, deps: RealtimeDeps): void {
         const input = messageReadCommandSchema.parse(payload);
         const result = await deps.conversations.markRead(principal, input.conversationId, input.messageId);
         if (result.advanced) {
+          const queueId = await deps.conversations.queueIdForConversation(principal, input.conversationId);
           deps.hub.messageRead(principal.tenantId, {
             conversationId: input.conversationId,
             agentId: principal.agentId,
             messageId: input.messageId,
-          });
+          }, queueId);
         }
         return {
           conversationId: input.conversationId,
@@ -315,11 +326,21 @@ function registerSupervisor(namespace: Namespace, deps: RealtimeDeps): void {
 
   namespace.on('connection', (socket) => {
     const principal = socket.data.principal as AgentPrincipal;
-    socket.join(rooms.supervisors(principal.tenantId));
-    socket.join(rooms.agent(principal.tenantId, principal.agentId));
-    const ready = prepareStaff(socket, principal, deps).then(() =>
-      joinOwnRooms(deps.internalChat, socket, principal),
-    );
+    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.isSessionActive(principal));
+    const ready = afterSessionValidation(socket, sessionReady, async () => {
+      if (principal.kind === 'admin') {
+        socket.join(rooms.supervisors(principal.tenantId));
+      } else {
+        const queueIds = await deps.conversations.queueIdsForSupervisor(principal);
+        for (const queueId of queueIds) socket.join(rooms.supervisorQueue(principal.tenantId, queueId));
+      }
+      socket.join(rooms.agent(principal.tenantId, principal.agentId));
+      await prepareStaff(socket, principal, deps);
+      if (socket.connected) await joinOwnRooms(deps.internalChat, socket, principal);
+    }).catch((error: unknown) => {
+      deps.logger.error({ err: error }, 'falha ao preparar socket do supervisor');
+      socket.disconnect(true);
+    });
     socket.on('disconnect', () => {
       void ready
         .catch(() => undefined)
@@ -338,15 +359,23 @@ function registerSupervisor(namespace: Namespace, deps: RealtimeDeps): void {
         });
     });
     bindSocket(socket, asSchemas(supervisorClientSchemas), {
-      'conversation.list': async () => ({
-        conversations: await deps.conversations.listForSupervisor(principal),
-      }),
+      'conversation.list': async () => {
+        await ready;
+        return { conversations: await deps.conversations.listForSupervisor(principal) };
+      },
       'conversation.watch': async (payload) => {
+        await ready;
         const input = conversationActionSchema.parse(payload);
         return deps.conversations.history(principal, input.conversationId, {}, 'conversation.watch');
       },
-      'conversation.transfer': (payload) => transfer(deps, principal, payload),
-      'history.sync': async (payload) => syncHistory(deps, principal, payload),
+      'conversation.transfer': async (payload) => {
+        await ready;
+        return transfer(deps, principal, payload);
+      },
+      'history.sync': async (payload) => {
+        await ready;
+        return syncHistory(deps, principal, payload);
+      },
       'presence.heartbeat': async () => {
         await ready;
         const change = await deps.presence.heartbeat(principal, socket.id);
@@ -413,6 +442,7 @@ async function transfer(deps: RealtimeDeps, principal: AgentPrincipal, payload: 
 
 function staffDeps(deps: RealtimeDeps): StaffDeps {
   return {
+    conversations: deps.conversations,
     sectors: deps.sectors,
     internalChat: deps.internalChat,
     announcements: deps.announcements,

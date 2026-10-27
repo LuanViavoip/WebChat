@@ -1,9 +1,11 @@
 import { conversationAckSchema, historySyncAckSchema, messageSendAckSchema } from '@viavoip/protocol';
 import { randomUUID } from 'node:crypto';
 import { io } from 'socket.io-client';
+import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { demoAccounts, demoIds, demoPassword, demoSites } from '../src/demo/ids.js';
-import { emitAck, login, openVisitor, startConversation, startTestApp, type TestApp } from './helpers.js';
+import { SharedLoginRateLimiter } from '../src/auth/login-rate-limit.js';
+import { connectSocket, emitAck, login, openVisitor, postJson, startConversation, startTestApp, waitConnect, type TestApp } from './helpers.js';
 
 let app: TestApp;
 
@@ -16,6 +18,45 @@ afterAll(async () => {
 });
 
 describe('eventos sem autorização', () => {
+  it('compartilha o contador de login entre instâncias', async () => {
+    const firstReplica = new SharedLoginRateLimiter(app.pool, 60_000);
+    const secondReplica = new SharedLoginRateLimiter(app.pool, 60_000);
+    const ipKey = createHash('sha256').update(`ip:${randomUUID()}`).digest('hex');
+    const accountKey = createHash('sha256').update(`account:${randomUUID()}`).digest('hex');
+    expect(await firstReplica.allow([ipKey, accountKey], 2)).toBe(true);
+    expect(await secondReplica.allow([ipKey, accountKey], 2)).toBe(true);
+    expect(await firstReplica.allow([ipKey, accountKey], 2)).toBe(false);
+  });
+
+  it('encerra todas as conexões da sessão no logout e rejeita nova conexão', async () => {
+    const session = await login(app.baseUrl, demoAccounts.ana, demoPassword);
+    const socket = connectSocket(app.baseUrl, '/agent', session.token);
+    await waitConnect(socket);
+    const disconnected = new Promise<void>((resolve) => socket.once('disconnect', () => resolve()));
+    const logout = await postJson(`${app.baseUrl}/auth/logout`, {}, session.token);
+    expect(logout.status).toBe(200);
+    await expect(disconnected).resolves.toBeUndefined();
+    await expect(rejectedConnect('/agent', session.token)).resolves.toMatchObject({ message: expect.stringMatching(/unauthorized/i) });
+  });
+
+  it('não deixa handshake concorrente sobreviver ao logout', async () => {
+    const session = await login(app.baseUrl, demoAccounts.ana, demoPassword);
+    const socket = connectSocket(app.baseUrl, '/agent', session.token);
+    const terminal = new Promise<void>((resolve) => {
+      socket.once('disconnect', () => resolve());
+      socket.once('connect_error', () => resolve());
+    });
+    const logout = await postJson(`${app.baseUrl}/auth/logout`, {}, session.token);
+    expect(logout.status).toBe(200);
+    const ended = await Promise.race([
+      terminal.then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1000)),
+    ]);
+    expect(ended).toBe(true);
+    expect(socket.connected).toBe(false);
+    socket.disconnect();
+  });
+
   it('recusa claim de visitante, canal trocado e leitura cruzada', async () => {
     const visitor = await openVisitor(app.baseUrl, demoSites.a);
     const started = await startConversation(visitor.socket, demoIds.queueSupportA);

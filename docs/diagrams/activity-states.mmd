@@ -1,0 +1,5 @@
+stateDiagram-v2
+  [*] --> active: activity.assign (tipo ativo; encerra a anterior)
+  active --> finished: activity.finish
+  active --> finished: nova activity.assign do mesmo agente
+  finished --> [*]

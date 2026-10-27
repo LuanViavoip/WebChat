@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Diagramas — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="diagramas" tabindex="-1">Diagramas</h1>
+<p>Fontes editáveis em Mermaid (<code>*.mmd</code>); imagens em <code>rendered/</code> (SVG e PNG), geradas por <code>scripts/docs/render-diagrams.sh</code>. Os ERDs são gerados por <code>scripts/docs/gen-database.mjs</code>: não os edite à mão.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Diagrama</th>
+<th>Fonte</th>
+<th>Imagem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Contexto do sistema (C4 nível 1)</td>
+<td><code>context.mmd</code></td>
+<td><img src="../../assets/context.png" alt="Contexto"></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Containers (C4 nível 2)</td>
+<td><code>containers.mmd</code></td>
+<td><img src="../../assets/containers.png" alt="Containers"></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Componentes do backend</td>
+<td><code>backend-components.mmd</code></td>
+<td><img src="../../assets/backend-components.png" alt="Componentes"></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Sequência do atendimento externo</td>
+<td><code>external-chat-sequence.mmd</code></td>
+<td><img src="../../assets/external-chat-sequence.png" alt="Atendimento"></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Sequência do chat interno</td>
+<td><code>internal-chat-sequence.mmd</code></td>
+<td><img src="../../assets/internal-chat-sequence.png" alt="Chat interno"></td>
+</tr>
+<tr>
+<td>6</td>
+<td>DER geral e por domínio</td>
+<td><code>database-erd*.mmd</code></td>
+<td><img src="../../assets/database-erd.png" alt="DER"></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Estados: atendimento, presença, atividade</td>
+<td><code>attendance-states.mmd</code>, <code>presence-states.mmd</code>, <code>activity-states.mmd</code></td>
+<td><img src="../../assets/attendance-states.png" alt="Atendimento"></td>
+</tr>
+<tr>
+<td>8</td>
+<td>Infraestrutura</td>
+<td><code>infrastructure.mmd</code></td>
+<td><img src="../../assets/infrastructure.png" alt="Infra"></td>
+</tr>
+</tbody>
+</table>
+<p>Fonte do DER: schema real extraído das migrations <code>001–007</code> (ver <a href="../banco-de-dados/visao-geral.html">database/overview.md</a>). O DER geral é largo por ter 35 tabelas; use os cinco por domínio para leitura.</p>
+</article>
+</body>
+</html>

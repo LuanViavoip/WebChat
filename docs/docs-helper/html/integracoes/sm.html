@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Integração com o SM — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="integra%C3%A7%C3%A3o-com-o-sm" tabindex="-1">Integração com o SM</h1>
+<p><strong>Estado:</strong> o SM <strong>não possui contrato definitivo</strong>. O Webchat é independente dele nesta fase. Nada aqui descreve endpoints do SM: apenas a interface interna do Webchat.</p>
+<h2 id="interface-implementada-(packages%2Fsm-adapter)" tabindex="-1">Interface implementada (<code>packages/sm-adapter</code>)</h2>
+<p><code>SMAdapter</code> tem cinco métodos, todos <code>Promise&lt;void&gt;</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Método</th>
+<th>Referência recebida (<code>SmConversationRef</code>)</th>
+<th>Quando é chamado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>onConversationQueued</code></td>
+<td><code>tenantId, conversationId, siteId, queueId</code></td>
+<td>conversa entra na fila</td>
+</tr>
+<tr>
+<td><code>onConversationAssigned</code></td>
+<td>+ <code>agentId</code></td>
+<td>agente assume</td>
+</tr>
+<tr>
+<td><code>onConversationReleased</code></td>
+<td>+ <code>agentId</code></td>
+<td>agente devolve à fila</td>
+</tr>
+<tr>
+<td><code>onConversationTransferred</code></td>
+<td>+ <code>fromQueueId, agentId</code></td>
+<td>transferência para outra fila</td>
+</tr>
+<tr>
+<td><code>onConversationClosed</code></td>
+<td>+ <code>agentId, dispositionId</code></td>
+<td>encerramento com classificação</td>
+</tr>
+</tbody>
+</table>
+<p>Pontos de atenção documentados pelo código:</p>
+<ul>
+<li>As chamadas ocorrem <strong>após o commit</strong>, dentro de <code>safeNotify</code>: falha é registrada e <strong>ignorada</strong>; não há outbox nem retry (F4-07).</li>
+<li><code>conversation.leave</code> (visitante sai da fila) e o fechamento final pela pesquisa <strong>não</strong> notificam o SM.</li>
+<li>Em transferência feita por supervisor/admin, o <code>agentId</code> enviado é o do supervisor.</li>
+</ul>
+<h2 id="f%C3%A1brica-e-mocksmadapter" tabindex="-1">Fábrica e MockSMAdapter</h2>
+<p><code>createSMAdapter('mock')</code> devolve o <code>MockSMAdapter</code>, que guarda clones de cada chamada em <code>calls[]</code> e não abre conexão. Qualquer outro valor de <code>SM_ADAPTER</code> lança <code>PendingSmContractError</code> e <strong>aborta a subida do servidor</strong>. <code>SM_ADAPTER</code> é obrigatório.</p>
+<h2 id="responsabilidades-do-adaptador-(futuro)" tabindex="-1">Responsabilidades do adaptador (futuro)</h2>
+<p>Traduzir eventos de ciclo de vida do atendimento para o SM, sem que o Webchat dependa do SM para atender. O adaptador <strong>não</strong> deve bloquear o commit do atendimento.</p>
+<h2 id="depend%C3%AAncias-pendentes-e-perguntas-em-aberto" tabindex="-1">Dependências pendentes e perguntas em aberto</h2>
+<p>Reproduzidas de sm-integration.md:</p>
+<ol>
+<li>Fila, agente e classificação originam-se no SM ou no Webchat?</li>
+<li>Quais identificadores estáveis serão trocados?</li>
+<li>Transferência e devolução geram eventos no SM?</li>
+<li>Sair da fila cancela algo no SM?</li>
+<li>A pesquisa de satisfação permanece no Webchat?</li>
+<li>Existe presença no SM?</li>
+<li>O limite de atendimentos simultâneos vem do SM?</li>
+<li>Confirmações de leitura são espelhadas?</li>
+</ol>
+<h2 id="requisitos-para-a-integra%C3%A7%C3%A3o-real" tabindex="-1">Requisitos para a integração real</h2>
+<p>Contrato (autenticação, versão, formato); mapeamento de filas/agentes/classificações; entrega confiável (outbox transacional + consumo idempotente, F4-07); política de falha e reprocessamento; testes de contrato; segredos fora do repositório.</p>
+</article>
+</body>
+</html>

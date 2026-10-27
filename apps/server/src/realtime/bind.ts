@@ -2,6 +2,44 @@ import type { ZodType } from 'zod';
 import type { Socket } from 'socket.io';
 import { DomainError } from '../domain/errors.js';
 import type { AppLogger } from './logger.js';
+import { rooms } from './rooms.js';
+
+export function joinSessionRoom(
+  socket: Socket,
+  principal: { sessionId: string; expiresAt: string },
+  validate: () => Promise<boolean>,
+): Promise<boolean> {
+  socket.join(rooms.session(principal.sessionId));
+  const sessionValidation = validate().catch(() => false);
+  socket.data.sessionValidation = sessionValidation;
+  void sessionValidation.then((active) => {
+    if (!active) socket.disconnect(true);
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const disconnectAtExpiry = () => {
+    const remaining = Date.parse(principal.expiresAt) - Date.now();
+    if (remaining <= 0) {
+      socket.disconnect(true);
+      return;
+    }
+    timer = setTimeout(disconnectAtExpiry, Math.min(remaining, 2_147_000_000));
+    timer.unref?.();
+  };
+  disconnectAtExpiry();
+  socket.once('disconnect', () => {
+    if (timer) clearTimeout(timer);
+  });
+  return sessionValidation;
+}
+
+export async function afterSessionValidation<T>(
+  socket: Socket,
+  sessionReady: Promise<boolean>,
+  enterDataRooms: () => Promise<T> | T,
+): Promise<T | undefined> {
+  if (!(await sessionReady) || !socket.connected) return undefined;
+  return enterDataRooms();
+}
 
 export function bindSocket(
   socket: Socket,
@@ -30,6 +68,18 @@ export function bindSocket(
       return;
     }
     try {
+      const sessionValidation = socket.data.sessionValidation as Promise<boolean> | undefined;
+      if (sessionValidation && !(await sessionValidation)) {
+        socket.disconnect(true);
+        respond({ ok: false, error: { code: 'unauthorized', message: 'Sessão revogada' } });
+        return;
+      }
+      const principal = socket.data.principal as { expiresAt?: string } | undefined;
+      if (principal?.expiresAt && Date.parse(principal.expiresAt) <= Date.now()) {
+        socket.disconnect(true);
+        respond({ ok: false, error: { code: 'unauthorized', message: 'Sessão expirada' } });
+        return;
+      }
       const result = await handler(parsed.data);
       respond({ ok: true, ...result });
     } catch (error) {

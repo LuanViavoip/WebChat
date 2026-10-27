@@ -1,0 +1,3988 @@
+{
+    "columns": [
+        {
+            "t": "activity_assignments",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "activity_assignments",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_assignments",
+            "n": 3,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_assignments",
+            "n": 4,
+            "col": "activity_type_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_assignments",
+            "n": 5,
+            "col": "assigned_by",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_assignments",
+            "n": 6,
+            "col": "started_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "activity_assignments",
+            "n": 7,
+            "col": "ended_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "activity_assignments",
+            "n": 8,
+            "col": "status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_types",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "activity_types",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_types",
+            "n": 3,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "activity_types",
+            "n": 4,
+            "col": "active",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "true"
+        },
+        {
+            "t": "activity_types",
+            "n": 5,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "agent_connections",
+            "n": 1,
+            "col": "socket_id",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_connections",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_connections",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_connections",
+            "n": 4,
+            "col": "connected_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "agent_connections",
+            "n": 5,
+            "col": "last_heartbeat_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "agent_presence",
+            "n": 1,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_presence",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_presence",
+            "n": 3,
+            "col": "desired_status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_presence",
+            "n": 4,
+            "col": "updated_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "agent_queues",
+            "n": 1,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_queues",
+            "n": 2,
+            "col": "queue_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agent_queues",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "agents",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 3,
+            "col": "email",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 4,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 5,
+            "col": "password_hash",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 6,
+            "col": "role",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 7,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "agents",
+            "n": 8,
+            "col": "can_change_own_activity",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "false"
+        },
+        {
+            "t": "announcement_reads",
+            "n": 1,
+            "col": "announcement_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_reads",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_reads",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_reads",
+            "n": 4,
+            "col": "read_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 3,
+            "col": "announcement_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 4,
+            "col": "editor_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 5,
+            "col": "title",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 6,
+            "col": "body",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_revisions",
+            "n": 7,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "announcement_sectors",
+            "n": 1,
+            "col": "announcement_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_sectors",
+            "n": 2,
+            "col": "sector_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcement_sectors",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "announcements",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 3,
+            "col": "author_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 4,
+            "col": "title",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 5,
+            "col": "body",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 6,
+            "col": "pinned",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "false"
+        },
+        {
+            "t": "announcements",
+            "n": 7,
+            "col": "audience",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 8,
+            "col": "published_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "announcements",
+            "n": 9,
+            "col": "expires_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 10,
+            "col": "archived_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "announcements",
+            "n": 11,
+            "col": "updated_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "audit_events",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "audit_events",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "audit_events",
+            "n": 3,
+            "col": "actor_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "audit_events",
+            "n": 4,
+            "col": "action",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "audit_events",
+            "n": 5,
+            "col": "resource_type",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "audit_events",
+            "n": 6,
+            "col": "resource_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "audit_events",
+            "n": 7,
+            "col": "metadata",
+            "typ": "jsonb",
+            "udt": "jsonb",
+            "len": null,
+            "nullable": "NO",
+            "def": "'{}'::jsonb"
+        },
+        {
+            "t": "audit_events",
+            "n": 8,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "auth_sessions",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "auth_sessions",
+            "n": 2,
+            "col": "token_hash",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "auth_sessions",
+            "n": 3,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "auth_sessions",
+            "n": 4,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "auth_sessions",
+            "n": 5,
+            "col": "role",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "auth_sessions",
+            "n": 6,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "auth_sessions",
+            "n": 7,
+            "col": "expires_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_events",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "conversation_events",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_events",
+            "n": 3,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_events",
+            "n": 4,
+            "col": "type",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_events",
+            "n": 5,
+            "col": "payload",
+            "typ": "jsonb",
+            "udt": "jsonb",
+            "len": null,
+            "nullable": "NO",
+            "def": "'{}'::jsonb"
+        },
+        {
+            "t": "conversation_events",
+            "n": 6,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "conversation_reads",
+            "n": 1,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_reads",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_reads",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_reads",
+            "n": 4,
+            "col": "last_read_message_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversation_reads",
+            "n": 5,
+            "col": "read_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "conversations",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "conversations",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 3,
+            "col": "site_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 4,
+            "col": "queue_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 5,
+            "col": "visitor_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 6,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 7,
+            "col": "status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 8,
+            "col": "disposition_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 9,
+            "col": "version",
+            "typ": "integer",
+            "udt": "int4",
+            "len": null,
+            "nullable": "NO",
+            "def": "0"
+        },
+        {
+            "t": "conversations",
+            "n": 10,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "conversations",
+            "n": 11,
+            "col": "assigned_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 12,
+            "col": "ended_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "conversations",
+            "n": 13,
+            "col": "queued_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "dispositions",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "dispositions",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "dispositions",
+            "n": 3,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "dispositions",
+            "n": 4,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "internal_conversations",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "internal_conversations",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_conversations",
+            "n": 3,
+            "col": "kind",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_conversations",
+            "n": 4,
+            "col": "sector_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "internal_conversations",
+            "n": 5,
+            "col": "pair_key",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "internal_conversations",
+            "n": 6,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "internal_messages",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "internal_messages",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_messages",
+            "n": 3,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_messages",
+            "n": 4,
+            "col": "sender_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_messages",
+            "n": 5,
+            "col": "request_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_messages",
+            "n": 6,
+            "col": "body",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_messages",
+            "n": 7,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "internal_participants",
+            "n": 1,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_participants",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_participants",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_participants",
+            "n": 4,
+            "col": "joined_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "internal_participants",
+            "n": 5,
+            "col": "removed_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "internal_reads",
+            "n": 1,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_reads",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_reads",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_reads",
+            "n": 4,
+            "col": "last_read_message_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "internal_reads",
+            "n": 5,
+            "col": "read_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "messages",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "messages",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "messages",
+            "n": 3,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "messages",
+            "n": 4,
+            "col": "sender_type",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "messages",
+            "n": 5,
+            "col": "sender_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "messages",
+            "n": 6,
+            "col": "request_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "messages",
+            "n": 7,
+            "col": "body",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "messages",
+            "n": 8,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "presence_intervals",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "presence_intervals",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "presence_intervals",
+            "n": 3,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "presence_intervals",
+            "n": 4,
+            "col": "status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "presence_intervals",
+            "n": 5,
+            "col": "started_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "presence_intervals",
+            "n": 6,
+            "col": "ended_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "queues",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "queues",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "queues",
+            "n": 3,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "queues",
+            "n": 4,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "schema_migrations",
+            "n": 1,
+            "col": "version",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "schema_migrations",
+            "n": 2,
+            "col": "applied_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "sector_members",
+            "n": 1,
+            "col": "sector_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_members",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_members",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_members",
+            "n": 4,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "sector_members",
+            "n": 5,
+            "col": "removed_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "sector_queues",
+            "n": 1,
+            "col": "sector_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_queues",
+            "n": 2,
+            "col": "queue_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_queues",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_supervisors",
+            "n": 1,
+            "col": "sector_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_supervisors",
+            "n": 2,
+            "col": "agent_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_supervisors",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sector_supervisors",
+            "n": 4,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "sector_supervisors",
+            "n": 5,
+            "col": "removed_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "sectors",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "sectors",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sectors",
+            "n": 3,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sectors",
+            "n": 4,
+            "col": "description",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "''::text"
+        },
+        {
+            "t": "sectors",
+            "n": 5,
+            "col": "active",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "true"
+        },
+        {
+            "t": "sectors",
+            "n": 6,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "site_queues",
+            "n": 1,
+            "col": "site_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "site_queues",
+            "n": 2,
+            "col": "queue_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "site_queues",
+            "n": 3,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sites",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "sites",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sites",
+            "n": 3,
+            "col": "public_id",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sites",
+            "n": 4,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sites",
+            "n": 5,
+            "col": "allowed_origins",
+            "typ": "ARRAY",
+            "udt": "_text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'{}'::text[]"
+        },
+        {
+            "t": "sites",
+            "n": 6,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "sites",
+            "n": 7,
+            "col": "primary_color",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'#0c7c73'::text"
+        },
+        {
+            "t": "sites",
+            "n": 8,
+            "col": "logo_url",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "sites",
+            "n": 9,
+            "col": "welcome_message",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'Ol\u00e1. Escolha uma fila para come\u00e7ar.'::text"
+        },
+        {
+            "t": "sites",
+            "n": 10,
+            "col": "require_visitor_name",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "false"
+        },
+        {
+            "t": "sites",
+            "n": 11,
+            "col": "accepting_chats",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "true"
+        },
+        {
+            "t": "survey_definitions",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "survey_definitions",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "survey_definitions",
+            "n": 3,
+            "col": "prompt",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "survey_definitions",
+            "n": 4,
+            "col": "scale",
+            "typ": "integer",
+            "udt": "int4",
+            "len": null,
+            "nullable": "NO",
+            "def": "5"
+        },
+        {
+            "t": "survey_definitions",
+            "n": 5,
+            "col": "comment_enabled",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "true"
+        },
+        {
+            "t": "survey_definitions",
+            "n": 6,
+            "col": "active",
+            "typ": "boolean",
+            "udt": "bool",
+            "len": null,
+            "nullable": "NO",
+            "def": "true"
+        },
+        {
+            "t": "survey_definitions",
+            "n": 7,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "survey_responses",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "survey_responses",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "survey_responses",
+            "n": 3,
+            "col": "conversation_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "survey_responses",
+            "n": 4,
+            "col": "survey_definition_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "survey_responses",
+            "n": 5,
+            "col": "score",
+            "typ": "integer",
+            "udt": "int4",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "survey_responses",
+            "n": 6,
+            "col": "comment",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "survey_responses",
+            "n": 7,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "tenants",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "tenants",
+            "n": 2,
+            "col": "slug",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "tenants",
+            "n": 3,
+            "col": "name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "tenants",
+            "n": 4,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "tenants",
+            "n": 5,
+            "col": "max_concurrent_assignments",
+            "typ": "integer",
+            "udt": "int4",
+            "len": null,
+            "nullable": "NO",
+            "def": "3"
+        },
+        {
+            "t": "tenants",
+            "n": 6,
+            "col": "internal_history_policy",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'retain_until_removed'::text"
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 2,
+            "col": "token_hash",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 3,
+            "col": "visitor_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 4,
+            "col": "site_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 5,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 6,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "visitor_sessions",
+            "n": 7,
+            "col": "expires_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitors",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "visitors",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitors",
+            "n": 3,
+            "col": "site_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "visitors",
+            "n": 4,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "visitors",
+            "n": 5,
+            "col": "display_name",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        }
+    ],
+    "constraints": [
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_activity_type_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (activity_type_id) REFERENCES activity_types(id)"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_assigned_by_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (assigned_by) REFERENCES agents(id)"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_check",
+            "kind": "c",
+            "def": "CHECK ((((status = 'active'::text) AND (ended_at IS NULL)) OR ((status = 'finished'::text) AND (ended_at IS NOT NULL))))"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_status_check",
+            "kind": "c",
+            "def": "CHECK ((status = ANY (ARRAY['active'::text, 'finished'::text])))"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "activity_types",
+            "name": "activity_types_name_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
+        },
+        {
+            "t": "activity_types",
+            "name": "activity_types_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "activity_types",
+            "name": "activity_types_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "activity_types",
+            "name": "activity_types_tenant_id_name_key",
+            "kind": "u",
+            "def": "UNIQUE (tenant_id, name)"
+        },
+        {
+            "t": "agent_connections",
+            "name": "agent_connections_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "agent_connections",
+            "name": "agent_connections_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (socket_id)"
+        },
+        {
+            "t": "agent_connections",
+            "name": "agent_connections_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "agent_presence",
+            "name": "agent_presence_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "agent_presence",
+            "name": "agent_presence_desired_status_check",
+            "kind": "c",
+            "def": "CHECK ((desired_status = ANY (ARRAY['available'::text, 'busy'::text, 'away'::text])))"
+        },
+        {
+            "t": "agent_presence",
+            "name": "agent_presence_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (agent_id)"
+        },
+        {
+            "t": "agent_presence",
+            "name": "agent_presence_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "agent_queues",
+            "name": "agent_queues_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "agent_queues",
+            "name": "agent_queues_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (agent_id, queue_id)"
+        },
+        {
+            "t": "agent_queues",
+            "name": "agent_queues_queue_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (queue_id) REFERENCES queues(id)"
+        },
+        {
+            "t": "agent_queues",
+            "name": "agent_queues_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "agents",
+            "name": "agents_email_check",
+            "kind": "c",
+            "def": "CHECK ((email = lower(email)))"
+        },
+        {
+            "t": "agents",
+            "name": "agents_email_key",
+            "kind": "u",
+            "def": "UNIQUE (email)"
+        },
+        {
+            "t": "agents",
+            "name": "agents_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "agents",
+            "name": "agents_role_check",
+            "kind": "c",
+            "def": "CHECK ((role = ANY (ARRAY['agent'::text, 'supervisor'::text, 'admin'::text])))"
+        },
+        {
+            "t": "agents",
+            "name": "agents_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "announcement_reads",
+            "name": "announcement_reads_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "announcement_reads",
+            "name": "announcement_reads_announcement_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (announcement_id) REFERENCES announcements(id)"
+        },
+        {
+            "t": "announcement_reads",
+            "name": "announcement_reads_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (announcement_id, agent_id)"
+        },
+        {
+            "t": "announcement_reads",
+            "name": "announcement_reads_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "announcement_revisions",
+            "name": "announcement_revisions_announcement_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (announcement_id) REFERENCES announcements(id)"
+        },
+        {
+            "t": "announcement_revisions",
+            "name": "announcement_revisions_editor_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (editor_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "announcement_revisions",
+            "name": "announcement_revisions_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "announcement_revisions",
+            "name": "announcement_revisions_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "announcement_sectors",
+            "name": "announcement_sectors_announcement_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (announcement_id) REFERENCES announcements(id)"
+        },
+        {
+            "t": "announcement_sectors",
+            "name": "announcement_sectors_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (announcement_id, sector_id)"
+        },
+        {
+            "t": "announcement_sectors",
+            "name": "announcement_sectors_sector_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (sector_id) REFERENCES sectors(id)"
+        },
+        {
+            "t": "announcement_sectors",
+            "name": "announcement_sectors_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "announcements",
+            "name": "announcements_audience_check",
+            "kind": "c",
+            "def": "CHECK ((audience = ANY (ARRAY['tenant'::text, 'sectors'::text])))"
+        },
+        {
+            "t": "announcements",
+            "name": "announcements_author_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (author_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "announcements",
+            "name": "announcements_body_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(body) >= 1) AND (char_length(body) <= 4000)))"
+        },
+        {
+            "t": "announcements",
+            "name": "announcements_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "announcements",
+            "name": "announcements_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "announcements",
+            "name": "announcements_title_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(title) >= 1) AND (char_length(title) <= 160)))"
+        },
+        {
+            "t": "audit_events",
+            "name": "audit_events_action_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(action) >= 1) AND (char_length(action) <= 80)))"
+        },
+        {
+            "t": "audit_events",
+            "name": "audit_events_actor_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (actor_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "audit_events",
+            "name": "audit_events_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "audit_events",
+            "name": "audit_events_resource_type_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(resource_type) >= 1) AND (char_length(resource_type) <= 40)))"
+        },
+        {
+            "t": "audit_events",
+            "name": "audit_events_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "auth_sessions",
+            "name": "auth_sessions_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "auth_sessions",
+            "name": "auth_sessions_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "auth_sessions",
+            "name": "auth_sessions_role_check",
+            "kind": "c",
+            "def": "CHECK ((role = ANY (ARRAY['agent'::text, 'supervisor'::text, 'admin'::text])))"
+        },
+        {
+            "t": "auth_sessions",
+            "name": "auth_sessions_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "auth_sessions",
+            "name": "auth_sessions_token_hash_key",
+            "kind": "u",
+            "def": "UNIQUE (token_hash)"
+        },
+        {
+            "t": "conversation_events",
+            "name": "conversation_events_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES conversations(id)"
+        },
+        {
+            "t": "conversation_events",
+            "name": "conversation_events_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "conversation_events",
+            "name": "conversation_events_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "conversation_reads",
+            "name": "conversation_reads_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "conversation_reads",
+            "name": "conversation_reads_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES conversations(id)"
+        },
+        {
+            "t": "conversation_reads",
+            "name": "conversation_reads_last_read_message_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (last_read_message_id) REFERENCES messages(id)"
+        },
+        {
+            "t": "conversation_reads",
+            "name": "conversation_reads_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (conversation_id, agent_id)"
+        },
+        {
+            "t": "conversation_reads",
+            "name": "conversation_reads_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_disposition_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (disposition_id) REFERENCES dispositions(id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_queue_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (queue_id) REFERENCES queues(id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_site_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (site_id) REFERENCES sites(id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_status_check",
+            "kind": "c",
+            "def": "CHECK ((status = ANY (ARRAY['queued'::text, 'assigned'::text, 'awaiting_survey'::text, 'closed'::text])))"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "conversations",
+            "name": "conversations_visitor_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (visitor_id) REFERENCES visitors(id)"
+        },
+        {
+            "t": "dispositions",
+            "name": "dispositions_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "dispositions",
+            "name": "dispositions_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "dispositions",
+            "name": "dispositions_tenant_id_name_key",
+            "kind": "u",
+            "def": "UNIQUE (tenant_id, name)"
+        },
+        {
+            "t": "internal_conversations",
+            "name": "internal_conversations_check",
+            "kind": "c",
+            "def": "CHECK ((((kind = 'group'::text) AND (sector_id IS NOT NULL) AND (pair_key IS NULL)) OR ((kind = 'direct'::text) AND (sector_id IS NULL) AND (pair_key IS NOT NULL))))"
+        },
+        {
+            "t": "internal_conversations",
+            "name": "internal_conversations_kind_check",
+            "kind": "c",
+            "def": "CHECK ((kind = ANY (ARRAY['direct'::text, 'group'::text])))"
+        },
+        {
+            "t": "internal_conversations",
+            "name": "internal_conversations_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "internal_conversations",
+            "name": "internal_conversations_sector_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (sector_id) REFERENCES sectors(id)"
+        },
+        {
+            "t": "internal_conversations",
+            "name": "internal_conversations_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_body_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(body) >= 1) AND (char_length(body) <= 4000)))"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES internal_conversations(id)"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_conversation_id_request_id_key",
+            "kind": "u",
+            "def": "UNIQUE (conversation_id, request_id)"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_sender_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (sender_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "internal_participants",
+            "name": "internal_participants_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "internal_participants",
+            "name": "internal_participants_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES internal_conversations(id)"
+        },
+        {
+            "t": "internal_participants",
+            "name": "internal_participants_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (conversation_id, agent_id)"
+        },
+        {
+            "t": "internal_participants",
+            "name": "internal_participants_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "internal_reads",
+            "name": "internal_reads_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "internal_reads",
+            "name": "internal_reads_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES internal_conversations(id)"
+        },
+        {
+            "t": "internal_reads",
+            "name": "internal_reads_last_read_message_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (last_read_message_id) REFERENCES internal_messages(id)"
+        },
+        {
+            "t": "internal_reads",
+            "name": "internal_reads_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (conversation_id, agent_id)"
+        },
+        {
+            "t": "internal_reads",
+            "name": "internal_reads_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "messages",
+            "name": "messages_body_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(body) >= 1) AND (char_length(body) <= 4000)))"
+        },
+        {
+            "t": "messages",
+            "name": "messages_check",
+            "kind": "c",
+            "def": "CHECK ((((sender_type = 'system'::text) AND (sender_id IS NULL)) OR ((sender_type <> 'system'::text) AND (sender_id IS NOT NULL))))"
+        },
+        {
+            "t": "messages",
+            "name": "messages_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES conversations(id)"
+        },
+        {
+            "t": "messages",
+            "name": "messages_conversation_id_request_id_key",
+            "kind": "u",
+            "def": "UNIQUE (conversation_id, request_id)"
+        },
+        {
+            "t": "messages",
+            "name": "messages_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "messages",
+            "name": "messages_sender_type_check",
+            "kind": "c",
+            "def": "CHECK ((sender_type = ANY (ARRAY['visitor'::text, 'agent'::text, 'system'::text])))"
+        },
+        {
+            "t": "messages",
+            "name": "messages_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "presence_intervals",
+            "name": "presence_intervals_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "presence_intervals",
+            "name": "presence_intervals_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "presence_intervals",
+            "name": "presence_intervals_status_check",
+            "kind": "c",
+            "def": "CHECK ((status = ANY (ARRAY['available'::text, 'busy'::text, 'away'::text, 'offline'::text])))"
+        },
+        {
+            "t": "presence_intervals",
+            "name": "presence_intervals_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "queues",
+            "name": "queues_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "queues",
+            "name": "queues_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "queues",
+            "name": "queues_tenant_id_name_key",
+            "kind": "u",
+            "def": "UNIQUE (tenant_id, name)"
+        },
+        {
+            "t": "schema_migrations",
+            "name": "schema_migrations_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (version)"
+        },
+        {
+            "t": "sector_members",
+            "name": "sector_members_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "sector_members",
+            "name": "sector_members_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (sector_id, agent_id)"
+        },
+        {
+            "t": "sector_members",
+            "name": "sector_members_sector_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (sector_id) REFERENCES sectors(id)"
+        },
+        {
+            "t": "sector_members",
+            "name": "sector_members_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sector_queues",
+            "name": "sector_queues_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (sector_id, queue_id)"
+        },
+        {
+            "t": "sector_queues",
+            "name": "sector_queues_queue_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (queue_id) REFERENCES queues(id)"
+        },
+        {
+            "t": "sector_queues",
+            "name": "sector_queues_sector_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (sector_id) REFERENCES sectors(id)"
+        },
+        {
+            "t": "sector_queues",
+            "name": "sector_queues_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sector_supervisors",
+            "name": "sector_supervisors_agent_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (agent_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "sector_supervisors",
+            "name": "sector_supervisors_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (sector_id, agent_id)"
+        },
+        {
+            "t": "sector_supervisors",
+            "name": "sector_supervisors_sector_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (sector_id) REFERENCES sectors(id)"
+        },
+        {
+            "t": "sector_supervisors",
+            "name": "sector_supervisors_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sectors",
+            "name": "sectors_description_check",
+            "kind": "c",
+            "def": "CHECK ((char_length(description) <= 500))"
+        },
+        {
+            "t": "sectors",
+            "name": "sectors_name_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
+        },
+        {
+            "t": "sectors",
+            "name": "sectors_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "sectors",
+            "name": "sectors_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sectors",
+            "name": "sectors_tenant_id_name_key",
+            "kind": "u",
+            "def": "UNIQUE (tenant_id, name)"
+        },
+        {
+            "t": "site_queues",
+            "name": "site_queues_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (site_id, queue_id)"
+        },
+        {
+            "t": "site_queues",
+            "name": "site_queues_queue_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (queue_id) REFERENCES queues(id)"
+        },
+        {
+            "t": "site_queues",
+            "name": "site_queues_site_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (site_id) REFERENCES sites(id)"
+        },
+        {
+            "t": "site_queues",
+            "name": "site_queues_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sites",
+            "name": "sites_logo_url_https",
+            "kind": "c",
+            "def": "CHECK (((logo_url IS NULL) OR (logo_url ~ '^https://'::text)))"
+        },
+        {
+            "t": "sites",
+            "name": "sites_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "sites",
+            "name": "sites_primary_color_hex",
+            "kind": "c",
+            "def": "CHECK ((primary_color ~ '^#[0-9a-fA-F]{6}$'::text))"
+        },
+        {
+            "t": "sites",
+            "name": "sites_public_id_check",
+            "kind": "c",
+            "def": "CHECK ((public_id ~ '^[a-z0-9_-]+$'::text))"
+        },
+        {
+            "t": "sites",
+            "name": "sites_public_id_key",
+            "kind": "u",
+            "def": "UNIQUE (public_id)"
+        },
+        {
+            "t": "sites",
+            "name": "sites_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sites",
+            "name": "sites_welcome_message_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(welcome_message) >= 1) AND (char_length(welcome_message) <= 300)))"
+        },
+        {
+            "t": "survey_definitions",
+            "name": "survey_definitions_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "survey_definitions",
+            "name": "survey_definitions_scale_check",
+            "kind": "c",
+            "def": "CHECK (((scale >= 1) AND (scale <= 5)))"
+        },
+        {
+            "t": "survey_definitions",
+            "name": "survey_definitions_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "survey_responses",
+            "name": "survey_responses_conversation_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (conversation_id) REFERENCES conversations(id)"
+        },
+        {
+            "t": "survey_responses",
+            "name": "survey_responses_conversation_id_key",
+            "kind": "u",
+            "def": "UNIQUE (conversation_id)"
+        },
+        {
+            "t": "survey_responses",
+            "name": "survey_responses_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "survey_responses",
+            "name": "survey_responses_score_check",
+            "kind": "c",
+            "def": "CHECK (((score >= 1) AND (score <= 5)))"
+        },
+        {
+            "t": "survey_responses",
+            "name": "survey_responses_survey_definition_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (survey_definition_id) REFERENCES survey_definitions(id)"
+        },
+        {
+            "t": "survey_responses",
+            "name": "survey_responses_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_internal_history_policy_check",
+            "kind": "c",
+            "def": "CHECK ((internal_history_policy = 'retain_until_removed'::text))"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_max_concurrent_assignments_range",
+            "kind": "c",
+            "def": "CHECK (((max_concurrent_assignments >= 1) AND (max_concurrent_assignments <= 100)))"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_slug_check",
+            "kind": "c",
+            "def": "CHECK ((slug ~ '^[a-z0-9-]+$'::text))"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_slug_key",
+            "kind": "u",
+            "def": "UNIQUE (slug)"
+        },
+        {
+            "t": "visitor_sessions",
+            "name": "visitor_sessions_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "visitor_sessions",
+            "name": "visitor_sessions_site_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (site_id) REFERENCES sites(id)"
+        },
+        {
+            "t": "visitor_sessions",
+            "name": "visitor_sessions_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "visitor_sessions",
+            "name": "visitor_sessions_token_hash_key",
+            "kind": "u",
+            "def": "UNIQUE (token_hash)"
+        },
+        {
+            "t": "visitor_sessions",
+            "name": "visitor_sessions_visitor_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (visitor_id) REFERENCES visitors(id)"
+        },
+        {
+            "t": "visitors",
+            "name": "visitors_display_name_len",
+            "kind": "c",
+            "def": "CHECK (((display_name IS NULL) OR ((char_length(display_name) >= 1) AND (char_length(display_name) <= 80))))"
+        },
+        {
+            "t": "visitors",
+            "name": "visitors_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "visitors",
+            "name": "visitors_site_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (site_id) REFERENCES sites(id)"
+        },
+        {
+            "t": "visitors",
+            "name": "visitors_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        }
+    ],
+    "indexes": [
+        {
+            "tablename": "activity_assignments",
+            "indexname": "activity_assignments_agent_time",
+            "indexdef": "CREATE INDEX activity_assignments_agent_time ON public.activity_assignments USING btree (tenant_id, agent_id, started_at DESC)"
+        },
+        {
+            "tablename": "activity_assignments",
+            "indexname": "activity_assignments_one_active",
+            "indexdef": "CREATE UNIQUE INDEX activity_assignments_one_active ON public.activity_assignments USING btree (agent_id) WHERE (ended_at IS NULL)"
+        },
+        {
+            "tablename": "activity_assignments",
+            "indexname": "activity_assignments_pkey",
+            "indexdef": "CREATE UNIQUE INDEX activity_assignments_pkey ON public.activity_assignments USING btree (id)"
+        },
+        {
+            "tablename": "activity_types",
+            "indexname": "activity_types_pkey",
+            "indexdef": "CREATE UNIQUE INDEX activity_types_pkey ON public.activity_types USING btree (id)"
+        },
+        {
+            "tablename": "activity_types",
+            "indexname": "activity_types_tenant_id_name_key",
+            "indexdef": "CREATE UNIQUE INDEX activity_types_tenant_id_name_key ON public.activity_types USING btree (tenant_id, name)"
+        },
+        {
+            "tablename": "agent_connections",
+            "indexname": "agent_connections_agent",
+            "indexdef": "CREATE INDEX agent_connections_agent ON public.agent_connections USING btree (agent_id, tenant_id)"
+        },
+        {
+            "tablename": "agent_connections",
+            "indexname": "agent_connections_pkey",
+            "indexdef": "CREATE UNIQUE INDEX agent_connections_pkey ON public.agent_connections USING btree (socket_id)"
+        },
+        {
+            "tablename": "agent_presence",
+            "indexname": "agent_presence_pkey",
+            "indexdef": "CREATE UNIQUE INDEX agent_presence_pkey ON public.agent_presence USING btree (agent_id)"
+        },
+        {
+            "tablename": "agent_queues",
+            "indexname": "agent_queues_pkey",
+            "indexdef": "CREATE UNIQUE INDEX agent_queues_pkey ON public.agent_queues USING btree (agent_id, queue_id)"
+        },
+        {
+            "tablename": "agents",
+            "indexname": "agents_email_key",
+            "indexdef": "CREATE UNIQUE INDEX agents_email_key ON public.agents USING btree (email)"
+        },
+        {
+            "tablename": "agents",
+            "indexname": "agents_pkey",
+            "indexdef": "CREATE UNIQUE INDEX agents_pkey ON public.agents USING btree (id)"
+        },
+        {
+            "tablename": "announcement_reads",
+            "indexname": "announcement_reads_pkey",
+            "indexdef": "CREATE UNIQUE INDEX announcement_reads_pkey ON public.announcement_reads USING btree (announcement_id, agent_id)"
+        },
+        {
+            "tablename": "announcement_revisions",
+            "indexname": "announcement_revisions_pkey",
+            "indexdef": "CREATE UNIQUE INDEX announcement_revisions_pkey ON public.announcement_revisions USING btree (id)"
+        },
+        {
+            "tablename": "announcement_sectors",
+            "indexname": "announcement_sectors_pkey",
+            "indexdef": "CREATE UNIQUE INDEX announcement_sectors_pkey ON public.announcement_sectors USING btree (announcement_id, sector_id)"
+        },
+        {
+            "tablename": "announcements",
+            "indexname": "announcements_pkey",
+            "indexdef": "CREATE UNIQUE INDEX announcements_pkey ON public.announcements USING btree (id)"
+        },
+        {
+            "tablename": "announcements",
+            "indexname": "announcements_tenant_published",
+            "indexdef": "CREATE INDEX announcements_tenant_published ON public.announcements USING btree (tenant_id, published_at DESC)"
+        },
+        {
+            "tablename": "audit_events",
+            "indexname": "audit_events_pkey",
+            "indexdef": "CREATE UNIQUE INDEX audit_events_pkey ON public.audit_events USING btree (id)"
+        },
+        {
+            "tablename": "audit_events",
+            "indexname": "audit_events_tenant_time",
+            "indexdef": "CREATE INDEX audit_events_tenant_time ON public.audit_events USING btree (tenant_id, created_at DESC)"
+        },
+        {
+            "tablename": "auth_sessions",
+            "indexname": "auth_sessions_pkey",
+            "indexdef": "CREATE UNIQUE INDEX auth_sessions_pkey ON public.auth_sessions USING btree (id)"
+        },
+        {
+            "tablename": "auth_sessions",
+            "indexname": "auth_sessions_token_hash_key",
+            "indexdef": "CREATE UNIQUE INDEX auth_sessions_token_hash_key ON public.auth_sessions USING btree (token_hash)"
+        },
+        {
+            "tablename": "conversation_events",
+            "indexname": "conversation_events_pkey",
+            "indexdef": "CREATE UNIQUE INDEX conversation_events_pkey ON public.conversation_events USING btree (id)"
+        },
+        {
+            "tablename": "conversation_reads",
+            "indexname": "conversation_reads_pkey",
+            "indexdef": "CREATE UNIQUE INDEX conversation_reads_pkey ON public.conversation_reads USING btree (conversation_id, agent_id)"
+        },
+        {
+            "tablename": "conversations",
+            "indexname": "conversations_one_open_per_visitor",
+            "indexdef": "CREATE UNIQUE INDEX conversations_one_open_per_visitor ON public.conversations USING btree (visitor_id) WHERE (status <> 'closed'::text)"
+        },
+        {
+            "tablename": "conversations",
+            "indexname": "conversations_pkey",
+            "indexdef": "CREATE UNIQUE INDEX conversations_pkey ON public.conversations USING btree (id)"
+        },
+        {
+            "tablename": "conversations",
+            "indexname": "conversations_queue_status",
+            "indexdef": "CREATE INDEX conversations_queue_status ON public.conversations USING btree (queue_id, status)"
+        },
+        {
+            "tablename": "conversations",
+            "indexname": "conversations_tenant_status",
+            "indexdef": "CREATE INDEX conversations_tenant_status ON public.conversations USING btree (tenant_id, status)"
+        },
+        {
+            "tablename": "dispositions",
+            "indexname": "dispositions_pkey",
+            "indexdef": "CREATE UNIQUE INDEX dispositions_pkey ON public.dispositions USING btree (id)"
+        },
+        {
+            "tablename": "dispositions",
+            "indexname": "dispositions_tenant_id_name_key",
+            "indexdef": "CREATE UNIQUE INDEX dispositions_tenant_id_name_key ON public.dispositions USING btree (tenant_id, name)"
+        },
+        {
+            "tablename": "internal_conversations",
+            "indexname": "internal_conversations_one_direct",
+            "indexdef": "CREATE UNIQUE INDEX internal_conversations_one_direct ON public.internal_conversations USING btree (tenant_id, pair_key) WHERE (kind = 'direct'::text)"
+        },
+        {
+            "tablename": "internal_conversations",
+            "indexname": "internal_conversations_one_group",
+            "indexdef": "CREATE UNIQUE INDEX internal_conversations_one_group ON public.internal_conversations USING btree (tenant_id, sector_id) WHERE (kind = 'group'::text)"
+        },
+        {
+            "tablename": "internal_conversations",
+            "indexname": "internal_conversations_pkey",
+            "indexdef": "CREATE UNIQUE INDEX internal_conversations_pkey ON public.internal_conversations USING btree (id)"
+        },
+        {
+            "tablename": "internal_messages",
+            "indexname": "internal_messages_conversation_id_request_id_key",
+            "indexdef": "CREATE UNIQUE INDEX internal_messages_conversation_id_request_id_key ON public.internal_messages USING btree (conversation_id, request_id)"
+        },
+        {
+            "tablename": "internal_messages",
+            "indexname": "internal_messages_order",
+            "indexdef": "CREATE INDEX internal_messages_order ON public.internal_messages USING btree (conversation_id, created_at, id)"
+        },
+        {
+            "tablename": "internal_messages",
+            "indexname": "internal_messages_pkey",
+            "indexdef": "CREATE UNIQUE INDEX internal_messages_pkey ON public.internal_messages USING btree (id)"
+        },
+        {
+            "tablename": "internal_participants",
+            "indexname": "internal_participants_agent",
+            "indexdef": "CREATE INDEX internal_participants_agent ON public.internal_participants USING btree (tenant_id, agent_id)"
+        },
+        {
+            "tablename": "internal_participants",
+            "indexname": "internal_participants_pkey",
+            "indexdef": "CREATE UNIQUE INDEX internal_participants_pkey ON public.internal_participants USING btree (conversation_id, agent_id)"
+        },
+        {
+            "tablename": "internal_reads",
+            "indexname": "internal_reads_pkey",
+            "indexdef": "CREATE UNIQUE INDEX internal_reads_pkey ON public.internal_reads USING btree (conversation_id, agent_id)"
+        },
+        {
+            "tablename": "messages",
+            "indexname": "messages_conversation_id_request_id_key",
+            "indexdef": "CREATE UNIQUE INDEX messages_conversation_id_request_id_key ON public.messages USING btree (conversation_id, request_id)"
+        },
+        {
+            "tablename": "messages",
+            "indexname": "messages_conversation_order",
+            "indexdef": "CREATE INDEX messages_conversation_order ON public.messages USING btree (conversation_id, created_at, id)"
+        },
+        {
+            "tablename": "messages",
+            "indexname": "messages_pkey",
+            "indexdef": "CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id)"
+        },
+        {
+            "tablename": "presence_intervals",
+            "indexname": "presence_intervals_agent_time",
+            "indexdef": "CREATE INDEX presence_intervals_agent_time ON public.presence_intervals USING btree (tenant_id, agent_id, started_at)"
+        },
+        {
+            "tablename": "presence_intervals",
+            "indexname": "presence_intervals_one_open",
+            "indexdef": "CREATE UNIQUE INDEX presence_intervals_one_open ON public.presence_intervals USING btree (agent_id) WHERE (ended_at IS NULL)"
+        },
+        {
+            "tablename": "presence_intervals",
+            "indexname": "presence_intervals_pkey",
+            "indexdef": "CREATE UNIQUE INDEX presence_intervals_pkey ON public.presence_intervals USING btree (id)"
+        },
+        {
+            "tablename": "queues",
+            "indexname": "queues_pkey",
+            "indexdef": "CREATE UNIQUE INDEX queues_pkey ON public.queues USING btree (id)"
+        },
+        {
+            "tablename": "queues",
+            "indexname": "queues_tenant_id_name_key",
+            "indexdef": "CREATE UNIQUE INDEX queues_tenant_id_name_key ON public.queues USING btree (tenant_id, name)"
+        },
+        {
+            "tablename": "schema_migrations",
+            "indexname": "schema_migrations_pkey",
+            "indexdef": "CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (version)"
+        },
+        {
+            "tablename": "sector_members",
+            "indexname": "sector_members_active_agent",
+            "indexdef": "CREATE INDEX sector_members_active_agent ON public.sector_members USING btree (tenant_id, agent_id) WHERE (removed_at IS NULL)"
+        },
+        {
+            "tablename": "sector_members",
+            "indexname": "sector_members_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sector_members_pkey ON public.sector_members USING btree (sector_id, agent_id)"
+        },
+        {
+            "tablename": "sector_queues",
+            "indexname": "sector_queues_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sector_queues_pkey ON public.sector_queues USING btree (sector_id, queue_id)"
+        },
+        {
+            "tablename": "sector_supervisors",
+            "indexname": "sector_supervisors_active_agent",
+            "indexdef": "CREATE INDEX sector_supervisors_active_agent ON public.sector_supervisors USING btree (tenant_id, agent_id) WHERE (removed_at IS NULL)"
+        },
+        {
+            "tablename": "sector_supervisors",
+            "indexname": "sector_supervisors_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sector_supervisors_pkey ON public.sector_supervisors USING btree (sector_id, agent_id)"
+        },
+        {
+            "tablename": "sectors",
+            "indexname": "sectors_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sectors_pkey ON public.sectors USING btree (id)"
+        },
+        {
+            "tablename": "sectors",
+            "indexname": "sectors_tenant_active",
+            "indexdef": "CREATE INDEX sectors_tenant_active ON public.sectors USING btree (tenant_id, active)"
+        },
+        {
+            "tablename": "sectors",
+            "indexname": "sectors_tenant_id_name_key",
+            "indexdef": "CREATE UNIQUE INDEX sectors_tenant_id_name_key ON public.sectors USING btree (tenant_id, name)"
+        },
+        {
+            "tablename": "site_queues",
+            "indexname": "site_queues_pkey",
+            "indexdef": "CREATE UNIQUE INDEX site_queues_pkey ON public.site_queues USING btree (site_id, queue_id)"
+        },
+        {
+            "tablename": "sites",
+            "indexname": "sites_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sites_pkey ON public.sites USING btree (id)"
+        },
+        {
+            "tablename": "sites",
+            "indexname": "sites_public_id_key",
+            "indexdef": "CREATE UNIQUE INDEX sites_public_id_key ON public.sites USING btree (public_id)"
+        },
+        {
+            "tablename": "survey_definitions",
+            "indexname": "survey_definitions_pkey",
+            "indexdef": "CREATE UNIQUE INDEX survey_definitions_pkey ON public.survey_definitions USING btree (id)"
+        },
+        {
+            "tablename": "survey_responses",
+            "indexname": "survey_responses_conversation_id_key",
+            "indexdef": "CREATE UNIQUE INDEX survey_responses_conversation_id_key ON public.survey_responses USING btree (conversation_id)"
+        },
+        {
+            "tablename": "survey_responses",
+            "indexname": "survey_responses_pkey",
+            "indexdef": "CREATE UNIQUE INDEX survey_responses_pkey ON public.survey_responses USING btree (id)"
+        },
+        {
+            "tablename": "tenants",
+            "indexname": "tenants_pkey",
+            "indexdef": "CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id)"
+        },
+        {
+            "tablename": "tenants",
+            "indexname": "tenants_slug_key",
+            "indexdef": "CREATE UNIQUE INDEX tenants_slug_key ON public.tenants USING btree (slug)"
+        },
+        {
+            "tablename": "visitor_sessions",
+            "indexname": "visitor_sessions_pkey",
+            "indexdef": "CREATE UNIQUE INDEX visitor_sessions_pkey ON public.visitor_sessions USING btree (id)"
+        },
+        {
+            "tablename": "visitor_sessions",
+            "indexname": "visitor_sessions_token_hash_key",
+            "indexdef": "CREATE UNIQUE INDEX visitor_sessions_token_hash_key ON public.visitor_sessions USING btree (token_hash)"
+        },
+        {
+            "tablename": "visitors",
+            "indexname": "visitors_pkey",
+            "indexdef": "CREATE UNIQUE INDEX visitors_pkey ON public.visitors USING btree (id)"
+        }
+    ],
+    "triggers": [
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_agent",
+            "def": "CREATE TRIGGER activity_assignments_agent BEFORE INSERT OR UPDATE ON public.activity_assignments FOR EACH ROW EXECUTE FUNCTION enforce_agent_scope()"
+        },
+        {
+            "t": "activity_assignments",
+            "name": "activity_assignments_scope",
+            "def": "CREATE TRIGGER activity_assignments_scope BEFORE INSERT OR UPDATE ON public.activity_assignments FOR EACH ROW EXECUTE FUNCTION enforce_activity_assignment()"
+        },
+        {
+            "t": "agent_connections",
+            "name": "agent_connections_scope",
+            "def": "CREATE TRIGGER agent_connections_scope BEFORE INSERT OR UPDATE ON public.agent_connections FOR EACH ROW EXECUTE FUNCTION enforce_agent_scope()"
+        },
+        {
+            "t": "agent_presence",
+            "name": "agent_presence_scope",
+            "def": "CREATE TRIGGER agent_presence_scope BEFORE INSERT OR UPDATE ON public.agent_presence FOR EACH ROW EXECUTE FUNCTION enforce_agent_scope()"
+        },
+        {
+            "t": "agent_queues",
+            "name": "agent_queues_tenant",
+            "def": "CREATE TRIGGER agent_queues_tenant BEFORE INSERT OR UPDATE ON public.agent_queues FOR EACH ROW EXECUTE FUNCTION enforce_agent_queue_tenant()"
+        },
+        {
+            "t": "announcement_reads",
+            "name": "announcement_reads_agent",
+            "def": "CREATE TRIGGER announcement_reads_agent BEFORE INSERT OR UPDATE ON public.announcement_reads FOR EACH ROW EXECUTE FUNCTION enforce_agent_scope()"
+        },
+        {
+            "t": "announcement_revisions",
+            "name": "announcement_revisions_scope",
+            "def": "CREATE TRIGGER announcement_revisions_scope BEFORE INSERT OR UPDATE ON public.announcement_revisions FOR EACH ROW EXECUTE FUNCTION enforce_announcement_revision()"
+        },
+        {
+            "t": "announcement_sectors",
+            "name": "announcement_sectors_scope",
+            "def": "CREATE TRIGGER announcement_sectors_scope BEFORE INSERT OR UPDATE ON public.announcement_sectors FOR EACH ROW EXECUTE FUNCTION enforce_announcement_sector()"
+        },
+        {
+            "t": "announcements",
+            "name": "announcement_author_scope",
+            "def": "CREATE TRIGGER announcement_author_scope BEFORE INSERT OR UPDATE ON public.announcements FOR EACH ROW EXECUTE FUNCTION enforce_announcement_author()"
+        },
+        {
+            "t": "audit_events",
+            "name": "audit_events_scope",
+            "def": "CREATE TRIGGER audit_events_scope BEFORE INSERT OR UPDATE ON public.audit_events FOR EACH ROW EXECUTE FUNCTION enforce_audit_actor()"
+        },
+        {
+            "t": "conversation_reads",
+            "name": "conversation_reads_scope",
+            "def": "CREATE TRIGGER conversation_reads_scope BEFORE INSERT OR UPDATE ON public.conversation_reads FOR EACH ROW EXECUTE FUNCTION enforce_conversation_read()"
+        },
+        {
+            "t": "internal_conversations",
+            "name": "internal_conversations_scope",
+            "def": "CREATE TRIGGER internal_conversations_scope BEFORE INSERT OR UPDATE ON public.internal_conversations FOR EACH ROW EXECUTE FUNCTION enforce_internal_conversation()"
+        },
+        {
+            "t": "internal_messages",
+            "name": "internal_messages_scope",
+            "def": "CREATE TRIGGER internal_messages_scope BEFORE INSERT OR UPDATE ON public.internal_messages FOR EACH ROW EXECUTE FUNCTION enforce_internal_message()"
+        },
+        {
+            "t": "internal_participants",
+            "name": "internal_participants_scope",
+            "def": "CREATE TRIGGER internal_participants_scope BEFORE INSERT OR UPDATE ON public.internal_participants FOR EACH ROW EXECUTE FUNCTION enforce_internal_participant()"
+        },
+        {
+            "t": "internal_reads",
+            "name": "internal_reads_agent",
+            "def": "CREATE TRIGGER internal_reads_agent BEFORE INSERT OR UPDATE ON public.internal_reads FOR EACH ROW EXECUTE FUNCTION enforce_agent_scope()"
+        },
+        {
+            "t": "presence_intervals",
+            "name": "presence_intervals_agent",
+            "def": "CREATE TRIGGER presence_intervals_agent BEFORE INSERT OR UPDATE ON public.presence_intervals FOR EACH ROW EXECUTE FUNCTION enforce_agent_scope()"
+        },
+        {
+            "t": "sector_members",
+            "name": "sector_members_scope",
+            "def": "CREATE TRIGGER sector_members_scope BEFORE INSERT OR UPDATE ON public.sector_members FOR EACH ROW EXECUTE FUNCTION enforce_sector_member()"
+        },
+        {
+            "t": "sector_queues",
+            "name": "sector_queues_scope",
+            "def": "CREATE TRIGGER sector_queues_scope BEFORE INSERT OR UPDATE ON public.sector_queues FOR EACH ROW EXECUTE FUNCTION enforce_sector_queue()"
+        },
+        {
+            "t": "sector_supervisors",
+            "name": "sector_supervisors_scope",
+            "def": "CREATE TRIGGER sector_supervisors_scope BEFORE INSERT OR UPDATE ON public.sector_supervisors FOR EACH ROW EXECUTE FUNCTION enforce_sector_supervisor()"
+        },
+        {
+            "t": "site_queues",
+            "name": "site_queues_tenant",
+            "def": "CREATE TRIGGER site_queues_tenant BEFORE INSERT OR UPDATE ON public.site_queues FOR EACH ROW EXECUTE FUNCTION enforce_site_queue_tenant()"
+        }
+    ],
+    "policies": [
+        {
+            "tablename": "activity_assignments",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "activity_types",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "agent_connections",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "agent_presence",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "agent_queues",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "agents",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "announcement_reads",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "announcement_revisions",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "announcement_sectors",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "announcements",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "audit_events",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "auth_sessions",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "conversation_events",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "conversation_reads",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "conversations",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "dispositions",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "internal_conversations",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "internal_messages",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "internal_participants",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "internal_reads",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "messages",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "presence_intervals",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "queues",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sector_members",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sector_queues",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sector_supervisors",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sectors",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "site_queues",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sites",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "survey_definitions",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "survey_responses",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "tenants",
+            "policyname": "tenant_self",
+            "cmd": "ALL",
+            "qual": "(id = app_tenant_id())",
+            "with_check": "(id = app_tenant_id())"
+        },
+        {
+            "tablename": "visitor_sessions",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "visitors",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        }
+    ],
+    "rls": [
+        {
+            "t": "activity_assignments",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "activity_types",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "agent_connections",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "agent_presence",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "agent_queues",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "agents",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "announcement_reads",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "announcement_revisions",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "announcement_sectors",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "announcements",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "audit_events",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "auth_sessions",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "conversation_events",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "conversation_reads",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "conversations",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "dispositions",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "internal_conversations",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "internal_messages",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "internal_participants",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "internal_reads",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "messages",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "presence_intervals",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "queues",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "schema_migrations",
+            "enabled": false,
+            "forced": false
+        },
+        {
+            "t": "sector_members",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "sector_queues",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "sector_supervisors",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "sectors",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "site_queues",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "sites",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "survey_definitions",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "survey_responses",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "tenants",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "visitor_sessions",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "visitors",
+            "enabled": true,
+            "forced": true
+        }
+    ],
+    "functions": [
+        {
+            "name": "app_tenant_id",
+            "secdef": false
+        },
+        {
+            "name": "enforce_activity_assignment",
+            "secdef": false
+        },
+        {
+            "name": "enforce_agent_queue_tenant",
+            "secdef": false
+        },
+        {
+            "name": "enforce_agent_scope",
+            "secdef": false
+        },
+        {
+            "name": "enforce_announcement_author",
+            "secdef": false
+        },
+        {
+            "name": "enforce_announcement_revision",
+            "secdef": false
+        },
+        {
+            "name": "enforce_announcement_sector",
+            "secdef": false
+        },
+        {
+            "name": "enforce_audit_actor",
+            "secdef": false
+        },
+        {
+            "name": "enforce_conversation_read",
+            "secdef": false
+        },
+        {
+            "name": "enforce_internal_conversation",
+            "secdef": false
+        },
+        {
+            "name": "enforce_internal_message",
+            "secdef": false
+        },
+        {
+            "name": "enforce_internal_participant",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sector_member",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sector_queue",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sector_supervisor",
+            "secdef": false
+        },
+        {
+            "name": "enforce_site_queue_tenant",
+            "secdef": false
+        },
+        {
+            "name": "lookup_agent_by_email",
+            "secdef": true
+        },
+        {
+            "name": "lookup_auth_session",
+            "secdef": true
+        },
+        {
+            "name": "lookup_site_by_public_id",
+            "secdef": true
+        },
+        {
+            "name": "lookup_visitor_session",
+            "secdef": true
+        },
+        {
+            "name": "sweep_stale_agent_connections",
+            "secdef": true
+        }
+    ]
+}

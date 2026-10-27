@@ -116,6 +116,7 @@ export class InternalChatService {
       if (input.beforeMessageId) await requireVisibleMessage(client, principal, input.conversationId, input.beforeMessageId);
       if (input.afterMessageId) await requireVisibleMessage(client, principal, input.conversationId, input.afterMessageId);
       const limit = input.limit ?? pageDefault;
+      const order = input.afterMessageId ? 'ASC' : 'DESC';
       const result = await client.query<MessageRow>(
         `SELECT message.id, message.conversation_id, message.sender_id, agent.name AS sender_name,
                 message.request_id, message.body, message.created_at
@@ -144,7 +145,7 @@ export class InternalChatService {
                WHERE anchor.id = $5 AND anchor.conversation_id = message.conversation_id
              )
            )
-         ORDER BY message.created_at DESC, message.id DESC
+         ORDER BY message.created_at ${order}, message.id ${order}
          LIMIT $6`,
         [
           input.conversationId,
@@ -155,7 +156,8 @@ export class InternalChatService {
           limit,
         ],
       );
-      return result.rows.reverse().map(mapMessage);
+      const rows = input.afterMessageId ? result.rows : result.rows.reverse();
+      return rows.map(mapMessage);
     });
   }
 
@@ -196,7 +198,13 @@ export class InternalChatService {
           AND participant.tenant_id = conversation.tenant_id
          WHERE participant.agent_id = $1
            AND participant.tenant_id = $2
-           AND participant.removed_at IS NULL`,
+           AND participant.removed_at IS NULL
+           AND (conversation.kind <> 'group' OR EXISTS (
+             SELECT 1 FROM sectors AS sector
+             WHERE sector.id = conversation.sector_id
+               AND sector.tenant_id = conversation.tenant_id
+               AND sector.active = true
+           ))`,
         [principal.agentId, principal.tenantId],
       );
       const sectors = await client.query<{ id: string }>(
@@ -225,6 +233,27 @@ export class InternalChatService {
         conversationIds: conversations.rows.map((row) => row.id),
         sectorIds: sectors.rows.map((row) => row.id),
       };
+    });
+  }
+
+  async activeParticipants(conversationId: string, tenantId: string): Promise<string[]> {
+    return withTenant(this.pool, tenantId, async (client) => {
+      const result = await client.query<{ agent_id: string }>(
+        `SELECT participant.agent_id
+         FROM internal_participants AS participant
+         JOIN internal_conversations AS conversation
+           ON conversation.id = participant.conversation_id
+          AND conversation.tenant_id = participant.tenant_id
+         LEFT JOIN sectors AS sector
+           ON sector.id = conversation.sector_id
+          AND sector.tenant_id = conversation.tenant_id
+         WHERE participant.conversation_id = $1
+           AND participant.tenant_id = $2
+           AND participant.removed_at IS NULL
+           AND (conversation.kind <> 'group' OR sector.active = true)`,
+        [conversationId, tenantId],
+      );
+      return result.rows.map((row) => row.agent_id);
     });
   }
 

@@ -116,6 +116,13 @@ INSERT INTO sectors (id, tenant_id, name, description) VALUES
   ('bbbbbbbb-2222-4222-8222-bbbbbbbbbb16', '22222222-2222-4222-8222-222222222222', 'Financeiro', 'Cobrança e faturamento')
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO sector_queues (sector_id, queue_id, tenant_id) VALUES
+  ('aaaaaaaa-1111-4111-8111-aaaaaaaaaa16', 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaa2', '11111111-1111-4111-8111-111111111111'),
+  ('aaaaaaaa-1111-4111-8111-aaaaaaaaaa17', 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaa3', '11111111-1111-4111-8111-111111111111'),
+  ('bbbbbbbb-2222-4222-8222-bbbbbbbbbb15', 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbb2', '22222222-2222-4222-8222-222222222222'),
+  ('bbbbbbbb-2222-4222-8222-bbbbbbbbbb16', 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbb3', '22222222-2222-4222-8222-222222222222')
+ON CONFLICT (sector_id, queue_id) DO NOTHING;
+
 INSERT INTO sector_supervisors (sector_id, agent_id, tenant_id) VALUES
   ('aaaaaaaa-1111-4111-8111-aaaaaaaaaa16', 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaa6', '11111111-1111-4111-8111-111111111111'),
   ('aaaaaaaa-1111-4111-8111-aaaaaaaaaa17', 'aaaaaaaa-1111-4111-8111-aaaaaaaaaa14', '11111111-1111-4111-8111-111111111111'),
