@@ -21,6 +21,7 @@ import type { AgentPrincipal } from '../domain/types.js';
 import type { ActivityService } from '../modules/activities.js';
 import type { AnnouncementService } from '../modules/announcements.js';
 import type { InternalChatService } from '../modules/internal-chat.js';
+import type { ConversationService } from '../modules/conversations.js';
 import type { SectorService } from '../modules/sectors.js';
 import type { SupervisorService } from '../modules/supervisor.js';
 import type { SlidingWindowLimiter } from '../http/rate-limit.js';
@@ -28,6 +29,7 @@ import type { SocketHub } from './hub.js';
 import { rooms } from './rooms.js';
 
 export type StaffDeps = {
+  conversations: ConversationService;
   sectors: SectorService;
   internalChat: InternalChatService;
   announcements: AnnouncementService;
@@ -45,6 +47,12 @@ export async function joinOwnRooms(internalChat: InternalChatService, socket: So
     socket.join(rooms.internal(principal.tenantId, conversationId));
   }
   for (const sectorId of membership.sectorIds) socket.join(rooms.sector(principal.tenantId, sectorId));
+  // A membership may have been revoked while the first query was in flight.
+  const current = await internalChat.roomsFor(principal);
+  const currentConversationIds = new Set(current.conversationIds);
+  for (const conversationId of membership.conversationIds) {
+    if (!currentConversationIds.has(conversationId)) socket.leave(rooms.internal(principal.tenantId, conversationId));
+  }
 }
 
 export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentPrincipal, ready: Promise<void>) {
@@ -65,7 +73,11 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
           ...(input.active !== undefined ? { active: input.active } : {}),
           ...(input.supervisorIds ? { supervisorIds: input.supervisorIds } : {}),
         });
-        await syncSectorRooms(deps, principal.tenantId, result.conversationId, result.sector.id, result.notifyAgentIds);
+        await deps.hub.reconcileSupervisorQueues(
+          principal.tenantId,
+          (supervisorPrincipal) => deps.conversations.queueIdsForSupervisor(supervisorPrincipal),
+        );
+        await reconcileSectorRooms(deps, principal.tenantId, result.conversationId);
         deps.hub.sectorUpdated(principal.tenantId, result.notifyAgentIds, result.sector);
         const conversation = await deps.internalChat.summarize(principal, result.conversationId);
         deps.hub.internalConversationUpdated(principal.tenantId, result.notifyAgentIds, conversation);
@@ -76,7 +88,7 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
       run(async () => {
         const input = sectorMemberChangeSchema.parse(payload);
         const result = await deps.sectors.addMember(principal, input.sectorId, input.agentId);
-        await syncSectorRooms(deps, principal.tenantId, result.conversationId, result.sector.id, result.notifyAgentIds);
+        await reconcileSectorRooms(deps, principal.tenantId, result.conversationId);
         deps.hub.sectorUpdated(principal.tenantId, result.notifyAgentIds, result.sector);
         const conversation = await deps.internalChat.summarize(principal, result.conversationId);
         deps.hub.internalConversationUpdated(principal.tenantId, result.notifyAgentIds, conversation);
@@ -86,14 +98,7 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
       run(async () => {
         const input = sectorMemberChangeSchema.parse(payload);
         const result = await deps.sectors.removeMember(principal, input.sectorId, input.agentId);
-        await deps.hub.movePeople(
-          principal.tenantId,
-          [input.agentId],
-          result.conversationId,
-          result.sector.id,
-          'leave',
-        );
-        await syncSectorRooms(deps, principal.tenantId, result.conversationId, result.sector.id, result.notifyAgentIds);
+        await reconcileSectorRooms(deps, principal.tenantId, result.conversationId);
         const audience = [...new Set([...result.notifyAgentIds, input.agentId])];
         deps.hub.sectorUpdated(principal.tenantId, audience, result.sector);
         return { sector: result.sector };
@@ -137,7 +142,6 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
           ...(input.afterMessageId ? { afterMessageId: input.afterMessageId } : {}),
           ...(input.limit ? { limit: input.limit } : {}),
         });
-        socket.join(rooms.internal(principal.tenantId, input.conversationId));
         return { messages };
       }),
     'internal.message.read': (payload: unknown) =>
@@ -239,12 +243,16 @@ export function staffHandlers(deps: StaffDeps, socket: Socket, principal: AgentP
   };
 }
 
-async function syncSectorRooms(
+async function reconcileSectorRooms(
   deps: StaffDeps,
   tenantId: string,
   conversationId: string,
-  sectorId: string,
-  agentIds: string[],
 ): Promise<void> {
-  await deps.hub.movePeople(tenantId, agentIds, conversationId, sectorId, 'join');
+  const participants = await deps.internalChat.activeParticipants(conversationId, tenantId);
+  await deps.hub.reconcileInternalRoom(
+    tenantId,
+    conversationId,
+    participants,
+    () => deps.internalChat.activeParticipants(conversationId, tenantId),
+  );
 }

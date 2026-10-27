@@ -4,7 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import { withTenant } from '../db/tenant.js';
 import { isStaff } from '../domain/access.js';
 import { DomainError } from '../domain/errors.js';
-import type { AgentPrincipal, VisitorPrincipal } from '../domain/types.js';
+import type { AgentPrincipal, Principal, VisitorPrincipal } from '../domain/types.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 import { hashToken, newToken } from './tokens.js';
 
@@ -132,6 +132,7 @@ export class SessionService {
       visitorId: row.visitor_id,
       siteId: row.site_id,
       sessionId: row.session_id,
+      expiresAt: row.expires_at.toISOString(),
     };
   }
 
@@ -173,6 +174,7 @@ export class SessionService {
       tenantId: row.tenant_id,
       agentId: row.agent_id,
       sessionId: row.session_id,
+      expiresAt: row.expires_at.toISOString(),
       name: row.name,
     };
   }
@@ -183,6 +185,17 @@ export class SessionService {
         principal.sessionId,
         principal.tenantId,
       ]);
+    });
+  }
+
+  async isSessionActive(principal: Principal): Promise<boolean> {
+    return withTenant(this.pool, principal.tenantId, async (client) => {
+      const table = principal.kind === 'visitor' ? 'visitor_sessions' : 'auth_sessions';
+      const result = await client.query(
+        `SELECT 1 FROM ${table} WHERE id = $1 AND tenant_id = $2 AND expires_at > now()`,
+        [principal.sessionId, principal.tenantId],
+      );
+      return Boolean(result.rows[0]);
     });
   }
 

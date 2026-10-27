@@ -83,6 +83,17 @@ export class SupervisorService {
                   SELECT count(*)::int
                   FROM conversations
                   WHERE agent_id = scoped.id AND tenant_id = $1 AND status = 'assigned'
+                    AND (
+                      $2::boolean
+                      OR queue_id IN (
+                        SELECT sector_queue.queue_id
+                        FROM sector_supervisors AS lead
+                        JOIN sectors AS sector ON sector.id = lead.sector_id AND sector.tenant_id = lead.tenant_id
+                        JOIN sector_queues AS sector_queue ON sector_queue.sector_id = sector.id AND sector_queue.tenant_id = sector.tenant_id
+                        WHERE lead.tenant_id = $1 AND lead.agent_id = $3
+                          AND lead.removed_at IS NULL AND sector.active = true
+                      )
+                    )
                 ) AS active_conversations,
                 (SELECT max_concurrent_assignments FROM tenants WHERE id = $1) AS max_concurrent,
                 activity.name AS activity_name,
@@ -107,6 +118,17 @@ export class SupervisorService {
            WHERE member.agent_id = scoped.id
              AND member.tenant_id = $1
              AND member.removed_at IS NULL
+             AND (
+               $2::boolean
+               OR EXISTS (
+                 SELECT 1 FROM sector_supervisors AS lead
+                 WHERE lead.sector_id = sector.id
+                   AND lead.tenant_id = sector.tenant_id
+                   AND lead.agent_id = $3
+                   AND lead.removed_at IS NULL
+                   AND sector.active = true
+               )
+             )
          ) AS sector_names ON true
          ORDER BY scoped.name`,
         [principal.tenantId, principal.kind === 'admin', principal.agentId, this.staleMs],
@@ -126,8 +148,19 @@ export class SupervisorService {
                 )::int AS closed_in_period,
                 floor(extract(epoch FROM max(now() - queued_at) FILTER (WHERE status = 'queued')))::int AS longest_wait_seconds
          FROM conversations
-         WHERE tenant_id = $1`,
-        [principal.tenantId, from.toISOString(), to.toISOString()],
+         WHERE tenant_id = $1
+           AND (
+             $4::boolean
+             OR queue_id IN (
+               SELECT sector_queue.queue_id
+               FROM sector_supervisors AS lead
+               JOIN sectors AS sector ON sector.id = lead.sector_id AND sector.tenant_id = lead.tenant_id
+               JOIN sector_queues AS sector_queue ON sector_queue.sector_id = sector.id AND sector_queue.tenant_id = sector.tenant_id
+               WHERE lead.tenant_id = $1 AND lead.agent_id = $5
+                 AND lead.removed_at IS NULL AND sector.active = true
+             )
+           )`,
+        [principal.tenantId, from.toISOString(), to.toISOString(), principal.kind === 'admin', principal.agentId],
       );
       const queue = traffic.rows[0];
       if (!queue) throw new DomainError('internal', 'Indicadores indisponíveis');

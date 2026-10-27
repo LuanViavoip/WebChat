@@ -9,9 +9,12 @@ import {
   visitorSessionCreatedSchema,
 } from '@viavoip/protocol';
 import type { FastifyInstance } from 'fastify';
+import { createHmac } from 'node:crypto';
+import type { Server } from 'socket.io';
 import type { ZodType } from 'zod';
 import { readBearer } from '../auth/handshake.js';
 import type { SessionService } from '../auth/sessions.js';
+import type { SharedLoginRateLimiter } from '../auth/login-rate-limit.js';
 import { DomainError, httpStatus } from '../domain/errors.js';
 import type { SlidingWindowLimiter } from './rate-limit.js';
 
@@ -22,6 +25,10 @@ export function registerHttp(
     smAdapter: string;
     limiter: SlidingWindowLimiter;
     sessionCreateLimit: number;
+    loginLimit: number;
+    loginAttempts: SharedLoginRateLimiter;
+    loginRateLimitSecret: string;
+    io: Server;
   },
 ): void {
   app.setErrorHandler((error, request, reply) => {
@@ -60,6 +67,14 @@ export function registerHttp(
 
   app.post('/auth/login', async (request) => {
     const body = parseBody(loginBodySchema, request.body);
+    const keyHash = (key: string) => createHmac('sha256', deps.loginRateLimitSecret).update(key).digest('hex');
+    const allowed = await deps.loginAttempts.allow(
+      [keyHash(`ip:${request.ip}`), keyHash(`account:${body.email.trim().toLowerCase()}`)],
+      deps.loginLimit,
+    );
+    if (!allowed) {
+      throw new DomainError('rate_limited', 'Muitas tentativas. Tente novamente.');
+    }
     const session = await deps.sessions.login(body.email, body.password);
     return loginResponseSchema.parse(session);
   });
@@ -72,6 +87,9 @@ export function registerHttp(
   app.post('/auth/logout', async (request) => {
     const principal = await requireAgent(deps.sessions, request.headers.authorization);
     await deps.sessions.logout(principal);
+    for (const namespace of ['/agent', '/supervisor'] as const) {
+      deps.io.of(namespace).in(`session:${principal.sessionId}`).disconnectSockets(true);
+    }
     return logoutResponseSchema.parse({ ok: true });
   });
 }

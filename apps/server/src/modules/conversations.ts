@@ -1,7 +1,7 @@
 import type { ConversationSummary, MessageRecord, QueuePosition, SurveyPrompt } from '@viavoip/protocol';
 import type { Pool, PoolClient } from 'pg';
 import { withTenant } from '../db/tenant.js';
-import { assertCanRead, isStaff } from '../domain/access.js';
+import { assertCanRead, assertSupervisorQueueAccess, isStaff } from '../domain/access.js';
 import { DomainError } from '../domain/errors.js';
 import type { AgentPrincipal, ConversationRecord, Principal, VisitorPrincipal } from '../domain/types.js';
 import { listMessages, loadActiveSurvey } from './messages.js';
@@ -203,6 +203,9 @@ export class ConversationService {
     return withTenant(this.pool, principal.tenantId, async (client) => {
       const current = await loadConversation(client, conversationId, principal.tenantId, true);
       if (!current) throw new DomainError('not_found', 'Conversa não encontrada');
+      if (principal.kind === 'supervisor' || principal.kind === 'admin') {
+        await assertSupervisorQueueAccess(client, principal, current.queueId);
+      }
       assertCanTransfer(principal, current);
       const queue = await client.query(
         `SELECT id FROM queues WHERE id = $1 AND tenant_id = $2`,
@@ -215,6 +218,8 @@ export class ConversationService {
           [principal.agentId, queueId, principal.tenantId],
         );
         if (!member.rows[0]) throw new DomainError('forbidden', 'Fila de destino não autorizada');
+      } else if (principal.kind === 'supervisor') {
+        await assertSupervisorQueueAccess(client, principal, queueId);
       }
       const updated = await client.query(
         `UPDATE conversations
@@ -444,8 +449,19 @@ export class ConversationService {
          ${conversationJoins}
          WHERE conversation.tenant_id = $1
            AND conversation.status IN ('queued', 'assigned', 'awaiting_survey')
+           AND (
+             $2::boolean
+             OR conversation.queue_id IN (
+               SELECT sector_queue.queue_id
+               FROM sector_supervisors AS lead
+               JOIN sectors AS sector ON sector.id = lead.sector_id AND sector.tenant_id = lead.tenant_id
+               JOIN sector_queues AS sector_queue ON sector_queue.sector_id = sector.id AND sector_queue.tenant_id = sector.tenant_id
+               WHERE lead.tenant_id = $1 AND lead.agent_id = $3
+                 AND lead.removed_at IS NULL AND sector.active = true
+             )
+           )
          ORDER BY conversation.created_at ASC`,
-        [principal.tenantId],
+        [principal.tenantId, principal.kind === 'admin', principal.agentId],
       );
       return result.rows.map((row) => toSummary(mapConversation(row)));
     });
@@ -462,6 +478,38 @@ export class ConversationService {
         [principal.agentId, principal.tenantId],
       );
       return result.rows.map((row) => row.queue_id);
+    });
+  }
+
+  async queueIdsForSupervisor(principal: AgentPrincipal): Promise<string[]> {
+    return withTenant(this.pool, principal.tenantId, async (client) => {
+      const result = principal.kind === 'admin'
+        ? await client.query<{ queue_id: string }>(
+            `SELECT id AS queue_id FROM queues WHERE tenant_id = $1`,
+            [principal.tenantId],
+          )
+        : await client.query<{ queue_id: string }>(
+            `SELECT DISTINCT sector_queue.queue_id
+             FROM sector_supervisors AS lead
+             JOIN sectors AS sector ON sector.id = lead.sector_id AND sector.tenant_id = lead.tenant_id
+             JOIN sector_queues AS sector_queue ON sector_queue.sector_id = sector.id AND sector_queue.tenant_id = sector.tenant_id
+             WHERE lead.tenant_id = $1 AND lead.agent_id = $2
+               AND lead.removed_at IS NULL AND sector.active = true`,
+            [principal.tenantId, principal.agentId],
+          );
+      return result.rows.map((row) => row.queue_id);
+    });
+  }
+
+  async queueIdForConversation(principal: AgentPrincipal, conversationId: string): Promise<string> {
+    return withTenant(this.pool, principal.tenantId, async (client) => {
+      const result = await client.query<{ queue_id: string }>(
+        `SELECT queue_id FROM conversations WHERE id = $1 AND tenant_id = $2`,
+        [conversationId, principal.tenantId],
+      );
+      const queueId = result.rows[0]?.queue_id;
+      if (!queueId) throw new DomainError('not_found', 'Conversa não encontrada');
+      return queueId;
     });
   }
 }

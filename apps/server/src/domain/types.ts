@@ -6,6 +6,7 @@ export type VisitorPrincipal = {
   visitorId: string;
   siteId: string;
   sessionId: string;
+  expiresAt: string;
 };
 
 export type AgentPrincipal = {
@@ -13,6 +14,7 @@ export type AgentPrincipal = {
   tenantId: string;
   agentId: string;
   sessionId: string;
+  expiresAt: string;
   name: string;
 };
 

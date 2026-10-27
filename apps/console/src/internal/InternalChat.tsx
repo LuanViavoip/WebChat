@@ -8,11 +8,12 @@ import {
   type InternalConversation,
   type InternalMessage,
 } from '@viavoip/protocol';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { formatClock } from '../desk/format.js';
 import type { LinkState } from '../desk/Desk.js';
 import { ackMessage, emitAck } from '../realtime.js';
+import { recoverAndCommitInternalHistory } from './history-sync.js';
 
 export function InternalChat({
   socket,
@@ -27,9 +28,15 @@ export function InternalChat({
   const [peers, setPeers] = useState<{ agentId: string; name: string }[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, InternalMessage[]>>({});
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const historyCursors = useRef<Record<string, string>>({});
   const [draft, setDraft] = useState('');
   const [peerId, setPeerId] = useState('');
   const [notice, setNotice] = useState('');
+  const [connectionVersion, setConnectionVersion] = useState(0);
+  const [hasOlderById, setHasOlderById] = useState<Record<string, boolean>>({});
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   useEffect(() => {
     if (!socket) return;
@@ -51,43 +58,94 @@ export function InternalChat({
         setPeers([...people.entries()].map(([agentId, name]) => ({ agentId, name })));
       });
     };
+    const onConnect = () => {
+      setConnectionVersion((version) => version + 1);
+      reload();
+    };
     const onMessage = (payload: unknown) => {
       const parsed = internalMessageSchema.safeParse(payload);
       if (!parsed.success) return;
       setMessages((current) => {
         const existing = current[parsed.data.conversationId] ?? [];
-        if (existing.some((item) => item.id === parsed.data.id)) return current;
-        return { ...current, [parsed.data.conversationId]: [...existing, parsed.data] };
+        const merged = mergeMessages(existing, [parsed.data]);
+        if (merged.length === existing.length) return current;
+        return { ...current, [parsed.data.conversationId]: merged };
       });
       reload();
     };
     socket.on('internal.message.new', onMessage);
     socket.on('internal.conversation.updated', reload);
-    socket.on('connect', reload);
-    if (socket.connected) reload();
+    socket.on('connect', onConnect);
+    if (socket.connected) onConnect();
     return () => {
       socket.off('internal.message.new', onMessage);
       socket.off('internal.conversation.updated', reload);
-      socket.off('connect', reload);
+      socket.off('connect', onConnect);
     };
   }, [selfId, socket]);
 
   useEffect(() => {
     if (!socket || !selectedId) return;
-    void emitAck(socket, 'internal.history', { conversationId: selectedId }).then((ack) => {
+    void (async () => {
+      const existing = messagesRef.current[selectedId] ?? [];
+      const initialCursor = historyCursors.current[selectedId];
+      try {
+        const recovered = await recoverAndCommitInternalHistory(initialCursor, async (cursor) => {
+          const ack = await emitAck(socket, 'internal.history', {
+            conversationId: selectedId,
+            ...(cursor ? { afterMessageId: cursor, limit: 100 } : {}),
+          }).catch(() => null);
+          const parsed = internalHistoryAckSchema.safeParse(ack);
+          if (!parsed.success || !parsed.data.ok) {
+            throw new Error(ackMessage(parsed, 'Histórico indisponível'));
+          }
+          return parsed.data.messages;
+        }, (recovery) => {
+          if (recovery.cursor) historyCursors.current[selectedId] = recovery.cursor;
+          if (!initialCursor) {
+            setHasOlderById((current) => ({ ...current, [selectedId]: recovery.hasOlder }));
+          }
+          setMessages((current) => ({
+            ...current,
+            [selectedId]: mergeMessages(current[selectedId] ?? [], recovery.messages),
+          }));
+        });
+        const latest = recovered.messages.at(-1) ?? existing.at(-1);
+        if (latest) {
+          void emitAck(socket, 'internal.message.read', { conversationId: selectedId, messageId: latest.id });
+        }
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'Histórico indisponível');
+      }
+    })();
+  }, [connectionVersion, selectedId, socket]);
+
+  async function loadOlder() {
+    if (!socket || !selectedId || loadingOlder) return;
+    const oldest = messages[selectedId]?.[0];
+    if (!oldest) return;
+    setLoadingOlder(true);
+    try {
+      const ack = await emitAck(socket, 'internal.history', {
+        conversationId: selectedId,
+        beforeMessageId: oldest.id,
+        limit: 50,
+      });
       const parsed = internalHistoryAckSchema.safeParse(ack);
       if (!parsed.success || !parsed.data.ok) {
         setNotice(ackMessage(parsed, 'Histórico indisponível'));
         return;
       }
-      const loaded = parsed.data.messages;
-      setMessages((current) => ({ ...current, [selectedId]: loaded }));
-      const latest = loaded.at(-1);
-      if (latest) {
-        void emitAck(socket, 'internal.message.read', { conversationId: selectedId, messageId: latest.id });
-      }
-    });
-  }, [selectedId, socket]);
+      const olderMessages = parsed.data.messages;
+      setHasOlderById((current) => ({ ...current, [selectedId]: olderMessages.length === 50 }));
+      setMessages((current) => ({
+        ...current,
+        [selectedId]: mergeMessages(current[selectedId] ?? [], olderMessages),
+      }));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   async function openDirect() {
     if (!socket || !peerId) return;
@@ -149,6 +207,11 @@ export function InternalChat({
         </div>
       </div>
       <div className="pane thread-pane">
+        {selectedId && hasOlderById[selectedId] ? (
+          <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder}>
+            {loadingOlder ? 'Carregando…' : 'Carregar mensagens anteriores'}
+          </button>
+        ) : null}
         <div className="messages" data-testid="internal-thread">
           {selectedMessages.map((message) => (
             <article key={message.id} className={message.senderId === selfId ? 'agent' : undefined}>
@@ -170,5 +233,13 @@ export function InternalChat({
         </form>
       </div>
     </section>
+  );
+}
+
+function mergeMessages(existing: InternalMessage[], incoming: InternalMessage[]): InternalMessage[] {
+  const merged = new Map(existing.map((message) => [message.id, message]));
+  for (const message of incoming) merged.set(message.id, message);
+  return [...merged.values()].sort((left, right) =>
+    left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
   );
 }

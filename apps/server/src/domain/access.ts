@@ -32,6 +32,8 @@ export async function assertCanRead(
       }
       throw new DomainError('forbidden', 'Conversa fora do escopo do agente');
     case 'supervisor':
+      await assertSupervisorQueueAccess(client, principal, conversation.queueId);
+      return;
     case 'admin':
       return;
     default: {
@@ -39,6 +41,30 @@ export async function assertCanRead(
       throw new DomainError('forbidden', `Principal inesperado: ${String(neverPrincipal)}`);
     }
   }
+}
+
+export async function assertSupervisorQueueAccess(
+  client: PoolClient,
+  principal: AgentPrincipal,
+  queueId: string,
+): Promise<void> {
+  if (principal.kind === 'admin') return;
+  if (principal.kind !== 'supervisor') throw new DomainError('forbidden', 'Escopo exclusivo da supervisão');
+  const result = await client.query(
+    `SELECT 1
+     FROM sector_supervisors AS lead
+     JOIN sectors AS sector
+       ON sector.id = lead.sector_id AND sector.tenant_id = lead.tenant_id
+     JOIN sector_queues AS sector_queue
+       ON sector_queue.sector_id = sector.id AND sector_queue.tenant_id = sector.tenant_id
+     WHERE lead.tenant_id = $1
+       AND lead.agent_id = $2
+       AND lead.removed_at IS NULL
+       AND sector.active = true
+       AND sector_queue.queue_id = $3`,
+    [principal.tenantId, principal.agentId, queueId],
+  );
+  if (!result.rows[0]) throw new DomainError('forbidden', 'Conversa fora do escopo do supervisor');
 }
 
 export function assertCanSend(principal: Principal, conversation: ConversationRecord): void {

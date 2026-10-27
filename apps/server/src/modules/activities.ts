@@ -37,9 +37,9 @@ export class ActivityService {
       const types = await client.query<{ id: string; name: string; active: boolean }>(
         `SELECT id, name, active
          FROM activity_types
-         WHERE tenant_id = $1 AND active = true
+         WHERE tenant_id = $1 AND (active = true OR $2::boolean)
          ORDER BY name`,
-        [principal.tenantId],
+        [principal.tenantId, principal.kind === 'admin'],
       );
       const current = await client.query<AssignmentRow>(
         `${assignmentSelect}

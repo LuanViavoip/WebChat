@@ -1,4 +1,5 @@
-import { conversationListAckSchema, historySyncAckSchema, internalHistoryAckSchema, supervisorSnapshotAckSchema } from '@viavoip/protocol';
+import { conversationAckSchema, conversationListAckSchema, historySyncAckSchema, internalHistoryAckSchema, supervisorSnapshotAckSchema } from '@viavoip/protocol';
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../src/db/tenant.js';
 import { demoAccounts, demoIds, demoPassword, demoSites } from '../src/demo/ids.js';
@@ -24,6 +25,77 @@ afterAll(async () => {
 });
 
 describe('supervisão', () => {
+  it('não envia presença de agente da fila sem membresia no setor ao supervisor', async () => {
+    await withTenant(app.pool, demoIds.tenantA, (client) =>
+      client.query(
+        `INSERT INTO agent_queues (agent_id, queue_id, tenant_id)
+         VALUES ($1, $2, $3) ON CONFLICT (agent_id, queue_id) DO NOTHING`,
+        [demoIds.agentDiana, demoIds.queueSupportA, demoIds.tenantA],
+      ),
+    );
+    const dianaLogin = await login(app.baseUrl, demoAccounts.diana, demoPassword);
+    const sofiaLogin = await login(app.baseUrl, demoAccounts.sofia, demoPassword);
+    const diana = connectSocket(app.baseUrl, '/agent', dianaLogin.token);
+    const sofia = connectSocket(app.baseUrl, '/supervisor', sofiaLogin.token);
+    await Promise.all([waitConnect(diana), waitConnect(sofia)]);
+    let received = false;
+    const onPresence = () => { received = true; };
+    sofia.on('presence.updated', onPresence);
+    await emitAck(diana, 'presence.set', { status: 'away' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    sofia.off('presence.updated', onPresence);
+    expect(received).toBe(false);
+    const snapshot = supervisorSnapshotAckSchema.parse(await emitAck(sofia, 'supervisor.snapshot', {}));
+    expect(snapshot.ok).toBe(true);
+    if (snapshot.ok) expect(snapshot.snapshot.agents.map((agent) => agent.agentId)).not.toContain(demoIds.agentDiana);
+    diana.disconnect();
+    sofia.disconnect();
+    await withTenant(app.pool, demoIds.tenantA, (client) =>
+      client.query(`DELETE FROM agent_queues WHERE agent_id = $1 AND queue_id = $2 AND tenant_id = $3`, [
+        demoIds.agentDiana,
+        demoIds.queueSupportA,
+        demoIds.tenantA,
+      ]),
+    );
+  });
+
+  it('restringe listagem, histórico, transferência e eventos à fila do setor', async () => {
+    const visitor = await openVisitor(app.baseUrl, demoSites.a);
+    const sales = await startConversation(visitor.socket, demoIds.queueSalesA);
+    const sofiaLogin = await login(app.baseUrl, demoAccounts.sofia, demoPassword);
+    const sofia = connectSocket(app.baseUrl, '/supervisor', sofiaLogin.token);
+    await waitConnect(sofia);
+
+    const listed = conversationListAckSchema.parse(await emitAck(sofia, 'conversation.list', {}));
+    expect(listed.ok).toBe(true);
+    if (listed.ok) expect(listed.conversations.map((item) => item.id)).not.toContain(sales.conversation.id);
+    const watched = historySyncAckSchema.parse(
+      await emitAck(sofia, 'conversation.watch', { conversationId: sales.conversation.id }),
+    );
+    expect(watched.ok).toBe(false);
+    const transferred = conversationAckSchema.parse(
+      await emitAck(sofia, 'conversation.transfer', {
+        conversationId: sales.conversation.id,
+        queueId: demoIds.queueSupportA,
+      }),
+    );
+    expect(transferred.ok).toBe(false);
+
+    let gotSalesEvent = false;
+    const onMessage = () => { gotSalesEvent = true; };
+    sofia.on('message.new', onMessage);
+    await emitAck(visitor.socket, 'message.send', {
+      conversationId: sales.conversation.id,
+      requestId: randomUUID(),
+      body: 'mensagem da fila comercial',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    sofia.off('message.new', onMessage);
+    expect(gotSalesEvent).toBe(false);
+    visitor.socket.disconnect();
+    sofia.disconnect();
+  });
+
   it('calcula indicadores reais e audita a leitura do atendimento', async () => {
     const visitor = await openVisitor(app.baseUrl, demoSites.a);
     const started = await startConversation(visitor.socket, demoIds.queueSupportA, 'Cliente fase 4');
