@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Servidor WebSocket — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="servidor-websocket" tabindex="-1">Servidor WebSocket</h1>
+<p>Socket.IO 4, <strong>somente</strong> transporte <code>websocket</code>, <code>maxHttpBufferSize</code> 100 000. Contratos completos de payload: <a href="contratos.html">contracts.md</a> (fonte: <code>packages/protocol/src/events.ts</code>).</p>
+<h2 id="namespaces-e-autentica%C3%A7%C3%A3o" tabindex="-1">Namespaces e autenticação</h2>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>Aceita</th>
+<th>Handshake</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/visitor</code></td>
+<td>sessão de visitante</td>
+<td><code>auth: { token }</code></td>
+</tr>
+<tr>
+<td><code>/agent</code></td>
+<td>papel <code>agent</code></td>
+<td><code>auth: { token }</code></td>
+</tr>
+<tr>
+<td><code>/supervisor</code></td>
+<td>papéis <code>supervisor</code> e <code>admin</code></td>
+<td><code>auth: { token }</code></td>
+</tr>
+</tbody>
+</table>
+<p>O <code>auth</code> deve conter <strong>exatamente</strong> <code>{ token }</code> (20–200 caracteres); chave extra é rejeitada (<code>auth/handshake.ts</code>). O token é o obtido por <code>POST /visitor/sessions</code> ou <code>POST /auth/login</code>.</p>
+<h2 id="comandos-(cliente-%E2%86%92-servidor)-e-ack" tabindex="-1">Comandos (cliente → servidor) e ack</h2>
+<p><code>realtime/bind.ts</code> associa cada evento a um schema Zod do namespace:</p>
+<ul>
+<li>evento fora do mapa do namespace → <code>{ ok: false, error: { code: &quot;forbidden&quot; } }</code>;</li>
+<li>payload inválido → <code>invalid_payload</code>;</li>
+<li>sucesso → <code>{ ok: true, ... }</code>, <strong>enviado depois do commit</strong>.</li>
+</ul>
+<p>Erros HTTP/WS: <code>unauthorized</code> 401, <code>forbidden</code> 403, <code>not_found</code> 404, <code>invalid_payload</code> 400, <code>invalid_state</code>/<code>already_claimed</code>/<code>capacity</code>/<code>conflict</code> 409, <code>rate_limited</code> 429, <code>internal</code> 500.</p>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>Comandos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/visitor</code></td>
+<td><code>queue.list</code>, <code>conversation.start</code>, <code>conversation.leave</code>, <code>message.send</code>, <code>history.sync</code>, <code>survey.submit</code></td>
+</tr>
+<tr>
+<td><code>/agent</code></td>
+<td><code>queue.subscribe</code>, <code>conversation.claim</code>, <code>conversation.release</code>, <code>conversation.transfer</code>, <code>conversation.close</code>, <code>message.send</code>, <code>message.read</code>, <code>history.sync</code>, <code>presence.set</code>, <code>presence.heartbeat</code> + bloco comum</td>
+</tr>
+<tr>
+<td><code>/supervisor</code></td>
+<td><code>conversation.list</code>, <code>conversation.watch</code>, <code>conversation.transfer</code>, <code>history.sync</code>, <code>presence.heartbeat</code>, <code>supervisor.snapshot</code>, <code>sector.save</code>, <code>sector.member.add</code>, <code>sector.member.remove</code>, <code>announcement.publish</code>, <code>announcement.update</code>, <code>announcement.archive</code>, <code>activity.type.save</code> + bloco comum</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Bloco comum</strong> (agente, supervisor, admin): <code>sector.list</code>, <code>internal.list</code>, <code>internal.open</code>, <code>internal.message.send</code>, <code>internal.history</code>, <code>internal.message.read</code>, <code>announcement.list</code>, <code>announcement.read</code>, <code>activity.catalog</code>, <code>activity.assign</code>, <code>activity.finish</code>, <code>activity.history</code>.</p>
+<p>Observações verificadas no código: o supervisor <strong>não</strong> tem <code>message.send</code>, <code>message.read</code> nem <code>presence.set</code>. Comandos de gestão ausentes do mapa do agente respondem <code>forbidden</code> pelo <code>bindSocket</code>.</p>
+<h2 id="eventos-(servidor-%E2%86%92-cliente)" tabindex="-1">Eventos (servidor → cliente)</h2>
+<p><code>conversation.updated</code>, <code>message.new</code>, <code>survey.required</code>, <code>queue.position</code>, <code>presence.updated</code>, <code>message.read</code>, <code>sector.updated</code>, <code>internal.conversation.updated</code>, <code>internal.message.new</code>, <code>internal.message.read</code>, <code>announcement.published</code>, <code>announcement.updated</code>, <code>activity.updated</code>, <code>supervisor.metrics</code>.</p>
+<p>Distinção: <strong>comando</strong> = pedido do cliente com ack; <strong>evento</strong> = notificação do servidor sem ack, que só avisa quem já está conectado e autorizado. O estado durável está sempre no PostgreSQL.</p>
+<h2 id="salas-e-fan-out-(realtime%2Frooms.ts%2C-hub.ts)" tabindex="-1">Salas e fan-out (<code>realtime/rooms.ts</code>, <code>hub.ts</code>)</h2>
+<p><code>tenant:{t}:conversation:{id}</code>, <code>queue:{id}</code>, <code>agent:{id}</code>, <code>supervisors</code>, <code>internal:{id}</code>, <code>sector:{id}</code>.</p>
+<ul>
+<li><code>conversation.updated</code> → sala do atendimento (visitante), sala da fila (e da fila anterior em transferência), sala do agente dono e <code>supervisors</code>.</li>
+<li><code>message.new</code> → visitante; fila se <code>queued</code>, agente dono se não; sempre <code>supervisors</code>.</li>
+<li><code>supervisor.metrics</code> é empurrado a cada mudança (<code>hub.touch</code> → <code>refreshSupervisors</code>).</li>
+</ul>
+<h2 id="reconex%C3%A3o" tabindex="-1">Reconexão</h2>
+<ul>
+<li>Visitante: <code>history.sync { afterMessageId?, afterEventId? }</code> devolve conversa, mensagens e eventos posteriores, mais <code>lastReadMessageId</code>. Cursor desconhecido → <code>invalid_payload</code>.</li>
+<li>Mensagens usam <code>requestId</code> (UUID) gerado no cliente; reenvio com o mesmo <code>requestId</code> devolve <code>created: false</code> sem novo broadcast.</li>
+<li>Chat interno: o servidor oferece <code>internal.history</code> com cursores, mas o console <strong>não</strong> ressincroniza a thread aberta ao reconectar (F4-09).</li>
+<li>Fechar a conexão não retira o contato da fila.</li>
+</ul>
+<h2 id="limita%C3%A7%C3%B5es" tabindex="-1">Limitações</h2>
+<p>Logout/expiração não derrubam sockets já conectados (F4-03). Eventos não passam por outbox (F4-07).</p>
+</article>
+</body>
+</html>

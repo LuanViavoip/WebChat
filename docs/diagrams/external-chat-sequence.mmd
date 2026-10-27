@@ -1,0 +1,45 @@
+sequenceDiagram
+  autonumber
+  actor V as Visitante
+  participant W as Widget (iframe)
+  participant S as Servidor
+  participant DB as PostgreSQL
+  participant A as Console do Agente
+  participant SM as SMAdapter (mock)
+  V->>W: abre o widget
+  W->>S: GET /public/widgets/:publicId
+  S-->>W: configurações e filas (sem token)
+  W->>S: POST /visitor/sessions {sitePublicId, parentOrigin}
+  S->>DB: valida allowed_origins, cria visitor + sessão (hash)
+  S-->>W: token
+  W->>S: WS /visitor (auth.token)
+  Note over W,S: Comando: queue.list
+  V->>W: escolhe a fila
+  W->>S: conversation.start {queueId, displayName?}
+  S->>DB: INSERT conversations (queued) + evento queued
+  S-->>W: ack {ok: true, ...}
+  S-)W: evento conversation.updated / queue.position
+  S-)A: evento conversation.updated (sala da fila)
+  S--)SM: onConversationQueued (após commit, falha ignorada)
+  A->>S: conversation.claim {conversationId}
+  S->>DB: UPDATE ... WHERE status='queued' (atômico, exige presença available)
+  S-->>A: ack
+  S-)W: evento conversation.updated (assigned)
+  S--)SM: onConversationAssigned
+  loop troca de mensagens
+    V->>W: digita
+    W->>S: message.send {conversationId, requestId, body}
+    S->>DB: INSERT messages (idempotente por requestId)
+    S-->>W: ack {messageId, created}
+    S-)A: evento message.new
+    A->>S: message.send / message.read
+    S-)W: evento message.new
+  end
+  A->>S: conversation.close {conversationId, dispositionId}
+  S->>DB: status = awaiting_survey
+  S-->>A: ack
+  S--)SM: onConversationClosed
+  S-)W: evento survey.required + conversation.updated
+  W->>S: survey.submit {score, comment?}
+  S->>DB: INSERT survey_responses, status = closed
+  S-->>W: ack

@@ -1,0 +1,34 @@
+---
+title: DER — presence
+---
+erDiagram
+  %% Relacionamentos tenant_id → tenants omitidos (toda tabela de negócio os possui).
+  agents {
+    uuid id PK
+  }
+  agent_presence {
+    uuid agent_id PK,FK
+  }
+  agent_connections {
+    text socket_id PK
+    uuid agent_id FK
+  }
+  presence_intervals {
+    uuid id PK
+    uuid agent_id FK
+  }
+  activity_types {
+    uuid id PK
+  }
+  activity_assignments {
+    uuid id PK
+    uuid agent_id FK
+    uuid activity_type_id FK
+    uuid assigned_by FK
+  }
+  agents ||--o| agent_presence : "agent_id"
+  agents ||--o{ agent_connections : "agent_id"
+  agents ||--o{ presence_intervals : "agent_id"
+  activity_types ||--o{ activity_assignments : "activity_type_id"
+  agents ||--o{ activity_assignments : "agent_id"
+  agents ||--o{ activity_assignments : "assigned_by"

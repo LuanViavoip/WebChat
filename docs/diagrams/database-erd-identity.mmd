@@ -1,0 +1,46 @@
+---
+title: DER — identity
+---
+erDiagram
+  %% Relacionamentos tenant_id → tenants omitidos (toda tabela de negócio os possui).
+  tenants {
+    uuid id PK
+  }
+  sites {
+    uuid id PK
+  }
+  queues {
+    uuid id PK
+  }
+  site_queues {
+    uuid site_id PK,FK
+    uuid queue_id PK,FK
+  }
+  agents {
+    uuid id PK
+  }
+  agent_queues {
+    uuid agent_id PK,FK
+    uuid queue_id PK,FK
+  }
+  auth_sessions {
+    uuid id PK
+    uuid agent_id FK
+  }
+  visitors {
+    uuid id PK
+    uuid site_id FK
+  }
+  visitor_sessions {
+    uuid id PK
+    uuid visitor_id FK
+    uuid site_id FK
+  }
+  queues ||--o{ site_queues : "queue_id"
+  sites ||--o{ site_queues : "site_id"
+  agents ||--o{ agent_queues : "agent_id"
+  queues ||--o{ agent_queues : "queue_id"
+  agents ||--o{ auth_sessions : "agent_id"
+  sites ||--o{ visitors : "site_id"
+  sites ||--o{ visitor_sessions : "site_id"
+  visitors ||--o{ visitor_sessions : "visitor_id"

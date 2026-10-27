@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Visão geral e glossário — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="documenta%C3%A7%C3%A3o-t%C3%A9cnica-%E2%80%94-viavoip-webchat" tabindex="-1">Documentação técnica — ViaVoip Webchat</h1>
+<p><strong>Versão documentada:</strong> commit <code>d65d40d</code> (branch <code>docs/webchat-technical-documentation</code>), implementação até a <strong>Fase 4</strong>. Toda afirmação aqui foi conferida contra esse commit, não contra requisitos planejados.</p>
+<blockquote>
+<p>Existem alterações <strong>não commitadas</strong> de terceiros no código (correções dos achados F4-01/02/05 em andamento). Esta documentação <strong>não</strong> as descreve. Ao serem integradas, atualize conforme <a href="../implantacao-e-operacao/manutencao.html">MAINTENANCE.md</a>.</p>
+</blockquote>
+<h2 id="como-ler" tabindex="-1">Como ler</h2>
+<table>
+<thead>
+<tr>
+<th>Quero…</th>
+<th>Leia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Saber o que está pronto, parcial ou planejado</td>
+<td><a href="status.html">STATUS.md</a></td>
+</tr>
+<tr>
+<td>Entender a arquitetura</td>
+<td><a href="../arquitetura/visao-geral.html">architecture/overview.md</a>, <a href="../arquitetura/multi-tenancy.html">multi-tenancy</a>, <a href="../arquitetura/websocket.html">websocket</a></td>
+</tr>
+<tr>
+<td>Integrar o SM no futuro</td>
+<td><a href="../integracoes/sm.html">architecture/integration-sm.md</a></td>
+</tr>
+<tr>
+<td>Instalar o widget</td>
+<td><a href="../widget-chatweb/widget.html">modules/widget.md</a></td>
+</tr>
+<tr>
+<td>Operar a central</td>
+<td><a href="../central-do-agente/agente.html">agent</a>, <a href="../chat-interno/chat-interno.html">internal-chat</a>, <a href="../setores/setores.html">sectors</a>, <a href="../anuncios/anuncios.html">announcements</a>, <a href="../presenca-e-atividades/presenca.html">presence</a>, <a href="../presenca-e-atividades/atividades.html">activities</a>, <a href="../central-do-supervisor/supervisor.html">supervisor</a></td>
+</tr>
+<tr>
+<td>Consultar o banco</td>
+<td><a href="../banco-de-dados/visao-geral.html">database/overview.md</a>, <a href="../banco-de-dados/dicionario-de-dados.html">data-dictionary.md</a>, <a href="../banco-de-dados/relacionamentos.html">relationships.md</a></td>
+</tr>
+<tr>
+<td>Ver os diagramas</td>
+<td><a href="../arquitetura/diagramas.html">diagrams/README.md</a></td>
+</tr>
+<tr>
+<td>Subir o ambiente</td>
+<td><a href="../implantacao-e-operacao/setup-local.html">deployment/local-setup.md</a>, <a href="../implantacao-e-operacao/ambientes.html">environments.md</a></td>
+</tr>
+<tr>
+<td>Atualizar esta documentação</td>
+<td><a href="../implantacao-e-operacao/manutencao.html">MAINTENANCE.md</a></td>
+</tr>
+<tr>
+<td>Publicar no Docs Helper</td>
+<td>docs-helper/PUBLICATION-BLOCKER.md</td>
+</tr>
+</tbody>
+</table>
+<p>Documentos anteriores do projeto, mantidos como estão: architecture.md, <a href="../arquitetura/contratos.html">contracts.md</a> (contratos HTTP/WebSocket completos), <a href="../arquitetura/decisoes.html">decisions.md</a>, local-development.md, sm-integration.md e audits/.</p>
+<h2 id="gloss%C3%A1rio" tabindex="-1">Glossário</h2>
+<table>
+<thead>
+<tr>
+<th>Termo</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tenant</td>
+<td>Organização cliente; fronteira de isolamento de dados</td>
+</tr>
+<tr>
+<td>Site</td>
+<td>Instalação do widget de um tenant, identificada por <code>public_id</code></td>
+</tr>
+<tr>
+<td>Fila</td>
+<td>Destino de atendimento externo (<code>queues</code>)</td>
+</tr>
+<tr>
+<td>Atendimento / conversa</td>
+<td>Conversa visitante ↔ agente (<code>conversations</code>)</td>
+</tr>
+<tr>
+<td>Chat interno</td>
+<td>Conversa entre usuários internos (<code>internal_conversations</code>), separada do atendimento externo</td>
+</tr>
+<tr>
+<td>Setor</td>
+<td>Agrupamento organizacional de agentes (<code>sectors</code>)</td>
+</tr>
+<tr>
+<td>Presença</td>
+<td>Estado do agente (available/busy/away), calculado no servidor</td>
+</tr>
+<tr>
+<td>Conectividade</td>
+<td>Existência de conexão WebSocket com heartbeat recente; sem ela a presença efetiva é <code>offline</code></td>
+</tr>
+<tr>
+<td>Atividade</td>
+<td>Ocupação do agente (ex.: Treinamento), independente da presença</td>
+</tr>
+<tr>
+<td>Ack</td>
+<td>Resposta de um comando WebSocket, enviada só após o commit</td>
+</tr>
+<tr>
+<td>SM</td>
+<td>Sistema externo futuro; sem contrato definido</td>
+</tr>
+</tbody>
+</table>
+</article>
+</body>
+</html>

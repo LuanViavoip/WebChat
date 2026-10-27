@@ -1,0 +1,192 @@
+---
+title: DER geral — ViaVoip Webchat (apenas PK/FK)
+---
+erDiagram
+  %% Relacionamentos tenant_id → tenants omitidos (toda tabela de negócio os possui).
+  activity_assignments {
+    uuid id PK
+    uuid agent_id FK
+    uuid activity_type_id FK
+    uuid assigned_by FK
+  }
+  activity_types {
+    uuid id PK
+  }
+  agent_connections {
+    text socket_id PK
+    uuid agent_id FK
+  }
+  agent_presence {
+    uuid agent_id PK,FK
+  }
+  agent_queues {
+    uuid agent_id PK,FK
+    uuid queue_id PK,FK
+  }
+  agents {
+    uuid id PK
+  }
+  announcement_reads {
+    uuid announcement_id PK,FK
+    uuid agent_id PK,FK
+  }
+  announcement_revisions {
+    uuid id PK
+    uuid announcement_id FK
+    uuid editor_id FK
+  }
+  announcement_sectors {
+    uuid announcement_id PK,FK
+    uuid sector_id PK,FK
+  }
+  announcements {
+    uuid id PK
+    uuid author_id FK
+  }
+  audit_events {
+    uuid id PK
+    uuid actor_id FK
+  }
+  auth_sessions {
+    uuid id PK
+    uuid agent_id FK
+  }
+  conversation_events {
+    uuid id PK
+    uuid conversation_id FK
+  }
+  conversation_reads {
+    uuid conversation_id PK,FK
+    uuid agent_id PK,FK
+    uuid last_read_message_id FK
+  }
+  conversations {
+    uuid id PK
+    uuid site_id FK
+    uuid queue_id FK
+    uuid visitor_id FK
+    uuid agent_id FK
+    uuid disposition_id FK
+  }
+  dispositions {
+    uuid id PK
+  }
+  internal_conversations {
+    uuid id PK
+    uuid sector_id FK
+  }
+  internal_messages {
+    uuid id PK
+    uuid conversation_id FK
+    uuid sender_id FK
+  }
+  internal_participants {
+    uuid conversation_id PK,FK
+    uuid agent_id PK,FK
+  }
+  internal_reads {
+    uuid conversation_id PK,FK
+    uuid agent_id PK,FK
+    uuid last_read_message_id FK
+  }
+  messages {
+    uuid id PK
+    uuid conversation_id FK
+  }
+  presence_intervals {
+    uuid id PK
+    uuid agent_id FK
+  }
+  queues {
+    uuid id PK
+  }
+  sector_members {
+    uuid sector_id PK,FK
+    uuid agent_id PK,FK
+  }
+  sector_queues {
+    uuid sector_id PK,FK
+    uuid queue_id PK,FK
+  }
+  sector_supervisors {
+    uuid sector_id PK,FK
+    uuid agent_id PK,FK
+  }
+  sectors {
+    uuid id PK
+  }
+  site_queues {
+    uuid site_id PK,FK
+    uuid queue_id PK,FK
+  }
+  sites {
+    uuid id PK
+  }
+  survey_definitions {
+    uuid id PK
+  }
+  survey_responses {
+    uuid id PK
+    uuid conversation_id FK
+    uuid survey_definition_id FK
+  }
+  tenants {
+    uuid id PK
+  }
+  visitor_sessions {
+    uuid id PK
+    uuid visitor_id FK
+    uuid site_id FK
+  }
+  visitors {
+    uuid id PK
+    uuid site_id FK
+  }
+  activity_types ||--o{ activity_assignments : "activity_type_id"
+  agents ||--o{ activity_assignments : "agent_id"
+  agents ||--o{ activity_assignments : "assigned_by"
+  agents ||--o{ agent_connections : "agent_id"
+  agents ||--o| agent_presence : "agent_id"
+  agents ||--o{ agent_queues : "agent_id"
+  queues ||--o{ agent_queues : "queue_id"
+  agents ||--o{ announcement_reads : "agent_id"
+  announcements ||--o{ announcement_reads : "announcement_id"
+  announcements ||--o{ announcement_revisions : "announcement_id"
+  agents ||--o{ announcement_revisions : "editor_id"
+  announcements ||--o{ announcement_sectors : "announcement_id"
+  sectors ||--o{ announcement_sectors : "sector_id"
+  agents ||--o{ announcements : "author_id"
+  agents ||--o{ audit_events : "actor_id"
+  agents ||--o{ auth_sessions : "agent_id"
+  conversations ||--o{ conversation_events : "conversation_id"
+  agents ||--o{ conversation_reads : "agent_id"
+  conversations ||--o{ conversation_reads : "conversation_id"
+  messages ||--o{ conversation_reads : "last_read_message_id"
+  agents |o--o{ conversations : "agent_id"
+  dispositions |o--o{ conversations : "disposition_id"
+  queues ||--o{ conversations : "queue_id"
+  sites ||--o{ conversations : "site_id"
+  visitors ||--o{ conversations : "visitor_id"
+  sectors |o--o{ internal_conversations : "sector_id"
+  internal_conversations ||--o{ internal_messages : "conversation_id"
+  agents ||--o{ internal_messages : "sender_id"
+  agents ||--o{ internal_participants : "agent_id"
+  internal_conversations ||--o{ internal_participants : "conversation_id"
+  agents ||--o{ internal_reads : "agent_id"
+  internal_conversations ||--o{ internal_reads : "conversation_id"
+  internal_messages ||--o{ internal_reads : "last_read_message_id"
+  conversations ||--o{ messages : "conversation_id"
+  agents ||--o{ presence_intervals : "agent_id"
+  agents ||--o{ sector_members : "agent_id"
+  sectors ||--o{ sector_members : "sector_id"
+  queues ||--o{ sector_queues : "queue_id"
+  sectors ||--o{ sector_queues : "sector_id"
+  agents ||--o{ sector_supervisors : "agent_id"
+  sectors ||--o{ sector_supervisors : "sector_id"
+  queues ||--o{ site_queues : "queue_id"
+  sites ||--o{ site_queues : "site_id"
+  conversations ||--o| survey_responses : "conversation_id"
+  survey_definitions ||--o{ survey_responses : "survey_definition_id"
+  sites ||--o{ visitor_sessions : "site_id"
+  visitors ||--o{ visitor_sessions : "visitor_id"
+  sites ||--o{ visitors : "site_id"

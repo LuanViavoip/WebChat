@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ambientes — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="ambientes" tabindex="-1">Ambientes</h1>
+<p>Somente o que é verificável no repositório (<code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>.env.example</code>, <code>apps/server/src/config.ts</code>).</p>
+<h2 id="desenvolvimento-%2F-demonstra%C3%A7%C3%A3o-%E2%80%94-verific%C3%A1vel" tabindex="-1">Desenvolvimento / demonstração — verificável</h2>
+<p><code>docker-compose.yml</code> define quatro serviços: <code>postgres</code> (16-alpine, porta do host 5434), <code>redis</code> (7-alpine, 6379), <code>server</code> (porta 3000, healthcheck em <code>/health</code>) e <code>demo</code> (nginx, 8090, serve <code>infra/demo</code>). Diagrama: infrastructure.</p>
+<p><code>Dockerfile</code>: <code>node:22-bookworm-slim</code>, <code>corepack</code> com pnpm 12.15.0, <code>pnpm install --frozen-lockfile</code>, <code>pnpm build</code>, <code>NODE_ENV=production</code>, porta 3000, <code>CMD pnpm --filter @viavoip/server start</code>.</p>
+<p>O Compose usa credenciais de banco <strong>de desenvolvimento</strong> e <code>SEED=true</code>. Não as use fora do ambiente local.</p>
+<h2 id="vari%C3%A1veis-de-ambiente-(apenas-nomes-e-padr%C3%B5es)" tabindex="-1">Variáveis de ambiente (apenas nomes e padrões)</h2>
+<table>
+<thead>
+<tr>
+<th>Variável</th>
+<th>Obrig.</th>
+<th>Padrão / efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td>sim</td>
+<td>Conexão do papel <code>webchat_app</code></td>
+</tr>
+<tr>
+<td><code>MIGRATE_DATABASE_URL</code></td>
+<td>sim</td>
+<td>Papel que aplica migrations e seed</td>
+</tr>
+<tr>
+<td><code>SM_ADAPTER</code></td>
+<td>sim</td>
+<td>Só <code>mock</code>; outro valor aborta a subida</td>
+</tr>
+<tr>
+<td><code>REDIS_URL</code></td>
+<td>não</td>
+<td>Vazio desliga o adapter do Socket.IO</td>
+</tr>
+<tr>
+<td><code>PORT</code> / <code>HOST</code></td>
+<td>não</td>
+<td>3000 / 0.0.0.0</td>
+</tr>
+<tr>
+<td><code>SEED</code></td>
+<td>não</td>
+<td><code>true</code> carrega <code>infra/seed/seed.sql</code></td>
+</tr>
+<tr>
+<td><code>SESSION_TTL_HOURS</code></td>
+<td>não</td>
+<td>12</td>
+</tr>
+<tr>
+<td><code>SESSION_CREATE_LIMIT</code>, <code>MESSAGE_LIMIT</code>, <code>RATE_WINDOW_MS</code></td>
+<td>não</td>
+<td>1000, 1000, 60000 (por processo)</td>
+</tr>
+<tr>
+<td><code>PRESENCE_STALE_MS</code></td>
+<td>não</td>
+<td>45000</td>
+</tr>
+<tr>
+<td><code>CORS_ORIGINS</code></td>
+<td>não</td>
+<td><code>http://localhost:3000,http://127.0.0.1:3000</code></td>
+</tr>
+<tr>
+<td><code>SERVE_STATIC</code></td>
+<td>não</td>
+<td>Ligado; <code>false</code> desliga servir widget/console (<strong>ausente do <code>.env.example</code></strong>)</td>
+</tr>
+<tr>
+<td><code>LOG</code></td>
+<td>não</td>
+<td><code>false</code> desliga o logger (<strong>ausente do <code>.env.example</code></strong>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="produ%C3%A7%C3%A3o-%E2%80%94-n%C3%A3o-verific%C3%A1vel" tabindex="-1">Produção — NÃO verificável</h2>
+<p>O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Pontos a decidir antes de produzir: múltiplas instâncias exigem estado compartilhado para o limitador de taxa (hoje em memória) e Redis para o adapter do Socket.IO; TLS e CORS; segredos fora do repositório; política de backup e retenção (não definidas); observabilidade (não há métricas, tracing ou alertas).</p>
+<section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
+<figure><img src="../../assets/infrastructure.png" alt="Infraestrutura"><figcaption>Infraestrutura</figcaption></figure>
+</section>
+</article>
+</body>
+</html>

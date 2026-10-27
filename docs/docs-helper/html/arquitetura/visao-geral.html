@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Visão geral da arquitetura — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="arquitetura-%E2%80%94-vis%C3%A3o-geral" tabindex="-1">Arquitetura — visão geral</h1>
+<p>Monorepo pnpm (Node ≥ 22, TypeScript estrito). Diagramas: contexto, containers, componentes do backend.</p>
+<h2 id="componentes" tabindex="-1">Componentes</h2>
+<table>
+<thead>
+<tr>
+<th>Pacote</th>
+<th>Papel</th>
+<th>Tecnologia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps/server</code></td>
+<td>HTTP + WebSocket, regras de domínio, migrations, seed, estáticos</td>
+<td>Fastify 5, Socket.IO 4, <code>pg</code> (sem ORM), Zod 4, argon2</td>
+</tr>
+<tr>
+<td><code>apps/widget</code></td>
+<td>UI do visitante (<code>/widget/</code>) e <code>loader.ts</code> (<code>/widget.js</code>)</td>
+<td>React 19, Vite 8, esbuild</td>
+</tr>
+<tr>
+<td><code>apps/console</code></td>
+<td>Central do agente e do supervisor (<code>/console/</code>)</td>
+<td>React 19, Vite 8</td>
+</tr>
+<tr>
+<td><code>packages/protocol</code></td>
+<td>Schemas Zod de HTTP, eventos, modelos, erros e postMessage</td>
+<td>Zod</td>
+</tr>
+<tr>
+<td><code>packages/sm-adapter</code></td>
+<td>Interface <code>SMAdapter</code>, <code>MockSMAdapter</code>, fábrica</td>
+<td>TypeScript</td>
+</tr>
+<tr>
+<td><code>infra/</code></td>
+<td><code>seed/seed.sql</code> e página demo (nginx)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="comunica%C3%A7%C3%A3o-interna-%C3%97-externa" tabindex="-1">Comunicação interna × externa</h2>
+<p>São domínios separados em tabelas, módulos e eventos:</p>
+<ul>
+<li><strong>Externa (atendimento):</strong> <code>conversations</code>, <code>messages</code>, <code>conversation_events</code>, <code>survey_*</code>. Participam visitante e agente; o supervisor só observa/transfere.</li>
+<li><strong>Interna (corporativa):</strong> <code>internal_conversations</code>, <code>internal_participants</code>, <code>internal_messages</code>, <code>internal_reads</code>, mais setores, anúncios, presença e atividades. Só usuários internos.</li>
+</ul>
+<p>Um visitante nunca recebe eventos <code>internal.*</code>; o isolamento é por namespace (<code>/visitor</code>, <code>/agent</code>, <code>/supervisor</code>) e por sala.</p>
+<h2 id="persist%C3%AAncia" tabindex="-1">Persistência</h2>
+<p>PostgreSQL é a fonte da verdade: claim, presença, sessões e mensagens vivem nele. <strong>Redis não guarda estado</strong> — é só o adapter do Socket.IO (fan-out entre instâncias) e é desligado com <code>REDIS_URL</code> vazio. O limitador de taxa é <strong>em memória por processo</strong> (várias instâncias não o compartilham).</p>
+<h2 id="autentica%C3%A7%C3%A3o-e-autoriza%C3%A7%C3%A3o" tabindex="-1">Autenticação e autorização</h2>
+<ul>
+<li>Tokens <strong>opacos</strong> (32 bytes aleatórios, base64url); só o hash SHA-256 é gravado (<code>auth_sessions</code>, <code>visitor_sessions</code>). O tenant vem da linha da sessão, nunca do cliente.</li>
+<li>Senhas: argon2id; login faz verificação fictícia quando o e-mail não existe (equaliza tempo).</li>
+<li>Papéis: <code>agent</code>, <code>supervisor</code>, <code>admin</code>. <code>/agent</code> aceita só <code>agent</code>; <code>/supervisor</code> aceita <code>supervisor</code> e <code>admin</code>.</li>
+<li>Visitante: acessa apenas a própria conversa no mesmo site.</li>
+<li>Regras por módulo: ver modules/. Matriz de permissões resumida em <a href="../visao-geral/status.html">STATUS.md</a>.</li>
+</ul>
+<h2 id="eventos" tabindex="-1">Eventos</h2>
+<p>Não há barramento interno. Cada handler chama o serviço de domínio e, <strong>após o commit</strong>, o <code>realtime/hub.ts</code> emite para salas (<code>tenant:{t}:conversation:{id}</code>, <code>queue:{id}</code>, <code>agent:{id}</code>, <code>supervisors</code>, <code>internal:{id}</code>, <code>sector:{id}</code>). O histórico durável fica em <code>conversation_events</code> (atendimento). Eventos de tempo real <strong>não</strong> são transacionais: não há outbox (F4-07). Lista de eventos: <a href="websocket.html">websocket.md</a>.</p>
+<h2 id="adaptadores-externos" tabindex="-1">Adaptadores externos</h2>
+<p><code>SMAdapter</code> é chamado após o commit, dentro de <code>safeNotify</code> (erro é logado e ignorado). Ver <a href="../integracoes/sm.html">integration-sm.md</a>.</p>
+<h2 id="planejado-%C3%97-implantado" tabindex="-1">Planejado × implantado</h2>
+<p>O repositório contém apenas <code>Dockerfile</code> e <code>docker-compose.yml</code> (ambiente local). <strong>Não há configuração de produção verificável</strong> (sem Terraform, Kubernetes, CI ou manifests). Ver <a href="../implantacao-e-operacao/ambientes.html">environments.md</a>.</p>
+<h2 id="boot-do-servidor" tabindex="-1">Boot do servidor</h2>
+<p><code>main.ts</code>: <code>createSMAdapter</code> → migrations (até 30 tentativas, 500 ms) com o papel de migração → seed se <code>SEED=true</code> → <code>buildApp</code> → listen. Um <code>setInterval</code> de 15 s executa <code>presence.sweep()</code>.</p>
+<section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
+<figure><img src="../../assets/context.png" alt="Contexto do sistema (C4 nível 1)"><figcaption>Contexto do sistema (C4 nível 1)</figcaption></figure>
+<figure><img src="../../assets/containers.png" alt="Containers (C4 nível 2)"><figcaption>Containers (C4 nível 2)</figcaption></figure>
+<figure><img src="../../assets/backend-components.png" alt="Componentes do backend"><figcaption>Componentes do backend</figcaption></figure>
+</section>
+</article>
+</body>
+</html>

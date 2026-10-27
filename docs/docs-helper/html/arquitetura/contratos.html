@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Contratos HTTP e WebSocket — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="contratos" tabindex="-1">Contratos</h1>
+<p>Os schemas vivem em <code>packages/protocol</code> e rejeitam campos desconhecidos.</p>
+<h2 id="http" tabindex="-1">HTTP</h2>
+<p><code>GET /public/widgets/:publicId</code></p>
+<p>Devolve nome, filas, cor, logotipo, boas-vindas, se o nome é obrigatório e se o atendimento está aberto. Não cria visitante e não devolve token. O <code>publicId</code> não é credencial.</p>
+<p><code>POST /visitor/sessions</code></p>
+<pre><code class="language-json">{ &quot;sitePublicId&quot;: &quot;site_a&quot;, &quot;parentOrigin&quot;: &quot;http://localhost:8090&quot; }
+</code></pre>
+<p><code>parentOrigin</code> precisa estar em <code>allowed_origins</code> do site. A allowlist reduz uso casual do identificador público; não autentica o site hospedeiro.</p>
+<p>Resposta: <code>token</code>, <code>siteName</code>, <code>primaryColor</code>, <code>logoUrl</code>, <code>welcomeMessage</code>, <code>requireVisitorName</code>, <code>acceptingChats</code>, <code>allowedOrigins</code>, <code>queues</code>.</p>
+<p><code>GET /visitor/me</code> com <code>Authorization: Bearer</code> devolve a mesma configuração do site, sem token.</p>
+<p><code>POST /auth/login</code></p>
+<pre><code class="language-json">{ &quot;email&quot;: &quot;ana@tenant-a.local&quot;, &quot;password&quot;: &quot;&lt;senha-de-demonstração&gt;&quot; }
+</code></pre>
+<p>Resposta: <code>token</code>, <code>role</code>, <code>name</code>.</p>
+<p><code>GET /auth/me</code> devolve <code>selfId</code>, <code>name</code>, <code>role</code>, <code>queues</code>, <code>dispositions</code> e <code>maxConcurrentAssignments</code>.</p>
+<p><code>POST /auth/logout</code> encerra a sessão.</p>
+<p>Erros: <code>{ &quot;error&quot;: { &quot;code&quot;, &quot;message&quot; } }</code>.</p>
+<h2 id="visitante" tabindex="-1">Visitante</h2>
+<ul>
+<li><code>queue.list</code> <code>{}</code></li>
+<li><code>conversation.start</code> <code>{ queueId, displayName? }</code> — equivale a <code>visitor.join_queue</code></li>
+<li><code>conversation.leave</code> <code>{ conversationId }</code> — equivale a <code>visitor.leave_queue</code>; só em <code>queued</code></li>
+<li><code>message.send</code> <code>{ conversationId, requestId, body }</code></li>
+<li><code>history.sync</code> <code>{ conversationId, afterMessageId?, afterEventId? }</code></li>
+<li><code>survey.submit</code> <code>{ conversationId, score, comment? }</code></li>
+</ul>
+<h2 id="agente" tabindex="-1">Agente</h2>
+<ul>
+<li><code>queue.subscribe</code> <code>{}</code></li>
+<li><code>conversation.claim</code> <code>{ conversationId }</code> — equivale a <code>agent.claim_conversation</code></li>
+<li><code>conversation.release</code> <code>{ conversationId }</code> — equivale a <code>agent.release_conversation</code>; só o agente dono</li>
+<li><code>message.send</code></li>
+<li><code>conversation.transfer</code> <code>{ conversationId, queueId }</code></li>
+<li><code>conversation.close</code> <code>{ conversationId, dispositionId }</code></li>
+<li><code>history.sync</code></li>
+<li><code>presence.set</code> <code>{ status }</code> — <code>available</code>, <code>busy</code> ou <code>away</code></li>
+<li><code>presence.heartbeat</code> <code>{}</code></li>
+<li><code>message.read</code> <code>{ conversationId, messageId }</code></li>
+</ul>
+<h2 id="supervisor-e-administrador" tabindex="-1">Supervisor e administrador</h2>
+<p>O administrador usa o mesmo canal <code>/supervisor</code>.</p>
+<ul>
+<li><code>conversation.list</code> <code>{}</code></li>
+<li><code>conversation.watch</code> <code>{ conversationId }</code> — grava auditoria</li>
+<li><code>conversation.transfer</code></li>
+<li><code>history.sync</code></li>
+<li><code>presence.heartbeat</code> <code>{}</code></li>
+<li><code>sector.list</code> <code>{}</code></li>
+<li><code>sector.save</code> <code>{ sectorId?, name, description?, active?, supervisorIds? }</code></li>
+<li><code>sector.member.add</code> <code>{ sectorId, agentId }</code></li>
+<li><code>sector.member.remove</code> <code>{ sectorId, agentId }</code></li>
+<li><code>internal.list</code> <code>{}</code></li>
+<li><code>internal.open</code> <code>{ peerId }</code></li>
+<li><code>internal.message.send</code> <code>{ conversationId, requestId, body }</code></li>
+<li><code>internal.history</code> <code>{ conversationId, beforeMessageId?, afterMessageId?, limit? }</code></li>
+<li><code>internal.message.read</code> <code>{ conversationId, messageId }</code></li>
+<li><code>announcement.list</code> <code>{ includeArchived? }</code></li>
+<li><code>announcement.publish</code> <code>{ title, body, pinned?, audience, sectorIds?, expiresAt? }</code></li>
+<li><code>announcement.update</code> <code>{ announcementId, title, body, pinned?, expiresAt? }</code></li>
+<li><code>announcement.archive</code> <code>{ announcementId }</code></li>
+<li><code>announcement.read</code> <code>{ announcementId }</code></li>
+<li><code>activity.catalog</code> <code>{}</code></li>
+<li><code>activity.type.save</code> <code>{ activityTypeId?, name, active? }</code></li>
+<li><code>activity.assign</code> <code>{ agentId, activityTypeId }</code></li>
+<li><code>activity.finish</code> <code>{ agentId }</code></li>
+<li><code>activity.history</code> <code>{ agentId? }</code></li>
+<li><code>supervisor.snapshot</code> <code>{ from?, to? }</code></li>
+</ul>
+<p>O agente recebe <code>sector.list</code>, o bloco <code>internal.*</code>, <code>announcement.list</code>, <code>announcement.read</code>, <code>activity.catalog</code>, <code>activity.assign</code>, <code>activity.finish</code> e <code>activity.history</code>. Os comandos de gestão respondem <code>forbidden</code> nesse canal.</p>
+<p><code>internal.history</code> não aceita <code>beforeMessageId</code> e <code>afterMessageId</code> juntos. O limite padrão é 50 e o teto é 100. <code>message.send</code> continua exclusivo do atendimento externo.</p>
+<p>Evento fora da lista do canal responde <code>{ ok: false, error: { code: &quot;forbidden&quot; } }</code>.</p>
+<h2 id="ack-de-mensagem" tabindex="-1">Ack de mensagem</h2>
+<pre><code class="language-json">{ &quot;ok&quot;: true, &quot;requestId&quot;: &quot;...&quot;, &quot;messageId&quot;: &quot;...&quot;, &quot;created&quot;: true }
+</code></pre>
+<p><code>created: false</code> significa que o <code>requestId</code> já estava gravado. O broadcast não é repetido.</p>
+<h2 id="eventos-do-servidor" tabindex="-1">Eventos do servidor</h2>
+<ul>
+<li><code>conversation.updated</code> — cobre atribuição, transferência e encerramento pelo <code>status</code></li>
+<li><code>message.new</code></li>
+<li><code>survey.required</code> — equivale a <code>survey.available</code></li>
+<li><code>queue.position</code> <code>{ conversationId, queueId, position }</code> — <code>position</code> é 1-based ou <code>null</code> fora da fila</li>
+<li><code>presence.updated</code> <code>{ agentId, status }</code> — <code>available</code>, <code>busy</code>, <code>away</code> ou <code>offline</code></li>
+<li><code>message.read</code> <code>{ conversationId, agentId, messageId }</code></li>
+<li><code>sector.updated</code></li>
+<li><code>internal.conversation.updated</code></li>
+<li><code>internal.message.new</code></li>
+<li><code>internal.message.read</code></li>
+<li><code>announcement.published</code></li>
+<li><code>announcement.updated</code></li>
+<li><code>activity.updated</code></li>
+<li><code>supervisor.metrics</code> — retrato da supervisão no escopo de quem está conectado</li>
+</ul>
+<p>O anúncio e a mensagem interna permanecem no Postgres. O evento só avisa quem já está conectado e autorizado.</p>
+<p><code>conversation.updated</code> inclui <code>visitorDisplayName</code> (só o nome já informado pelo visitante, ou <code>null</code>), <code>agentName</code> e <code>queuedAt</code>. O tempo de espera parte de <code>queuedAt</code>, regravado na entrada, na devolução e na transferência. O tempo de atendimento parte de <code>assignedAt</code>.</p>
+<p><code>history.sync</code> também devolve <code>lastReadMessageId</code>, o cursor de leitura do agente ou <code>null</code>.</p>
+<p>Presença:</p>
+<ul>
+<li><code>available</code>: há conexão com heartbeat recente, o agente escolheu disponível e está abaixo do limite. Só esse estado assume atendimento.</li>
+<li><code>busy</code>: conexão fresca e escolha de ocupado, ou o limite de atendimentos foi atingido. As conversas atuais permanecem.</li>
+<li><code>away</code>: conexão fresca e escolha de ausente. Não assume. As conversas atuais permanecem.</li>
+<li><code>offline</code>: nenhuma conexão fresca. Não assume e não encerra conversas.</li>
+</ul>
+<p>O servidor calcula o status. O console só exibe e pede a mudança. Heartbeat a cada 15 segundos. Conexão sem heartbeat além de <code>PRESENCE_STALE_MS</code> (padrão 45 segundos) expira. Fechar uma aba não publica <code>offline</code> enquanto outra conexão do mesmo agente seguir fresca. A última saída publica <code>offline</code>. Queda de rede não devolve a conversa.</p>
+<p><code>conversation.claim</code> acima do limite responde <code>capacity</code>. Assumir o mesmo contato que outro agente já levou responde <code>already_claimed</code>. Encerrar de novo com a mesma classificação devolve o estado atual sem outro evento. Classificação diferente responde <code>conflict</code>. Pesquisa repetida responde <code>conflict</code>. Transferência de agente só alcança fila em que ele está escalado; fila de outro tenant responde <code>not_found</code>.</p>
+<p>O nome do evento Socket.IO é o discriminador. <code>requestId</code> correlaciona o envio da mensagem. O <code>id</code> da mensagem ou de <code>conversation_events</code> é o identificador durável. <code>createdAt</code> é o instante. O ack só sai depois do commit.</p>
+<p>Nenhum desses payloads contém <code>tenantId</code>.</p>
+<p><code>history.sync</code> devolve a conversa, as mensagens posteriores a <code>afterMessageId</code> e os eventos posteriores a <code>afterEventId</code>. Um cursor desconhecido responde <code>invalid_payload</code>.</p>
+<p>O corpo da mensagem rejeita caractere nulo. Acima do limite em memória, sessão e mensagem respondem <code>rate_limited</code>. O limite vale para o processo; várias instâncias não compartilham o contador.</p>
+<h2 id="postmessage" tabindex="-1">postMessage</h2>
+<p>Origem do widget: <code>viavoip-webchat</code>. Origem da página: <code>viavoip-webchat-parent</code>.</p>
+<p>Widget → página: <code>ready</code>, <code>open</code>, <code>close</code>, <code>resize { width, height }</code>.</p>
+<p>Página → widget: <code>open</code>, <code>close</code>.</p>
+<p>O loader só aceita mensagens cuja <code>event.origin</code> é a origem do script e cujo <code>event.source</code> é a janela do iframe.</p>
+</article>
+</body>
+</html>

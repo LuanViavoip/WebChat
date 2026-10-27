@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Central do Supervisor — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="central-do-supervisor" tabindex="-1">Central do Supervisor</h1>
+<p>Namespace <code>/supervisor</code> (papéis <code>supervisor</code> e <code>admin</code>). Seções do console: Visão geral, Agentes, Setores, Atendimentos, Atividades, Anúncios, Chat interno.</p>
+<h2 id="indicadores-(supervisor.snapshot-%7B-from%3F%2C-to%3F-%7D-e-supervisor.metrics)" tabindex="-1">Indicadores (<code>supervisor.snapshot { from?, to? }</code> e <code>supervisor.metrics</code>)</h2>
+<p>conectados, disponíveis, ocupados, ausentes, offline, em espera, em atendimento, aguardando pesquisa, atividades, maior espera (<code>longestWaitSeconds</code>) e encerrados no período (<code>closedInPeriod</code>). O servidor empurra <code>supervisor.metrics</code> a cada mudança.</p>
+<h2 id="escopo-de-acesso-%E2%80%94-limita%C3%A7%C3%A3o-importante-(f4-02)" tabindex="-1">Escopo de acesso — limitação importante (F4-02)</h2>
+<p>No commit documentado:</p>
+<ul>
+<li>a <strong>lista de agentes</strong> é filtrada por setor para supervisores;</li>
+<li><strong>conversas, métricas de fila e transferência são do tenant inteiro</strong>: <code>assertCanRead</code> não restringe supervisor/admin, <code>listForSupervisor</code> lista todas as conversas abertas e <code>message.new</code> chega a <code>supervisors</code> sem filtro de setor.</li>
+</ul>
+<p>Ou seja, um supervisor enxerga e pode transferir atendimentos fora dos seus setores. Isto é um <strong>defeito aberto</strong>, não o comportamento desejado. A relação setor ↔ fila (<code>sector_queues</code>) ainda não é usada.</p>
+<h2 id="opera%C3%A7%C3%B5es" tabindex="-1">Operações</h2>
+<p>Monitorar: <code>conversation.list</code>, <code>conversation.watch</code> (grava auditoria), <code>history.sync</code>. Atuar: <code>conversation.transfer</code> para qualquer fila do tenant. <strong>Não</strong> envia mensagens nem encerra atendimentos. Gestão: setores, atividades e anúncios conforme as regras de cada módulo.</p>
+<h2 id="auditoria" tabindex="-1">Auditoria</h2>
+<p><code>audit_events</code> registra <code>conversation.watch</code>, <code>sector.*</code>, <code>announcement.*</code> e <code>activity.*</code> (ator, ação, recurso, metadados). O código não oferece consulta/tela de auditoria identificada.</p>
+</article>
+</body>
+</html>

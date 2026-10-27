@@ -1,0 +1,37 @@
+---
+title: DER — internal
+---
+erDiagram
+  %% Relacionamentos tenant_id → tenants omitidos (toda tabela de negócio os possui).
+  agents {
+    uuid id PK
+  }
+  sectors {
+    uuid id PK
+  }
+  internal_conversations {
+    uuid id PK
+    uuid sector_id FK
+  }
+  internal_participants {
+    uuid conversation_id PK,FK
+    uuid agent_id PK,FK
+  }
+  internal_messages {
+    uuid id PK
+    uuid conversation_id FK
+    uuid sender_id FK
+  }
+  internal_reads {
+    uuid conversation_id PK,FK
+    uuid agent_id PK,FK
+    uuid last_read_message_id FK
+  }
+  sectors |o--o{ internal_conversations : "sector_id"
+  agents ||--o{ internal_participants : "agent_id"
+  internal_conversations ||--o{ internal_participants : "conversation_id"
+  internal_conversations ||--o{ internal_messages : "conversation_id"
+  agents ||--o{ internal_messages : "sender_id"
+  agents ||--o{ internal_reads : "agent_id"
+  internal_conversations ||--o{ internal_reads : "conversation_id"
+  internal_messages ||--o{ internal_reads : "last_read_message_id"

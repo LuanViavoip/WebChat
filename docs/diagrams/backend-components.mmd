@@ -1,0 +1,33 @@
+flowchart LR
+  subgraph IN["Entrada"]
+    direction TB
+    HTTP["http/routes.ts<br/>/health, /public/widgets, /visitor/sessions,<br/>/auth/login, /auth/me, /auth/logout"]
+    WS["realtime/register.ts + staff-channel.ts<br/>namespaces /visitor, /agent, /supervisor"]
+    BIND["realtime/bind.ts<br/>validação Zod + ack após commit"]
+    WS --> BIND
+  end
+  AUTH["auth/sessions.ts<br/>sessões opacas (hash SHA-256)<br/>domain/access.ts: assertCanRead / assertCanSend"]
+  subgraph MOD["modules/ (regras de domínio)"]
+    direction TB
+    CONV["conversations — filas, claim, transferência, encerramento"]
+    MSG["messages"]
+    PRES["presence"]
+    INT["internal-chat"]
+    SEC["sectors"]
+    ANN["announcements"]
+    ACT["activities"]
+    SUP["supervisor"]
+    AUD["audit"]
+  end
+  TENANT["db/tenant.ts — withTenant<br/>set_config app.tenant_id"]
+  PG[("PostgreSQL + RLS")]
+  HUB["realtime/hub.ts<br/>fan-out por salas"]
+  RED[("Redis (opcional)")]
+  SMA["packages/sm-adapter<br/>SMAdapter / MockSMAdapter"]
+  HTTP --> AUTH
+  WS --> AUTH
+  BIND --> MOD
+  MOD --> TENANT --> PG
+  AUTH --> TENANT
+  MOD --> HUB -.->|"adapter Socket.IO"| RED
+  CONV -.->|"após commit (safeNotify)"| SMA

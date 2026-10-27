@@ -1,0 +1,18 @@
+flowchart TB
+  subgraph DEV["Desenvolvimento — docker-compose"]
+    direction LR
+    DEMO["demo: nginx :8090<br/>infra/demo/index.html"]
+    SRV["server: Node 22 :3000<br/>serve /widget, /console, /widget.js"]
+    PG[("postgres:16-alpine<br/>host :5434")]
+    RD[("redis:7-alpine :6379<br/>adapter Socket.IO")]
+    DEMO -->|"iframe /widget"| SRV
+    SRV --> PG
+    SRV -.->|opcional| RD
+  end
+  subgraph PROD["Produção"]
+    UNK["NÃO verificável no repositório<br/>sem Terraform, Kubernetes, CI ou manifests"]
+  end
+  subgraph FUT["Futuro (proposta)"]
+    SMX["SM real<br/>contrato pendente"]
+  end
+  DEV ~~~ PROD ~~~ FUT

@@ -1,0 +1,12 @@
+{
+  "name": "webchat-docs-tools",
+  "private": true,
+  "type": "module",
+  "description": "Ferramentas de geração e validação da documentação do ViaVoip Webchat (não faz parte do workspace pnpm)",
+  "dependencies": {
+    "fflate": "0.8.3",
+    "markdown-it": "14.1.0",
+    "markdown-it-anchor": "9.2.0",
+    "sanitize-html": "2.18.0"
+  }
+}

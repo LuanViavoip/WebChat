@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Widget ChatWeb — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="widget-chatweb" tabindex="-1">Widget ChatWeb</h1>
+<h2 id="instala%C3%A7%C3%A3o" tabindex="-1">Instalação</h2>
+<p>Cole no site do cliente (exemplo do ambiente de demonstração, <code>infra/demo/index.html</code>):</p>
+<pre><code class="language-html">&lt;script async src=&quot;http://localhost:3000/widget.js&quot; data-widget-id=&quot;site_a&quot;&gt;&lt;/script&gt;
+</code></pre>
+<ul>
+<li><code>data-widget-id</code> (ou o alias <code>data-site</code>) é o <code>public_id</code> do site. Não é credencial.</li>
+<li>A origem do <code>src</code> é a origem do servidor Webchat; o loader abre <code>{origem}/widget/?site=&lt;id&gt;</code> em um iframe.</li>
+<li>Não há outras opções de inicialização nem API JavaScript: toda a configuração vem do servidor (colunas de <code>sites</code>).</li>
+<li>Não publique tokens: o token do visitante é emitido em runtime e nunca vai no HTML.</li>
+</ul>
+<h2 id="loader-(apps%2Fwidget%2Fsrc%2Floader.ts)" tabindex="-1">Loader (<code>apps/widget/src/loader.ts</code>)</h2>
+<p>Sem o atributo, não faz nada. Uma flag global (<code>__viavoipWebchat</code>) ignora segunda carga. Cria o iframe fixo no canto inferior direito (72×72 px, z-index alto). Só aceita <code>postMessage</code> cuja origem é a do script <strong>e</strong> cuja <code>source</code> é a janela do iframe; trata apenas <code>resize</code> (limites 64–480 × 64–720). O widget implementa <code>open</code>/<code>close</code> recebidos, mas o loader não os envia.</p>
+<h2 id="configura%C3%A7%C3%B5es-do-site-(servidor)" tabindex="-1">Configurações do site (servidor)</h2>
+<table>
+<thead>
+<tr>
+<th>Coluna (<code>sites</code>)</th>
+<th>Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowed_origins</code></td>
+<td>Origens autorizadas a criar sessão</td>
+</tr>
+<tr>
+<td><code>primary_color</code></td>
+<td>Cor (hex)</td>
+</tr>
+<tr>
+<td><code>logo_url</code></td>
+<td>Logotipo (somente <code>https://</code>)</td>
+</tr>
+<tr>
+<td><code>welcome_message</code></td>
+<td>Boas-vindas (1–300 caracteres)</td>
+</tr>
+<tr>
+<td><code>require_visitor_name</code></td>
+<td>Exige nome</td>
+</tr>
+<tr>
+<td><code>accepting_chats</code></td>
+<td>Falso mostra &quot;atendimento fechado&quot;</td>
+</tr>
+</tbody>
+</table>
+<h2 id="identifica%C3%A7%C3%A3o-do-tenant-e-conex%C3%A3o" tabindex="-1">Identificação do tenant e conexão</h2>
+<ol>
+<li>O widget consulta <code>GET /public/widgets/:publicId</code> (sem criar sessão).</li>
+<li>Define <code>parentOrigin</code> por <code>document.referrer</code> (ou <code>window.location.origin</code> se não estiver embutido). Se não estiver em <code>allowed_origins</code>: &quot;Este site não está autorizado&quot;.</li>
+<li><code>POST /visitor/sessions { sitePublicId, parentOrigin }</code> valida a origem, cria visitante e sessão e devolve o token. O tenant é resolvido <strong>no servidor</strong> a partir do site.</li>
+<li>Conecta em <code>/visitor</code> com <code>auth: { token }</code>.</li>
+</ol>
+<blockquote>
+<p><code>allowed_origins</code> reduz uso casual do identificador público; <strong>não autentica</strong> o site hospedeiro (declarado em <a href="../arquitetura/contratos.html">contracts.md</a>).</p>
+</blockquote>
+<p>Token e id da conversa ficam em <code>sessionStorage</code> (<code>viavoip.visitorToken</code>, <code>viavoip.conversationId</code>). Na abertura tenta <code>GET /visitor/me</code>; se falhar, cria nova sessão.</p>
+<h2 id="fases-e-sele%C3%A7%C3%A3o-de-fila" tabindex="-1">Fases e seleção de fila</h2>
+<p><code>loading → queues → chat → survey → closed</code> (e <code>error</code>). O visitante escolhe a fila (e informa nome, se exigido) e o widget envia <code>conversation.start</code>, idempotente: havendo conversa aberta, retorna a existente (<code>created: false</code>). O banco garante uma conversa aberta por visitante (<code>conversations_one_open_per_visitor</code>). &quot;Sair da fila&quot; só aparece em <code>queued</code>.</p>
+<h2 id="mensagens-e-recupera%C3%A7%C3%A3o" tabindex="-1">Mensagens e recuperação</h2>
+<p><code>message.send</code> com <code>requestId</code> gerado no cliente (idempotência) e timeout de ack de 8 s. Ao reconectar, <code>history.sync</code> com <code>afterMessageId</code>/<code>afterEventId</code> e mesclagem por id. <strong>Não há reenvio automático</strong> de mensagem que falhou.</p>
+<h2 id="pesquisa-de-satisfa%C3%A7%C3%A3o" tabindex="-1">Pesquisa de satisfação</h2>
+<p>Ao receber <code>survey.required</code> (ou snapshot <code>awaiting_survey</code>) mostra nota 1..<code>scale</code> e comentário opcional (conforme <code>survey_definitions</code>; usa a definição ativa mais antiga). <code>survey.submit</code> fecha a conversa; uma segunda resposta devolve <code>conflict</code>. Devolução à fila e transferência não geram pesquisa.</p>
+<p>Diagrama: sequência do atendimento externo.</p>
+<section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
+<figure><img src="../../assets/external-chat-sequence.png" alt="Sequência do atendimento externo"><figcaption>Sequência do atendimento externo</figcaption></figure>
+</section>
+</article>
+</body>
+</html>

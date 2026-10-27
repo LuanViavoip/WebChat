@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Setores — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="setores" tabindex="-1">Setores</h1>
+<h2 id="entidade" tabindex="-1">Entidade</h2>
+<p><code>sectors</code> (nome único por tenant, descrição ≤ 500, <code>active</code>). Membros em <code>sector_members</code> e supervisores em <code>sector_supervisors</code>, ambos com remoção lógica (<code>removed_at</code>). O trigger <code>enforce_sector_supervisor</code> exige papel <code>supervisor</code> ou <code>admin</code> para supervisionar.</p>
+<h2 id="opera%C3%A7%C3%B5es" tabindex="-1">Operações</h2>
+<p><code>sector.list</code>, <code>sector.save</code> (cria/atualiza e substitui supervisores), <code>sector.member.add</code>, <code>sector.member.remove</code>. Criar um setor cria sua conversa de grupo no chat interno. Todas as mutações gravam <code>audit_events</code> (<code>sector.save</code>, <code>sector.member_added</code>, <code>sector.member_removed</code>).</p>
+<h2 id="permiss%C3%B5es" tabindex="-1">Permissões</h2>
+<ul>
+<li><strong>admin</strong>: gere qualquer setor.</li>
+<li><strong>supervisor</strong>: gere apenas setores em que é supervisor ativo.</li>
+<li><strong>agente</strong>: lista, sem gestão.</li>
+</ul>
+<h2 id="rela%C3%A7%C3%A3o-com-filas" tabindex="-1">Relação com filas</h2>
+<p>A tabela <code>sector_queues</code> existe (com RLS, trigger e grants), mas <strong>no commit documentado nenhum código a lê ou escreve e o seed não a popula</strong>. Portanto a relação setor ↔ fila é uma <strong>lacuna</strong>: o escopo do supervisor por fila (F4-02) não pode se apoiar nela ainda.</p>
+<h2 id="ui" tabindex="-1">UI</h2>
+<p>O console cria setor e edita membros; não edita setor nem supervisores (F4-06).</p>
+</article>
+</body>
+</html>

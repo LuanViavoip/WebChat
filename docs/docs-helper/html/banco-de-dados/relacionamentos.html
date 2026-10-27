@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relacionamentos — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="relacionamentos" tabindex="-1">Relacionamentos</h1>
+<p>Todos os relacionamentos abaixo vêm das FKs reais (<code>data-dictionary.md</code>). Toda tabela de negócio também referencia <code>tenants</code> por <code>tenant_id</code>; essa aresta é omitida dos diagramas. Diagramas: DER geral (visão de conjunto, amplo: use zoom) e por domínio: identidade, atendimento, chat interno, setores e anúncios, presença e atividades.</p>
+<table>
+<thead>
+<tr>
+<th>Domínio</th>
+<th>Relação (pai → filho)</th>
+<th>Cardinalidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tenants e usuários</td>
+<td><code>tenants</code> → <code>sites</code>, <code>queues</code>, <code>agents</code>, <code>dispositions</code>, <code>survey_definitions</code></td>
+<td>1:N</td>
+</tr>
+<tr>
+<td>Sites e filas</td>
+<td><code>sites</code> ⇄ <code>queues</code> via <code>site_queues</code></td>
+<td>N:N</td>
+</tr>
+<tr>
+<td>Agentes e filas</td>
+<td><code>agents</code> ⇄ <code>queues</code> via <code>agent_queues</code></td>
+<td>N:N</td>
+</tr>
+<tr>
+<td>Sessões</td>
+<td><code>agents</code> → <code>auth_sessions</code>; <code>visitors</code> → <code>visitor_sessions</code>; <code>sites</code> → <code>visitors</code></td>
+<td>1:N</td>
+</tr>
+<tr>
+<td>Atendimentos</td>
+<td><code>sites</code>, <code>queues</code>, <code>visitors</code> → <code>conversations</code> (obrigatórios); <code>agents</code>, <code>dispositions</code> → <code>conversations</code> (opcionais)</td>
+<td>1:N</td>
+</tr>
+<tr>
+<td>Mensagens</td>
+<td><code>conversations</code> → <code>messages</code>, <code>conversation_events</code></td>
+<td>1:N</td>
+</tr>
+<tr>
+<td>Leitura</td>
+<td><code>conversations</code> + <code>agents</code> → <code>conversation_reads</code> (PK composta); <code>messages</code> → <code>conversation_reads.last_read_message_id</code></td>
+<td>N:N</td>
+</tr>
+<tr>
+<td>Pesquisa</td>
+<td><code>conversations</code> → <code>survey_responses</code> (1:1 por UNIQUE); <code>survey_definitions</code> → <code>survey_responses</code></td>
+<td>1:1 / 1:N</td>
+</tr>
+<tr>
+<td>Agentes e setores</td>
+<td><code>sectors</code> ⇄ <code>agents</code> via <code>sector_members</code> e via <code>sector_supervisors</code></td>
+<td>N:N (remoção lógica)</td>
+</tr>
+<tr>
+<td>Setores e filas</td>
+<td><code>sectors</code> ⇄ <code>queues</code> via <code>sector_queues</code></td>
+<td>N:N — <strong>sem uso no código</strong></td>
+</tr>
+<tr>
+<td>Chat interno</td>
+<td><code>sectors</code> → <code>internal_conversations</code> (grupo, 1:1 por setor); <code>internal_conversations</code> → <code>internal_participants</code>, <code>internal_messages</code>; <code>agents</code> → ambos</td>
+<td>1:N / N:N</td>
+</tr>
+<tr>
+<td>Leitura interna</td>
+<td><code>internal_conversations</code> + <code>agents</code> → <code>internal_reads</code>; <code>internal_messages</code> → <code>last_read_message_id</code></td>
+<td>N:N</td>
+</tr>
+<tr>
+<td>Anúncios</td>
+<td><code>agents</code> (autor) → <code>announcements</code>; <code>announcements</code> ⇄ <code>sectors</code> via <code>announcement_sectors</code>; <code>announcements</code> → <code>announcement_revisions</code> (editor = <code>agents</code>), <code>announcement_reads</code> (agente)</td>
+<td>1:N / N:N</td>
+</tr>
+<tr>
+<td>Presença</td>
+<td><code>agents</code> → <code>agent_presence</code> (1:1), <code>agent_connections</code> (1:N), <code>presence_intervals</code> (1:N)</td>
+<td></td>
+</tr>
+<tr>
+<td>Atividades</td>
+<td><code>activity_types</code> → <code>activity_assignments</code>; <code>agents</code> → <code>activity_assignments</code> (agente e <code>assigned_by</code>)</td>
+<td>1:N</td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td><code>agents</code> (ator) → <code>audit_events</code>; <code>resource_type/resource_id</code> são <strong>polimórficos, sem FK</strong></td>
+<td>1:N</td>
+</tr>
+</tbody>
+</table>
+<p>Observações de integridade: <code>messages.sender_id</code> é <code>NULL</code> se e somente se <code>sender_type = 'system'</code> e <strong>não tem FK</strong> (aponta para visitante ou agente conforme <code>sender_type</code>). <code>audit_events.resource_id</code> também não tem FK.</p>
+<section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
+<figure><img src="../../assets/database-erd.png" alt="DER geral"><figcaption>DER geral</figcaption></figure>
+<figure><img src="../../assets/database-erd-identity.png" alt="DER — identidade e tenants"><figcaption>DER — identidade e tenants</figcaption></figure>
+<figure><img src="../../assets/database-erd-attendance.png" alt="DER — atendimentos"><figcaption>DER — atendimentos</figcaption></figure>
+<figure><img src="../../assets/database-erd-internal.png" alt="DER — chat interno"><figcaption>DER — chat interno</figcaption></figure>
+<figure><img src="../../assets/database-erd-sectors.png" alt="DER — setores e anúncios"><figcaption>DER — setores e anúncios</figcaption></figure>
+<figure><img src="../../assets/database-erd-presence.png" alt="DER — presença e atividades"><figcaption>DER — presença e atividades</figcaption></figure>
+</section>
+</article>
+</body>
+</html>

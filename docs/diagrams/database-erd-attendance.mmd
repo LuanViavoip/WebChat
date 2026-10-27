@@ -1,0 +1,63 @@
+---
+title: DER — attendance
+---
+erDiagram
+  %% Relacionamentos tenant_id → tenants omitidos (toda tabela de negócio os possui).
+  sites {
+    uuid id PK
+  }
+  queues {
+    uuid id PK
+  }
+  visitors {
+    uuid id PK
+    uuid site_id FK
+  }
+  agents {
+    uuid id PK
+  }
+  dispositions {
+    uuid id PK
+  }
+  conversations {
+    uuid id PK
+    uuid site_id FK
+    uuid queue_id FK
+    uuid visitor_id FK
+    uuid agent_id FK
+    uuid disposition_id FK
+  }
+  messages {
+    uuid id PK
+    uuid conversation_id FK
+  }
+  conversation_events {
+    uuid id PK
+    uuid conversation_id FK
+  }
+  conversation_reads {
+    uuid conversation_id PK,FK
+    uuid agent_id PK,FK
+    uuid last_read_message_id FK
+  }
+  survey_definitions {
+    uuid id PK
+  }
+  survey_responses {
+    uuid id PK
+    uuid conversation_id FK
+    uuid survey_definition_id FK
+  }
+  sites ||--o{ visitors : "site_id"
+  agents |o--o{ conversations : "agent_id"
+  dispositions |o--o{ conversations : "disposition_id"
+  queues ||--o{ conversations : "queue_id"
+  sites ||--o{ conversations : "site_id"
+  visitors ||--o{ conversations : "visitor_id"
+  conversations ||--o{ messages : "conversation_id"
+  conversations ||--o{ conversation_events : "conversation_id"
+  agents ||--o{ conversation_reads : "agent_id"
+  conversations ||--o{ conversation_reads : "conversation_id"
+  messages ||--o{ conversation_reads : "last_read_message_id"
+  conversations ||--o| survey_responses : "conversation_id"
+  survey_definitions ||--o{ survey_responses : "survey_definition_id"

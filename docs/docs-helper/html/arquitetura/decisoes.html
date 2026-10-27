@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Decisões de arquitetura — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="decis%C3%B5es" tabindex="-1">Decisões</h1>
+<h2 id="sess%C3%A3o-opaca-em-vez-de-jwt-com-tenant" tabindex="-1">Sessão opaca em vez de JWT com tenant</h2>
+<p>O token é aleatório e só o hash fica no banco. O tenant é lido da linha da sessão. Um cliente não consegue reescrever o tenant de um token.</p>
+<h2 id="rls-al%C3%A9m-do-filtro-na-query" tabindex="-1">RLS além do filtro na query</h2>
+<p>As queries recebem o tenant do principal autenticado. O RLS impede que uma query esquecida vaze outro tenant. As funções de bootstrap (<code>lookup_site_by_public_id</code>, <code>lookup_agent_by_email</code>, <code>lookup_auth_session</code>, <code>lookup_visitor_session</code>) são <code>SECURITY DEFINER</code> porque ainda não existe tenant no momento da leitura.</p>
+<h2 id="claim-no-postgres" tabindex="-1">Claim no Postgres</h2>
+<p>O Redis não decide quem assumiu a conversa. Duas instâncias disputam a mesma linha e o <code>UPDATE ... WHERE status = 'queued' AND agent_id IS NULL</code> elege um vencedor.</p>
+<h2 id="ack-depois-do-commit" tabindex="-1">Ack depois do commit</h2>
+<p><code>withTenant</code> só retorna depois do <code>COMMIT</code>. O handler emite o evento e só então responde o ack. A queda entre o commit e o ack se recupera no <code>history.sync</code>, e o <code>requestId</code> impede uma segunda gravação.</p>
+<h2 id="encerramento-em-dois-passos" tabindex="-1">Encerramento em dois passos</h2>
+<p>Classificar muda o status para <code>awaiting_survey</code> e abre a pesquisa. A resposta do visitante muda para <code>closed</code>. O mock do SM é notificado na classificação, que é o fim operacional do atendimento. A pesquisa permanece interna até existir contrato.</p>
+<h2 id="transfer%C3%AAncia-s%C3%B3-para-fila" tabindex="-1">Transferência só para fila</h2>
+<p>A fase 1 devolve a conversa para outra fila do mesmo tenant e remove o agente. Transferência direta para outro agente fica fora. Na fase 3 o agente só escolhe uma fila em que já está escalado. O supervisor continua podendo mover para qualquer fila do próprio tenant.</p>
+<h2 id="senha-local" tabindex="-1">Senha local</h2>
+<p>Não há IdP do SM. Agentes de demonstração usam argon2id. A coluna <code>password_hash</code> não é legível pelo papel da aplicação; o login passa pela função definidora.</p>
+<h2 id="presen%C3%A7a-no-servidor" tabindex="-1">Presença no servidor</h2>
+<p>O status efetivo sai das conexões autenticadas, do heartbeat e da escolha do agente. <code>offline</code> só acontece quando não resta conexão fresca. Várias abas compartilham o mesmo agente. O limite simultâneo fica em <code>tenants.max_concurrent_assignments</code> e o claim trava a presença do agente antes do <code>UPDATE</code> condicional da conversa. Atingir o limite publica <code>busy</code> sem encerrar os atendimentos abertos.</p>
+<h2 id="chat-interno-separado-do-atendimento" tabindex="-1">Chat interno separado do atendimento</h2>
+<p>Mensagens entre agentes e supervisores ficam em <code>internal_conversations</code> e <code>internal_messages</code>. O atendimento externo continua em <code>conversations</code>, com fila, visitante, classificação e pesquisa. Os dois canais dividem o socket autenticado, o <code>withTenant</code> e a idempotência por <code>requestId</code>. Um comando interno não entra na máquina <code>queued → assigned → awaiting_survey → closed</code> e não chama o adaptador do SM.</p>
+<p>O papel <code>admin</code> enxerga o tenant inteiro. O supervisor opera nos setores em que é responsável. A conversa direta é única por par e só liga agente com supervisor do mesmo setor, agente com administrador, ou dois membros da supervisão. Agente com agente fica de fora. Quem sai do setor perde o envio e as mensagens posteriores; o histórico até <code>removed_at</code> permanece, conforme <code>tenants.internal_history_policy</code>.</p>
+<p>Presença e atividade não se alteram mutuamente. A presença efetiva continua a fórmula das conexões e do estado desejado, agora com um intervalo por transição. A alocação ativa é uma por agente.</p>
+<h2 id="p%C3%A1gina-demo-em-outra-origem" tabindex="-1">Página demo em outra origem</h2>
+<p>O site de exemplo sobe na porta 8090 e o webchat na 3000. Isso exercita iframe, <code>postMessage</code> e a allowlist do site sem cookie de terceiros.</p>
+</article>
+</body>
+</html>

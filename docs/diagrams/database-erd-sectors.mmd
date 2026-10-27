@@ -1,0 +1,61 @@
+---
+title: DER — sectors
+---
+erDiagram
+  %% Relacionamentos tenant_id → tenants omitidos (toda tabela de negócio os possui).
+  agents {
+    uuid id PK
+  }
+  queues {
+    uuid id PK
+  }
+  sectors {
+    uuid id PK
+  }
+  sector_members {
+    uuid sector_id PK,FK
+    uuid agent_id PK,FK
+  }
+  sector_supervisors {
+    uuid sector_id PK,FK
+    uuid agent_id PK,FK
+  }
+  sector_queues {
+    uuid sector_id PK,FK
+    uuid queue_id PK,FK
+  }
+  announcements {
+    uuid id PK
+    uuid author_id FK
+  }
+  announcement_sectors {
+    uuid announcement_id PK,FK
+    uuid sector_id PK,FK
+  }
+  announcement_revisions {
+    uuid id PK
+    uuid announcement_id FK
+    uuid editor_id FK
+  }
+  announcement_reads {
+    uuid announcement_id PK,FK
+    uuid agent_id PK,FK
+  }
+  audit_events {
+    uuid id PK
+    uuid actor_id FK
+  }
+  agents ||--o{ sector_members : "agent_id"
+  sectors ||--o{ sector_members : "sector_id"
+  agents ||--o{ sector_supervisors : "agent_id"
+  sectors ||--o{ sector_supervisors : "sector_id"
+  queues ||--o{ sector_queues : "queue_id"
+  sectors ||--o{ sector_queues : "sector_id"
+  agents ||--o{ announcements : "author_id"
+  announcements ||--o{ announcement_sectors : "announcement_id"
+  sectors ||--o{ announcement_sectors : "sector_id"
+  announcements ||--o{ announcement_revisions : "announcement_id"
+  agents ||--o{ announcement_revisions : "editor_id"
+  agents ||--o{ announcement_reads : "agent_id"
+  announcements ||--o{ announcement_reads : "announcement_id"
+  agents ||--o{ audit_events : "actor_id"
