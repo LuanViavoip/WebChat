@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Site do cliente — demonstração ViaVoip</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background: #efe7d6;
+        color: #2b2118;
+      }
+      main { max-width: 720px; margin: 0 auto; padding: 48px 20px 120px; }
+      h1 { font-size: 42px; margin-bottom: 8px; }
+      p { font-size: 18px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>Origem desta página: http://localhost:8090</p>
+      <h1>Oficina Horizonte</h1>
+      <p>
+        Esta página representa o site de um cliente ViaVoip. O webchat abaixo foi instalado
+        com uma tag de script e conversa com o painel em outra origem.
+      </p>
+    </main>
+    <script async src="http://localhost:3000/widget.js" data-widget-id="site_a"></script>
+  </body>
+</html>

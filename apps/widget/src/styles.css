@@ -1,0 +1,122 @@
+:root {
+  color: #142033;
+  background: transparent;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+button, input, textarea {
+  font: inherit;
+}
+
+.launcher {
+  width: 72px;
+  height: 72px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--brand, #0c7c73);
+  color: #f6f3ec;
+  cursor: pointer;
+}
+
+.logo {
+  display: block;
+  height: 28px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+}
+
+.panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #f6f3ec;
+  color: #142033;
+}
+
+.standalone { min-height: 100vh; }
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--brand, #0c7c73);
+}
+
+h1 { margin: 0; font-size: 22px; }
+
+header button, .stack button, form button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--brand, #0c7c73);
+  color: #f6f3ec;
+  cursor: pointer;
+}
+
+.stack { display: flex; flex-direction: column; gap: 8px; }
+
+.chat { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+
+.chat > button {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--brand, #0c7c73);
+  color: #f6f3ec;
+  cursor: pointer;
+}
+
+.messages {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 180px;
+}
+
+.messages article {
+  max-width: 85%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.messages article.visitor { align-self: flex-end; background: #d7efe9; }
+.messages article p { margin: 0; }
+
+form { display: flex; gap: 8px; }
+
+input, textarea {
+  width: 100%;
+  border: 1px solid #d9d2c5;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.muted { color: #5d6b7a; }
+.error { color: #9d3b2f; }
+
+.scores { display: flex; gap: 8px; }
+.scores button { background: #fff; color: #142033; border: 1px solid #d9d2c5; }
+.scores button.selected { background: var(--brand, #0c7c73); color: #f6f3ec; }

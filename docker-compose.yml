@@ -1,0 +1,73 @@
+name: viavoip-webchat
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: webchat
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d webchat"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  server:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://webchat_app:webchat_app@postgres:5432/webchat
+      MIGRATE_DATABASE_URL: postgres://postgres:postgres@postgres:5432/webchat
+      REDIS_URL: redis://redis:6379
+      SM_ADAPTER: mock
+      PORT: "3000"
+      HOST: 0.0.0.0
+      SEED: "true"
+      SESSION_TTL_HOURS: "12"
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  demo:
+    image: nginx:1.27-alpine
+    ports:
+      - "8090:80"
+    volumes:
+      - ./infra/demo:/usr/share/nginx/html:ro
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+coverage
+*.log
+apps/server/test/.pg-meta.json
+.DS_Store
+.env
+.env.*
+!.env.example
+docs/docs-helper/dist
+node_modules/.cache
