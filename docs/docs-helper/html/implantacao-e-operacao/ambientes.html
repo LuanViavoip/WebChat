@@ -38,6 +38,11 @@
 <td>Só <code>mock</code>; outro valor aborta a subida</td>
 </tr>
 <tr>
+<td><code>LOGIN_RATE_LIMIT_SECRET</code></td>
+<td>sim</td>
+<td>Segredo aleatório compartilhado entre todas as réplicas; HMAC das chaves de login</td>
+</tr>
+<tr>
 <td><code>REDIS_URL</code></td>
 <td>não</td>
 <td>Vazio desliga o adapter do Socket.IO</td>
@@ -58,9 +63,14 @@
 <td>12</td>
 </tr>
 <tr>
-<td><code>SESSION_CREATE_LIMIT</code>, <code>MESSAGE_LIMIT</code>, <code>RATE_WINDOW_MS</code></td>
+<td><code>LOGIN_LIMIT</code>, <code>RATE_WINDOW_MS</code></td>
 <td>não</td>
-<td>1000, 1000, 60000 (por processo)</td>
+<td>20 tentativas de login por conta/IP em 60000 ms; contador persistido no Postgres</td>
+</tr>
+<tr>
+<td><code>SESSION_CREATE_LIMIT</code>, <code>MESSAGE_LIMIT</code></td>
+<td>não</td>
+<td>1000 por janela, em memória por processo</td>
 </tr>
 <tr>
 <td><code>PRESENCE_STALE_MS</code></td>
@@ -85,7 +95,7 @@
 </tbody>
 </table>
 <h2 id="produ%C3%A7%C3%A3o-%E2%80%94-n%C3%A3o-verific%C3%A1vel" tabindex="-1">Produção — NÃO verificável</h2>
-<p>O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Pontos a decidir antes de produzir: múltiplas instâncias exigem estado compartilhado para o limitador de taxa (hoje em memória) e Redis para o adapter do Socket.IO; TLS e CORS; segredos fora do repositório; política de backup e retenção (não definidas); observabilidade (não há métricas, tracing ou alertas).</p>
+<p>O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Antes de produção, configure o mesmo <code>LOGIN_RATE_LIMIT_SECRET</code> em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. <code>SESSION_CREATE_LIMIT</code> e <code>MESSAGE_LIMIT</code> ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
 <figure><img src="../../assets/infrastructure.png" alt="Infraestrutura"><figcaption>Infraestrutura</figcaption></figure>
 </section>

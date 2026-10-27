@@ -7,3 +7,9 @@
 - Testes do código no commit: 46 de 46 passaram (ver `docs-helper/VALIDATION.md`).
 - Importação no Docs Helper: **não realizada** (ver `docs-helper/PUBLICATION-BLOCKER.md`).
 - Observação: havia alterações não commitadas de terceiros em 11 arquivos (correções F4-01/02/05); não documentadas.
+
+## 2026-10-27 — Publicação no Docs Helper
+
+- Importado em `viavoip-docs-test.vercel.app` como sistema "ViaVoip Webchat" (ver `docs-helper/PUBLICATION-BLOCKER.md`), zip sha256 `534b60eeda002e45b641a2fe71a1390ba6c6c307a3d1d507975b0c5abe7c6e01`.
+- Pacote completo publicado por autorização explícita; leitura anônima aceita pelo responsável.
+- Repositório GitHub (privado): `LuanViavoip/WebChat`; código do WIP de correções em `02a446c` (não validado, fora do escopo documentado).

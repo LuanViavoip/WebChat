@@ -1,34 +1,30 @@
-# Publicação no Docs Helper — bloqueio de segurança
+# Publicação no Docs Helper — registro e risco de segurança
 
-**Status: NÃO publicado.** O pacote de importação foi preparado e validado, mas a importação em produção foi deliberadamente não executada.
+**Status: PUBLICADO em 2026-10-27**, com autorização explícita do responsável (Luan) para publicar o **pacote completo**, inclusive os achados de segurança abertos (F4-01 a F4-05), mesmo sabendo da leitura anônima.
 
-## Motivo
+| Item | Valor |
+|---|---|
+| Ambiente | `https://viavoip-docs-test.vercel.app` (projeto Vercel `viavoip-docs-test`; ambiente de teste, não confirmado como produção final) |
+| Sistema criado | "ViaVoip Webchat", `/docs/viavoip-webchat` (novo sistema; nenhum existente foi substituído) |
+| Fluxo usado | `/admin/import` com sessão administrativa já aberta: upload do ZIP → preview (0 warnings, 0 errors) → confirmação |
+| Pacote | `docs/docs-helper/dist/viavoip-webchat-docs.zip`, sha256 `534b60eeda002e45b641a2fe71a1390ba6c6c307a3d1d507975b0c5abe7c6e01` |
+| Conteúdo | 36 documentos (12 módulos + 24 páginas), 24 HTMLs, 15 imagens |
+| Código documentado | commit `d65d40d` |
 
-A inspeção do código do Docs Helper (`feat/pdf-documents`) mostra que **qualquer usuário anônimo consegue ler a documentação**:
+## Verificação pós-publicação (executada)
 
-- `/`, `/docs/...` e `/content/...` não exigem autenticação;
-- o cookie `viavoip-docs-profile` e o `src/proxy.ts` apenas personalizam por perfil; **perfil não é autenticação nem autorização** (qualquer visitante pode trocá-lo);
-- `/content/[...path]` entrega imagens e PDFs sem checar sessão;
-- só existe autenticação para a administração (senha única, sem papéis).
+- 24 de 24 páginas respondem 200; 15 de 15 imagens respondem 200 como PNG.
+- 89 links internos válidos; 35 âncoras do índice do dicionário resolvem; 51 tabelas em 14 páginas.
+- Busca pela interface (`conversations_one_open_per_visitor`) retorna 4 páginas.
+- O pacote não contém a senha de demonstração do seed.
+- Não verificado: renderização visual de cada página no navegador (a aba chegou a ficar em carregamento em uma navegação; o servidor respondeu em ~2 s por `curl`).
 
-A documentação do Webchat descreve arquitetura interna, esquema do banco, regras de isolamento e **vulnerabilidades abertas (F4-01 a F4-05)**. Publicá-la num leitor aberto expõe esse conteúdo. Não houve autorização explícita para publicação pública.
+## Risco aceito: leitura anônima
 
-Também não foi possível provar que o código local do Docs Helper corresponde ao que está em produção (o `.vercel/project.json` local aponta para um projeto chamado `viavoip-docs-test`; nenhum deployment foi consultado).
+Confirmado por `curl` sem login (apenas um cookie de perfil): **qualquer pessoa com o link lê a documentação**, incluindo arquitetura, esquema do banco e as falhas abertas F4-01 a F4-05. "Perfil" no Docs Helper é personalização, não controle de acesso. Mitigações recomendadas, a decidir pelo responsável:
 
-## O que foi feito
+1. Habilitar controle de leitura real (SSO/login com papéis) no Docs Helper e restringir este sistema; ou proteger o deployment (ex.: Vercel Deployment Protection).
+2. Se as falhas F4-xx forem corrigidas e integradas, reimportar uma versão atualizada.
+3. Para retirar do ar: a importação substitui a árvore inteira do sistema; não há exclusão de sistema documentada neste fluxo, então confirme como remover antes de depender disso.
 
-Nenhuma autenticação foi desabilitada, nada foi escrito no Supabase e não houve login administrativo nem chamada a produção.
-
-## Pacote pronto
-
-`docs/docs-helper/dist/viavoip-webchat-docs.zip` (gerado por `node scripts/docs/build.mjs`; ignorado pelo Git) com `docs-index.json` na raiz, `html/` e `assets/`. Fontes versionadas: `docs/docs-helper/index/docs-index.json`, `html/`, `assets/`.
-
-## Configuração necessária para publicar com segurança
-
-Uma das opções, a decidir pelo responsável pelo Docs Helper:
-
-1. **Controle de leitura real** (SSO/login com papéis) no Docs Helper, cobrindo `/docs/*` e `/content/*`, e restrição do sistema "ViaVoip Webchat" a perfis autorizados — o `docs/ARCHITECTURE.md` do Docs Helper já prevê isso como pendência para conteúdo confidencial.
-2. **Instância privada** (ex.: Vercel Deployment Protection / rede interna) para o ambiente que receberá este conteúdo.
-3. **Autorização explícita** de publicação aberta, ainda assim removendo antes F4-xx, detalhes de RLS/grants e de infraestrutura.
-
-Após resolver, siga [MAINTENANCE.md](../MAINTENANCE.md) (passos 8–9).
+Reimportação: [MAINTENANCE.md](../MAINTENANCE.md), passos 8–9. Não foi desabilitada nenhuma autenticação nem escrito diretamente no Supabase; tudo passou pelo importador administrativo.
