@@ -93,6 +93,10 @@ O script abre `http://localhost:8090/`, confere o iframe do widget e grava captu
 
 O botão Criar fila usa `submitCompanyCommand`. A primeira `POST /company/commands` é abortada depois do timeout de 2s; a segunda leva o mesmo `requestId`. O banco fica com uma fila e um evento `queue.create`.
 
+O mesmo script segue com três contextos ao mesmo tempo. O visitante abre Suporte na demo e manda uma mensagem. Ana vê o contato na fila, assume, responde e encerra com a classificação Resolvido. O widget mostra a resposta, a pesquisa e o texto de encerramento. Sofia, na Visão geral, vê Na fila, Em atendimento (Ana com 1 atendimento), Na pesquisa e Concluídos mudarem sem recarregar. O Postgres guarda a conversa `closed`, as duas mensagens e os eventos `queued`, `assigned`, `classified`, `survey_submitted` e `closed`. As capturas `01-fila-*` até `06-encerrado-*` ficam em `/opt/cursor/artifacts/screenshots/`.
+
+O painel aberto pede 380×640. O iframe nasce com 72×72; medir essa largura faria o widget pedir de novo 72×72 e a conversa ficaria cortada. O loader limita o pedido à janela de verdade da página.
+
 ## Revogação isolada
 
 `SESSION_REVOKE_NOTIFY=false` não abre o `LISTEN`. `SESSION_REVOKE_DIRECT=false` não chama `disconnectSockets` depois do commit. Os dois padrões seguem ligados. A varredura fica em 120s.

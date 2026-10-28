@@ -36,8 +36,8 @@
     const data = event.data as { source?: string; type?: string; width?: number; height?: number } | null;
     if (!data || data.source !== 'viavoip-webchat' || data.type !== 'resize') return;
     if (!Number.isFinite(data.width) || !Number.isFinite(data.height)) return;
-    const width = Math.min(Math.max(Math.round(Number(data.width)), 64), 480);
-    const height = Math.min(Math.max(Math.round(Number(data.height)), 64), 720);
+    const width = Math.min(Math.max(Math.round(Number(data.width)), 64), 480, window.innerWidth);
+    const height = Math.min(Math.max(Math.round(Number(data.height)), 64), 720, window.innerHeight);
     const expanded = width > 120 || height > 120;
     iframe.style.width = `${width}px`;
     iframe.style.height = `${height}px`;

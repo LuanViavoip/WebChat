@@ -16,6 +16,7 @@ import {
   type SurveyPrompt,
   type WidgetSettings,
 } from '@viavoip/protocol';
+import { panelSize } from './panel-size.js';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { createVisitorSession, fetchPublicWidget, resumeVisitor } from './api.js';
@@ -72,7 +73,7 @@ export function WidgetApp() {
       { source: WIDGET_SOURCE, type: panelOpen ? 'open' : 'close' },
       parentOrigin,
     );
-    window.parent.postMessage({ source: WIDGET_SOURCE, type: 'resize', ...frame }, parentOrigin);
+    window.parent.postMessage({ source: WIDGET_SOURCE, type: 'resize', width: frame.width, height: frame.height }, parentOrigin);
   }, [embedded, panelOpen, parentOrigin]);
 
   useEffect(() => {
@@ -496,16 +497,6 @@ function authorizedParent(allowedOrigins: string[], embedded: boolean): string |
   if (fromReferrer) return fromReferrer;
   if (!embedded && allowedOrigins.includes(window.location.origin)) return window.location.origin;
   return null;
-}
-
-function panelSize(open: boolean): { width: number; height: number } {
-  if (!open) return { width: 72, height: 72 };
-  const narrow = window.matchMedia('(max-width: 640px)').matches;
-  if (!narrow) return { width: 380, height: 640 };
-  return {
-    width: Math.min(480, Math.max(64, Math.round(window.innerWidth))),
-    height: Math.min(720, Math.max(64, Math.round(window.innerHeight))),
-  };
 }
 
 function emit(socket: Socket, event: string, payload: unknown): Promise<unknown> {
