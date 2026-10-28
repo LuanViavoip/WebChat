@@ -92,7 +92,7 @@ export function Desk({
     const onConversation = (payload: unknown) => {
       const parsed = conversationSummarySchema.safeParse(payload);
       if (!parsed.success) return;
-      setConversations((current) => upsertConversation(current, parsed.data));
+      setConversations((current) => upsertConversation(current, parsed.data, profileRef.current.role !== 'agent'));
     };
     const onMessage = (payload: unknown) => {
       const parsed = messageRecordSchema.safeParse(payload);
@@ -108,16 +108,25 @@ export function Desk({
       if (!parsed.success || parsed.data.agentId !== profileRef.current.selfId) return;
       setCursors((current) => ({ ...current, [parsed.data.conversationId]: parsed.data.messageId }));
     };
+    const refreshSupervisorList = () => {
+      if (profileRef.current.role === 'agent') return;
+      socket.emit('conversation.list', {}, (ack: unknown) => {
+        const parsed = conversationListAckSchema.safeParse(ack);
+        if (parsed.success && parsed.data.ok) setConversations(parsed.data.conversations);
+      });
+    };
     socket.on('connect', subscribe);
     socket.on('conversation.updated', onConversation);
     socket.on('message.new', onMessage);
     socket.on('message.read', onRead);
+    socket.on('supervisor.metrics', refreshSupervisorList);
     if (socket.connected) subscribe();
     return () => {
       socket.off('connect', subscribe);
       socket.off('conversation.updated', onConversation);
       socket.off('message.new', onMessage);
       socket.off('message.read', onRead);
+      socket.off('supervisor.metrics', refreshSupervisorList);
     };
   }, [socket]);
 
@@ -237,7 +246,7 @@ export function Desk({
         if (data.lastReadMessageId) {
           setCursors((currentCursors) => ({ ...currentCursors, [conversationId]: data.lastReadMessageId ?? undefined }));
         }
-        setConversations((currentConversations) => upsertConversation(currentConversations, data.conversation));
+        setConversations((currentConversations) => upsertConversation(currentConversations, data.conversation, profileRef.current.role !== 'agent'));
       },
     );
   }
@@ -261,6 +270,7 @@ export function Desk({
           cursors={cursors}
           selectedId={selectedId}
           selfId={profile.selfId}
+          supervisory={profile.role !== 'agent'}
           now={now}
           active={pane === 'queues'}
           onSelect={selectConversation}

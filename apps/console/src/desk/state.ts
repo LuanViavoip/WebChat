@@ -26,8 +26,8 @@ export function unreadVisitorCount(messages: MessageRecord[] | undefined, lastRe
   return pending.filter((item) => item.senderType === 'visitor').length;
 }
 
-export function upsertConversation(current: ConversationSummary[], next: ConversationSummary): ConversationSummary[] {
-  if (next.status === 'closed') return current.filter((item) => item.id !== next.id);
+export function upsertConversation(current: ConversationSummary[], next: ConversationSummary, keepClosed = false): ConversationSummary[] {
+  if (next.status === 'closed' && !keepClosed) return current.filter((item) => item.id !== next.id);
   const index = current.findIndex((item) => item.id === next.id);
   if (index === -1) return [...current, next];
   const copy = current.slice();

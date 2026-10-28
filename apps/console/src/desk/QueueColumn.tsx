@@ -1,6 +1,6 @@
 import type { ConversationSummary, QueueSummary } from '@viavoip/protocol';
 import type { KeyboardEvent } from 'react';
-import { formatDuration, visitorLabel } from './format.js';
+import { formatDuration, statusLabel, visitorLabel } from './format.js';
 import { unreadVisitorCount, type MessageBuckets, type ReadCursors } from './state.js';
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   cursors: ReadCursors;
   selectedId: string | null;
   selfId: string;
+  supervisory: boolean;
   now: number;
   active: boolean;
   onSelect: (conversationId: string) => void;
@@ -22,11 +23,12 @@ export function QueueColumn({
   cursors,
   selectedId,
   selfId,
+  supervisory,
   now,
   active,
   onSelect,
 }: Props) {
-  const ordered = orderedContacts(queues, conversations, selfId);
+  const ordered = orderedContacts(queues, conversations, selfId, supervisory);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -47,7 +49,7 @@ export function QueueColumn({
             .filter((item) => item.queueId === queue.id && item.status === 'queued')
             .sort((left, right) => left.queuedAt.localeCompare(right.queuedAt));
           const mine = conversations
-            .filter((item) => item.agentId === selfId && item.queueId === queue.id && item.status !== 'queued')
+            .filter((item) => (supervisory || item.agentId === selfId) && item.queueId === queue.id && item.status !== 'queued')
             .sort((left, right) => (left.assignedAt ?? left.queuedAt).localeCompare(right.assignedAt ?? right.queuedAt));
           return (
             <section key={queue.id} aria-label={queue.name}>
@@ -63,15 +65,17 @@ export function QueueColumn({
                 selectedId={selectedId}
                 now={now}
                 onSelect={onSelect}
+                supervisory={supervisory}
               />
               <ContactGroup
-                title="Meus atendimentos"
+                title={supervisory ? 'Atendimentos' : 'Meus atendimentos'}
                 contacts={mine}
                 messages={messages}
                 cursors={cursors}
                 selectedId={selectedId}
                 now={now}
                 onSelect={onSelect}
+                supervisory={supervisory}
               />
             </section>
           );
@@ -90,6 +94,7 @@ function ContactGroup({
   selectedId,
   now,
   onSelect,
+  supervisory,
 }: {
   title: string;
   contacts: ConversationSummary[];
@@ -98,6 +103,7 @@ function ContactGroup({
   selectedId: string | null;
   now: number;
   onSelect: (conversationId: string) => void;
+  supervisory: boolean;
 }) {
   if (contacts.length === 0) return null;
   return (
@@ -118,7 +124,9 @@ function ContactGroup({
           >
             <strong>{visitorLabel(conversation.visitorDisplayName)}</strong>
             <span>
-              {waiting ? `Espera ${formatDuration(conversation.queuedAt, now)}` : conversation.queueName}
+              {supervisory
+                ? `${statusLabel(conversation.status)} · ${conversation.agentName ?? 'Sem agente'} · Espera ${formatDuration(conversation.queuedAt, conversation.assignedAt ? Date.parse(conversation.assignedAt) : conversation.endedAt ? Date.parse(conversation.endedAt) : now)}`
+                : waiting ? `Espera ${formatDuration(conversation.queuedAt, now)}` : conversation.queueName}
               {unread > 0 ? <em data-testid="unread">{unread}</em> : null}
             </span>
           </button>
@@ -132,6 +140,7 @@ function orderedContacts(
   queues: QueueSummary[],
   conversations: ConversationSummary[],
   selfId: string,
+  supervisory: boolean,
 ): ConversationSummary[] {
   const ordered: ConversationSummary[] = [];
   for (const queue of queues) {
@@ -139,7 +148,7 @@ function orderedContacts(
       .filter((item) => item.queueId === queue.id && item.status === 'queued')
       .sort((left, right) => left.queuedAt.localeCompare(right.queuedAt));
     const mine = conversations.filter(
-      (item) => item.agentId === selfId && item.queueId === queue.id && item.status !== 'queued',
+      (item) => (supervisory || item.agentId === selfId) && item.queueId === queue.id && item.status !== 'queued',
     );
     ordered.push(...waiting, ...mine);
   }
