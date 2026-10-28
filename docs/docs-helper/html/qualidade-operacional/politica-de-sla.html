@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Política de SLA — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="pol%C3%ADtica-de-sla" tabindex="-1">Política de SLA</h1>
+<p>Código de referência: <code>02f5373</code>. Fontes: <code>apps/server/src/modules/company-commands.ts</code> (<code>publishSla</code>, <code>retireSla</code>), <code>apps/server/src/domain/quality-facts.ts</code>, migration <code>009_company_admin.sql</code>. Publicar e aposentar é exclusivo do administrador.</p>
+<h2 id="modelo" tabindex="-1">Modelo</h2>
+<p>Uma política pertence a <strong>uma fila</strong> e tem dois relógios, ambos entre 1 e 86400 segundos:</p>
+<table>
+<thead>
+<tr>
+<th>Relógio (<code>metric</code>)</th>
+<th>Mede</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>queue_wait</code></td>
+<td>Tempo entre entrar na fila e ser atribuído</td>
+</tr>
+<tr>
+<td><code>first_response</code></td>
+<td>Tempo até a primeira resposta de um agente</td>
+</tr>
+</tbody>
+</table>
+<p>Tabelas: <code>sla_policies</code> (fila, <code>status</code> <code>active</code> ou <code>retired</code>, <code>effective_from</code>, <code>retired_at</code>, autor) e <code>sla_policy_clocks</code> (chave <code>(policy_id, metric)</code> e <code>threshold_seconds</code>). O trigger de restrição adiado <code>sla_policies_clocks_complete</code> exige os dois relógios em toda política.</p>
+<h2 id="publicar-e-aposentar" tabindex="-1">Publicar e aposentar</h2>
+<ul>
+<li><code>sla.publish { queueId, effectiveFrom, queueWaitThresholdSeconds, firstResponseThresholdSeconds }</code>
+<ul>
+<li><code>effectiveFrom</code> <strong>não pode estar no passado</strong> (<code>invalid_state</code>, &quot;Publicação retroativa&quot;; trigger <code>sla_policies_publication</code>). Não há como reescrever o histórico.</li>
+<li>Se a fila já tem política ativa, ela é aposentada com <code>retired_at = effectiveFrom</code>; a nova começa nesse instante, sem lacuna.</li>
+<li>Uma política futura que deixaria lacuna é recusada pelo banco.</li>
+</ul>
+</li>
+<li><code>sla.retire { queueId }</code> aposenta a política ativa: <code>retired_at</code> é o próprio <code>effective_from</code> se ela ainda não começou, ou agora. Sem política ativa, <code>not_found</code>.</li>
+</ul>
+<p>Garantias do banco: no máximo uma política ativa por fila (índice único parcial <code>sla_policies_one_active</code>) e vigências que não se sobrepõem (restrição <code>EXCLUDE</code> com <code>tstzrange</code> sobre a extensão <code>btree_gist</code>).</p>
+<h2 id="como-o-relat%C3%B3rio-aplica-a-pol%C3%ADtica" tabindex="-1">Como o relatório aplica a política</h2>
+<p>A política vigente é escolhida pelo <strong>instante em que o fato começou</strong> (entrada na fila ou instante da primeira resposta), e não pelo instante da consulta. Mudar o limite hoje não altera julgamentos de atendimentos já ocorridos. A comparação é <code>tempo &lt;= limite</code> para <strong>dentro</strong> (<code>within</code>); acima disso, <strong>violado</strong> (<code>breached</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Relógio</th>
+<th>Fato</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>queue_wait</code></td>
+<td>atribuído dentro do limite</td>
+<td><code>within</code></td>
+</tr>
+<tr>
+<td><code>queue_wait</code></td>
+<td>atribuído acima do limite</td>
+<td><code>breached</code></td>
+</tr>
+<tr>
+<td><code>queue_wait</code></td>
+<td>abandonado (visitante saiu)</td>
+<td><code>not_applicable</code> (<code>abandoned</code>)</td>
+</tr>
+<tr>
+<td><code>queue_wait</code></td>
+<td>ainda na fila</td>
+<td><code>not_applicable</code> (<code>still_open</code>)</td>
+</tr>
+<tr>
+<td><code>first_response</code></td>
+<td>respondido dentro / acima do limite</td>
+<td><code>within</code> / <code>breached</code></td>
+</tr>
+<tr>
+<td><code>first_response</code></td>
+<td>encerrado sem resposta de agente</td>
+<td><code>breached</code> (sem tempo medido)</td>
+</tr>
+<tr>
+<td><code>first_response</code></td>
+<td><strong>transferido ou devolvido sem resposta</strong></td>
+<td><code>not_applicable</code> (<code>handed_off</code>), <strong>não viola</strong></td>
+</tr>
+<tr>
+<td>qualquer</td>
+<td>fila sem política na data</td>
+<td><code>not_applicable</code> (<code>no_policy</code>)</td>
+</tr>
+<tr>
+<td>qualquer</td>
+<td>dado ilegível (fila ausente)</td>
+<td><code>not_applicable</code> (<code>unreadable</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Transferir ou devolver sem responder não conta como violação: o atendimento muda de dono e o relógio do primeiro agente deixa de valer. Esses casos aparecem no relatório em <code>firstResponseCoverage.transferredUnanswered</code> (<a href="relatorio-de-qualidade.html">Relatório de qualidade</a>).</p>
+</article>
+</body>
+</html>

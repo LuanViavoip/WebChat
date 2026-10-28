@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Migrations 009 a 011 — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="migrations-009-a-011" tabindex="-1">Migrations 009 a 011</h1>
+<p>Código de referência: <code>02f5373</code>. Arquivos em <code>apps/server/migrations/</code>, aplicados em ordem por <code>migrate.ts</code> junto com <code>001</code> a <code>008</code>.</p>
+<h2 id="009_company_admin.sql-%E2%80%94-administra%C3%A7%C3%A3o-da-empresa" tabindex="-1">009_company_admin.sql — administração da empresa</h2>
+<p><strong>Colunas novas</strong></p>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tenants</code></td>
+<td><code>time_zone</code> (padrão <code>America/Sao_Paulo</code>)</td>
+</tr>
+<tr>
+<td><code>agents</code></td>
+<td><code>membership_status</code> (<code>active</code>/<code>suspended</code>), <code>suspended_at</code>, <code>suspension_reason</code>, <code>auth_epoch</code></td>
+</tr>
+<tr>
+<td><code>auth_sessions</code></td>
+<td><code>auth_epoch</code></td>
+</tr>
+<tr>
+<td><code>dispositions</code></td>
+<td><code>status</code> (<code>active</code>/<code>retired</code>), <code>retired_at</code></td>
+</tr>
+<tr>
+<td><code>sites</code></td>
+<td><code>acceptance</code> (<code>accepting</code>/<code>paused</code>), <code>pause_reason</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tabelas novas</strong> (com RLS forçada por tenant)</p>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Função</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>site_service_windows</code></td>
+<td>Janelas semanais de atendimento do site</td>
+</tr>
+<tr>
+<td><code>sla_policies</code></td>
+<td>Políticas de SLA por fila, com vigência</td>
+</tr>
+<tr>
+<td><code>sla_policy_clocks</code></td>
+<td>Limites <code>queue_wait</code> e <code>first_response</code> de cada política</td>
+</tr>
+<tr>
+<td><code>company_command_receipts</code></td>
+<td>Recibos de idempotência dos comandos</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Funções e triggers</strong>: <code>sync_site_acceptance</code>, <code>enforce_site_origins_when_accepting</code>, <code>enforce_tenant_time_zone</code>, <code>enforce_site_service_window</code>, <code>enforce_sla_policy</code>, <code>enforce_sla_clock</code>, <code>enforce_sla_clocks_complete</code>, <code>enforce_sla_publication</code>, <code>enforce_company_command_actor</code> e <code>notify_auth_session_revoked</code> (trigger <code>auth_sessions_revoke_notify</code>, emite <code>webchat_session_revoke</code>). As funções <code>lookup_agent_by_email</code> e <code>lookup_auth_session</code> passam a recusar pessoas suspensas e sessões de época antiga.</p>
+<p><strong>Outros efeitos</strong>: extensão <code>btree_gist</code> e restrição <code>EXCLUDE</code> contra vigências de SLA sobrepostas; índice único de uma pesquisa ativa por empresa (as excedentes existentes são desativadas, mantendo a mais antiga); novos índices de consulta em <code>conversation_events</code>, <code>survey_responses</code> e <code>audit_events</code>; novas concessões de coluna ao <code>webchat_app</code>; <code>REVOKE UPDATE, DELETE ON audit_events</code>.</p>
+<h2 id="010_receipt_expiry.sql-%E2%80%94-validade-dos-recibos" tabindex="-1">010_receipt_expiry.sql — validade dos recibos</h2>
+<p>Adiciona <code>company_command_receipts.expires_at</code> (padrão <code>now() + 24 h</code>, restrição <code>expires_at &gt;= created_at</code>), o índice <code>company_command_receipts_expiry</code> e <code>GRANT DELETE</code> ao <code>webchat_app</code>. Ver <a href="../gestao-administrativa/comandos-idempotentes.html">Comandos idempotentes</a>.</p>
+<h2 id="011_staff_sessions_alive.sql-%E2%80%94-varredura-de-sess%C3%B5es" tabindex="-1">011_staff_sessions_alive.sql — varredura de sessões</h2>
+<p>Cria a função <code>staff_sessions_alive(uuid[])</code> (<code>SECURITY DEFINER</code>, <code>search_path = public</code>), usada pela varredura em lote da revogação. Ver <a href="../gestao-administrativa/revogacao-de-sessao.html">Revogação de sessão</a>.</p>
+<h2 id="observa%C3%A7%C3%B5es" tabindex="-1">Observações</h2>
+<ul>
+<li>O servidor aplica as três migrations; o cabeçalho de <code>009_company_admin.sql</code> ainda traz o aviso da fase de desenho (&quot;não é aplicada&quot;), que está desatualizado.</li>
+<li><code>docs/fase-5/migrations/</code> guarda só 009 e 010 como cópia histórica do desenho; a 011 existe apenas em <code>apps/server/migrations/</code>. A fonte de verdade é <code>apps/server/migrations/</code>.</li>
+<li>Regenere o <a href="../banco-de-dados/dicionario-de-dados.html">dicionário de dados</a> após mudar o schema (<a href="manutencao.html">Manutenção</a>).</li>
+</ul>
+</article>
+</body>
+</html>

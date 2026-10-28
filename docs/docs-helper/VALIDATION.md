@@ -12,4 +12,4 @@ Estado de trabalho verificado em 27 de outubro de 2026. O responsável executou 
 
 Os testes incluem comunicação interna e logout entre réplicas via Redis. O teste de falha após commit confirma que o retry idempotente não reenvia o evento: não existe garantia de entrega durável. Não há suíte E2E de navegador. Build e checagem de tipos também passaram na sessão de revisão.
 
-O dicionário foi regenerado após aplicar as oito migrations em PostgreSQL descartável. Ver [MAINTENANCE.md](../MAINTENANCE.md).
+O dicionário foi regenerado após aplicar as onze migrations em PostgreSQL descartável. Ver [MAINTENANCE.md](../MAINTENANCE.md).

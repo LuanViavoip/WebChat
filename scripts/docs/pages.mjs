@@ -1,7 +1,7 @@
 // Hierarquia de importação: Sistema → Módulo → Página. Fonte única para build e validação.
 export const SYSTEM = {
   name: 'ViaVoip Webchat',
-  description: 'Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 4.',
+  description: 'Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 5 (commit 02f5373).',
 };
 
 // [arquivo md relativo a docs/, título, slug]
@@ -28,10 +28,20 @@ export const MODULES = [
   { title: 'Presença e Atividades', slug: 'presenca-e-atividades', pages: [
     ['modules/presence.md', 'Presença', 'presenca'],
     ['modules/activities.md', 'Atividades e alocações', 'atividades'] ] },
+  { title: 'Gestão Administrativa', slug: 'gestao-administrativa', pages: [
+    ['gestao-administrativa/papeis-e-permissoes.md', 'Papéis e permissões', 'papeis-e-permissoes'],
+    ['gestao-administrativa/configuracao-por-empresa.md', 'Configuração por empresa', 'configuracao-por-empresa'],
+    ['gestao-administrativa/comandos-idempotentes.md', 'Comandos idempotentes', 'comandos-idempotentes'],
+    ['gestao-administrativa/auditoria.md', 'Auditoria', 'auditoria'],
+    ['gestao-administrativa/revogacao-de-sessao.md', 'Revogação de sessão', 'revogacao-de-sessao'] ] },
+  { title: 'Qualidade Operacional', slug: 'qualidade-operacional', pages: [
+    ['qualidade-operacional/politica-de-sla.md', 'Política de SLA', 'politica-de-sla'],
+    ['qualidade-operacional/relatorio-de-qualidade.md', 'Relatório de qualidade', 'relatorio-de-qualidade'] ] },
   { title: 'Central do Supervisor', slug: 'central-do-supervisor', pages: [['modules/supervisor.md', 'Central do Supervisor', 'supervisor']] },
   { title: 'Integrações', slug: 'integracoes', pages: [['architecture/integration-sm.md', 'Integração com o SM', 'sm']] },
   { title: 'Implantação e Operação', slug: 'implantacao-e-operacao', pages: [
     ['deployment/environments.md', 'Ambientes', 'ambientes'],
+    ['deployment/migrations-009-011.md', 'Migrations 009 a 011', 'migrations-009-011'],
     ['deployment/local-setup.md', 'Setup local', 'setup-local'],
     ['docs-helper/VALIDATION.md', 'Validação', 'validacao'],
     ['MAINTENANCE.md', 'Manutenção da documentação', 'manutencao'] ] },

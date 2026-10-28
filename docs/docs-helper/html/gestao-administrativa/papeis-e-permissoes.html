@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Papéis e permissões — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="pap%C3%A9is-e-permiss%C3%B5es" tabindex="-1">Papéis e permissões</h1>
+<p>Código de referência: commit <code>02f5373</code> (Fase 5, PR #2). Fontes: <code>apps/server/src/domain/company-access.ts</code>, <code>apps/server/src/http/company-routes.ts</code>, <code>apps/console/src/shell/roles.ts</code>.</p>
+<h2 id="matriz" tabindex="-1">Matriz</h2>
+<table>
+<thead>
+<tr>
+<th>Capacidade</th>
+<th>Visitante</th>
+<th>Agente</th>
+<th>Supervisor</th>
+<th>Admin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conversar no widget</td>
+<td>sim</td>
+<td>não</td>
+<td>não</td>
+<td>não</td>
+</tr>
+<tr>
+<td>Atender conversas das próprias filas</td>
+<td>não</td>
+<td>sim</td>
+<td>sim</td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Painel ao vivo, histórico e monitoramento (Central do Supervisor)</td>
+<td>não</td>
+<td>não</td>
+<td>escopo dos setores e filas</td>
+<td>escopo da empresa</td>
+</tr>
+<tr>
+<td>Painel de administração (<code>GET /company/desk</code>)</td>
+<td>não</td>
+<td>não</td>
+<td><strong>não</strong></td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Comandos de gestão (<code>POST /company/commands</code>)</td>
+<td>não</td>
+<td>não</td>
+<td><strong>não</strong></td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Relatório de qualidade, escopo <code>queue</code> ou <code>sector</code></td>
+<td>não</td>
+<td>não</td>
+<td>apenas fila ou setor sob sua supervisão</td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Relatório de qualidade, escopo <code>tenant</code></td>
+<td>não</td>
+<td>não</td>
+<td><strong>não</strong></td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Consulta de auditoria (<code>GET /audit/events</code>)</td>
+<td>não</td>
+<td>não</td>
+<td><strong>não</strong></td>
+<td>sim</td>
+</tr>
+</tbody>
+</table>
+<p>A regra única está em <code>assertCompanyAccess</code>: o papel <code>admin</code> passa; <code>supervisor</code> passa somente na capacidade <code>quality.report</code>, e mesmo ali com checagem de escopo; qualquer outro papel recebe <code>forbidden</code> (&quot;Gestão exclusiva do administrador&quot;).</p>
+<h2 id="escopo-do-supervisor-na-qualidade" tabindex="-1">Escopo do supervisor na qualidade</h2>
+<ul>
+<li>Escopo <code>tenant</code>: recusado (<code>forbidden</code>, &quot;Qualidade da empresa é exclusiva do administrador&quot;).</li>
+<li>Escopo <code>queue</code>: exige acesso à fila, pela mesma regra do painel ao vivo (<code>assertSupervisorQueueAccess</code>).</li>
+<li>Escopo <code>sector</code>: exige vínculo ativo em <code>sector_supervisors</code> (sem <code>removed_at</code>) e setor ativo.</li>
+</ul>
+<h2 id="se%C3%A7%C3%B5es-do-console-por-papel" tabindex="-1">Seções do console por papel</h2>
+<table>
+<thead>
+<tr>
+<th>Papel</th>
+<th>Seções</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Supervisor</td>
+<td>Visão geral, Agentes, <strong>Qualidade</strong>, Setores, Atendimentos, Atividades, Anúncios, Chat interno</td>
+</tr>
+<tr>
+<td>Admin</td>
+<td>Visão geral, Agentes, <strong>Administração</strong>, <strong>Qualidade</strong>, Setores, Atendimentos, Atividades, Anúncios, Chat interno</td>
+</tr>
+</tbody>
+</table>
+<p>&quot;Administração&quot; (<code>company</code>) e &quot;Qualidade&quot; (<code>quality</code>) são as duas seções novas da Fase 5. A interface apenas esconde o que o servidor já recusa; a autorização está no servidor.</p>
+<h2 id="autentica%C3%A7%C3%A3o" tabindex="-1">Autenticação</h2>
+<p>As quatro rotas exigem sessão de agente (<code>Authorization: Bearer</code>). Sem sessão válida a resposta é <code>unauthorized</code>.</p>
+<h2 id="salvaguardas-de-gest%C3%A3o" tabindex="-1">Salvaguardas de gestão</h2>
+<ul>
+<li>O administrador não suspende a própria conta.</li>
+<li>A empresa mantém ao menos um administrador ativo: suspender ou rebaixar o último falha com <code>invalid_state</code> (&quot;A empresa precisa de um administrador ativo&quot;).</li>
+<li>Filas são exclusivas do papel <code>agent</code>.</li>
+<li><code>activity_authority</code> (<code>assigned_only</code> ou <code>self_service</code>) vale somente para agentes.</li>
+</ul>
+</article>
+</body>
+</html>

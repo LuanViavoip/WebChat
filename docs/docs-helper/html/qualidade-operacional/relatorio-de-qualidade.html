@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatório de qualidade — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="relat%C3%B3rio-de-qualidade" tabindex="-1">Relatório de qualidade</h1>
+<p>Código de referência: <code>02f5373</code>. Fontes: <code>apps/server/src/modules/operational-quality.ts</code>, <code>apps/server/src/domain/quality-facts.ts</code>, <code>packages/protocol/src/company.ts</code>. O console mostra o relatório na seção <strong>Qualidade</strong> (supervisor e administrador).</p>
+<h2 id="rota" tabindex="-1">Rota</h2>
+<p><code>GET /quality/report?scopeKind=…&amp;from=…&amp;to=…</code></p>
+<table>
+<thead>
+<tr>
+<th>Parâmetro</th>
+<th>Regra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scopeKind</code></td>
+<td><code>tenant</code>, <code>sector</code> ou <code>queue</code></td>
+</tr>
+<tr>
+<td><code>sectorId</code></td>
+<td>obrigatório (e só) com <code>sector</code></td>
+</tr>
+<tr>
+<td><code>queueId</code></td>
+<td>obrigatório (e só) com <code>queue</code></td>
+</tr>
+<tr>
+<td><code>from</code> / <code>to</code></td>
+<td>ISO 8601; <code>from</code> menor que <code>to</code>; janela de no máximo 31 dias</td>
+</tr>
+</tbody>
+</table>
+<p>Escopo <code>tenant</code> é só do administrador; supervisor consulta setor ou fila sob sua supervisão (<a href="../gestao-administrativa/papeis-e-permissoes.html">Papéis e permissões</a>). Combinação inválida resulta em <code>invalid_payload</code>.</p>
+<h2 id="origem-dos-n%C3%BAmeros" tabindex="-1">Origem dos números</h2>
+<p>Os números são <strong>reconstruídos das tabelas</strong> (<code>conversation_events</code>, mensagens do agente, <code>survey_responses</code>, <code>presence_intervals</code>), não de contadores gravados. É o retrato histórico; os indicadores do instante continuam em <code>supervisor.metrics</code> (Central do Supervisor). Se a publicação de um evento em tempo real falhar depois do commit, o relatório ainda enxerga a linha.</p>
+<h2 id="conte%C3%BAdo" tabindex="-1">Conteúdo</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>queueWait</code>, <code>firstResponse</code>, <code>handleTime</code></td>
+<td>Resumo de duração: <code>samples</code>, <code>totalSeconds</code>, <code>averageSeconds</code>, <strong><code>p50Seconds</code></strong>, <strong><code>p90Seconds</code></strong>, <code>maxSeconds</code>. Sem amostras, todos os valores são <code>null</code></td>
+</tr>
+<tr>
+<td><code>queueWaits</code></td>
+<td><code>completed</code>, <code>abandoned</code>, <code>open</code>, <code>unreadable</code></td>
+</tr>
+<tr>
+<td><code>firstResponseCoverage</code></td>
+<td><code>answered</code>, <code>unansweredClosed</code>, <strong><code>transferredUnanswered</code></strong>, <code>stillOpen</code>, <code>unreadable</code></td>
+</tr>
+<tr>
+<td><code>completions.classified</code></td>
+<td>Atendimentos encerrados com classificação</td>
+</tr>
+<tr>
+<td><code>survey</code></td>
+<td><code>responses</code>, <code>averageScore</code> (1 a 5, <code>null</code> sem respostas) e <code>comments</code> (<code>none</code> ou <code>some</code> com contagem)</td>
+</tr>
+<tr>
+<td><code>sla.queueWait</code>, <code>sla.firstResponse</code></td>
+<td><code>within</code>, <code>breached</code>, <code>notApplicable</code> (<a href="politica-de-sla.html">Política de SLA</a>)</td>
+</tr>
+<tr>
+<td><code>presenceSeconds</code></td>
+<td>Segundos em <code>available</code>, <code>busy</code>, <code>away</code> e <code>offline</code> dos agentes no escopo</td>
+</tr>
+</tbody>
+</table>
+<h2 id="percentis" tabindex="-1">Percentis</h2>
+<p>p50 e p90 usam o método do posto mais próximo sobre as amostras ordenadas: <code>amostra[ceil(p × n) − 1]</code>. O resultado é sempre um valor realmente medido, sem interpolação. O tempo de atendimento (<code>handleTime</code>) soma segmentos encerrados por devolução, transferência ou classificação.</p>
+<h2 id="cobertura-da-primeira-resposta" tabindex="-1">Cobertura da primeira resposta</h2>
+<p><code>firstResponseCoverage</code> explica por que <code>firstResponse.samples</code> pode ser menor que o total de atendimentos:</p>
+<ul>
+<li><code>answered</code>: tiveram resposta e entram em <code>firstResponse</code>.</li>
+<li><code>unansweredClosed</code>: encerrados sem resposta; contam como violação de SLA quando há política.</li>
+<li><code>transferredUnanswered</code>: transferidos ou devolvidos sem resposta; <strong>não</strong> violam o SLA.</li>
+<li><code>stillOpen</code>: ainda sem resposta.</li>
+<li><code>unreadable</code>: sem fila identificável.</li>
+</ul>
+<h2 id="abandonos" tabindex="-1">Abandonos</h2>
+<p><code>queueWaits.abandoned</code> conta visitantes que saíram da fila antes de ser atribuídos (evento <code>left</code>). Não entram no julgamento de SLA da espera.</p>
+<h2 id="limites" tabindex="-1">Limites</h2>
+<p>Sem pré-agregação: cada consulta lê os eventos do período. Não há exportação nem filtro por agente, e a janela máxima é de 31 dias.</p>
+</article>
+</body>
+</html>

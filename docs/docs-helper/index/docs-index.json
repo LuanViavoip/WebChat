@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "ViaVoip Webchat",
-    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 4."
+    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 5 (commit 02f5373)."
   },
   "documents": [
     {
@@ -176,6 +176,62 @@
       ]
     },
     {
+      "title": "Gestão Administrativa",
+      "slug": "gestao-administrativa",
+      "type": "module",
+      "children": [
+        {
+          "title": "Papéis e permissões",
+          "slug": "papeis-e-permissoes",
+          "type": "page",
+          "file": "html/gestao-administrativa/papeis-e-permissoes.html"
+        },
+        {
+          "title": "Configuração por empresa",
+          "slug": "configuracao-por-empresa",
+          "type": "page",
+          "file": "html/gestao-administrativa/configuracao-por-empresa.html"
+        },
+        {
+          "title": "Comandos idempotentes",
+          "slug": "comandos-idempotentes",
+          "type": "page",
+          "file": "html/gestao-administrativa/comandos-idempotentes.html"
+        },
+        {
+          "title": "Auditoria",
+          "slug": "auditoria",
+          "type": "page",
+          "file": "html/gestao-administrativa/auditoria.html"
+        },
+        {
+          "title": "Revogação de sessão",
+          "slug": "revogacao-de-sessao",
+          "type": "page",
+          "file": "html/gestao-administrativa/revogacao-de-sessao.html"
+        }
+      ]
+    },
+    {
+      "title": "Qualidade Operacional",
+      "slug": "qualidade-operacional",
+      "type": "module",
+      "children": [
+        {
+          "title": "Política de SLA",
+          "slug": "politica-de-sla",
+          "type": "page",
+          "file": "html/qualidade-operacional/politica-de-sla.html"
+        },
+        {
+          "title": "Relatório de qualidade",
+          "slug": "relatorio-de-qualidade",
+          "type": "page",
+          "file": "html/qualidade-operacional/relatorio-de-qualidade.html"
+        }
+      ]
+    },
+    {
       "title": "Central do Supervisor",
       "slug": "central-do-supervisor",
       "type": "module",
@@ -211,6 +267,12 @@
           "slug": "ambientes",
           "type": "page",
           "file": "html/implantacao-e-operacao/ambientes.html"
+        },
+        {
+          "title": "Migrations 009 a 011",
+          "slug": "migrations-009-011",
+          "type": "page",
+          "file": "html/implantacao-e-operacao/migrations-009-011.html"
         },
         {
           "title": "Setup local",
