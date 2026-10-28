@@ -86,8 +86,11 @@ export async function executeCompanyCommand(
       await revokeAgentSessions(client, principal, command.agentId, revokedSessionIds);
       return;
     case 'sla.publish':
+      await publishSla(client, principal, command);
+      return;
     case 'sla.retire':
-      throw new Error('not implemented');
+      await retireSla(client, principal, command.queueId);
+      return;
     default: {
       const unexpected: never = command;
       throw new Error(`not implemented: ${String(unexpected)}`);
@@ -512,6 +515,62 @@ async function revokeAccess(
     [agentId, tenantId],
   );
   for (const row of deleted.rows) revokedSessionIds.push(row.id);
+}
+
+async function publishSla(
+  client: PoolClient,
+  principal: AgentPrincipal,
+  command: Extract<CompanyCommand, { kind: 'sla.publish' }>,
+): Promise<void> {
+  const queue = await client.query(`SELECT id FROM queues WHERE id = $1 AND tenant_id = $2`, [
+    command.queueId,
+    principal.tenantId,
+  ]);
+  if (!queue.rows[0]) throw new DomainError('not_found', 'Fila não encontrada');
+  const past = await client.query<{ past: boolean }>(`SELECT $1::timestamptz < now() AS past`, [command.effectiveFrom]);
+  if (past.rows[0]?.past) throw new DomainError('invalid_state', 'Publicação retroativa');
+  const current = await client.query<{ id: string }>(
+    `SELECT id FROM sla_policies WHERE queue_id = $1 AND tenant_id = $2 AND status = 'active'`,
+    [command.queueId, principal.tenantId],
+  );
+  const previousId = current.rows[0]?.id;
+  if (previousId) {
+    await client.query(
+      `UPDATE sla_policies SET status = 'retired', retired_at = $2 WHERE id = $1 AND tenant_id = $3`,
+      [previousId, command.effectiveFrom, principal.tenantId],
+    );
+  }
+  const inserted = await client.query<{ id: string }>(
+    `INSERT INTO sla_policies (tenant_id, queue_id, status, effective_from, created_by)
+     VALUES ($1, $2, 'active', $3, $4)
+     RETURNING id`,
+    [principal.tenantId, command.queueId, command.effectiveFrom, principal.agentId],
+  );
+  const policyId = inserted.rows[0]?.id;
+  if (!policyId) throw new DomainError('internal', 'Política não publicada');
+  await client.query(
+    `INSERT INTO sla_policy_clocks (policy_id, tenant_id, metric, threshold_seconds)
+     VALUES ($1, $2, 'queue_wait', $3), ($1, $2, 'first_response', $4)`,
+    [policyId, principal.tenantId, command.queueWaitThresholdSeconds, command.firstResponseThresholdSeconds],
+  );
+  await writeAudit(client, principal.tenantId, principal.agentId, command.kind, 'sla_policy', policyId);
+}
+
+async function retireSla(client: PoolClient, principal: AgentPrincipal, queueId: string): Promise<void> {
+  const current = await client.query<{ id: string; effective_from: Date }>(
+    `SELECT id, effective_from FROM sla_policies WHERE queue_id = $1 AND tenant_id = $2 AND status = 'active'`,
+    [queueId, principal.tenantId],
+  );
+  const policy = current.rows[0];
+  if (!policy) throw new DomainError('not_found', 'Política não encontrada');
+  await client.query(
+    `UPDATE sla_policies
+     SET status = 'retired',
+         retired_at = CASE WHEN effective_from > now() THEN effective_from ELSE now() END
+     WHERE id = $1 AND tenant_id = $2`,
+    [policy.id, principal.tenantId],
+  );
+  await writeAudit(client, principal.tenantId, principal.agentId, 'sla.retire', 'sla_policy', policy.id);
 }
 
 async function publishSurvey(
