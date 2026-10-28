@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import type { SMAdapter } from '@viavoip/sm-adapter';
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
+import { createClient, type RedisClientType } from 'redis';
 import { SessionService } from './auth/sessions.js';
 import { SharedLoginRateLimiter } from './auth/login-rate-limit.js';
 import type { AppConfig } from './config.js';
@@ -22,12 +23,19 @@ import { MessageService } from './modules/messages.js';
 import { PresenceService } from './modules/presence.js';
 import { SectorService } from './modules/sectors.js';
 import { SupervisorService } from './modules/supervisor.js';
-import type { AgentPrincipal } from './domain/types.js';
 import { SocketHub } from './realtime/hub.js';
 import { revokeRealtimeSessions } from './realtime/revoke.js';
+import { createSweepLoop, degradedSweepMs, sweepStaffSockets } from './realtime/revoke-sweep.js';
 import { attachRedis } from './realtime/redis.js';
 import { refreshSupervisors } from './realtime/refresh.js';
 import { registerRealtime } from './realtime/register.js';
+
+export type RevokeBuildOptions = {
+  notify?: boolean;
+  direct?: boolean;
+  sweepMs?: number;
+  sweepEnabled?: boolean;
+};
 
 export type WebChatApp = {
   app: FastifyInstance;
@@ -35,9 +43,15 @@ export type WebChatApp = {
   pool: pg.Pool;
   sm: SMAdapter;
   sweepPresence: () => Promise<void>;
+  revokeListener: pg.Client | null;
+  revokeSweepIntervalMs: () => number;
 };
 
-export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebChatApp> {
+export async function buildApp(
+  config: AppConfig,
+  sm: SMAdapter,
+  options?: { revoke?: RevokeBuildOptions },
+): Promise<WebChatApp> {
   if (config.replicaCount > 1 && !config.redisUrl) {
     throw new Error('REDIS_URL é obrigatório com mais de uma réplica');
   }
@@ -86,7 +100,7 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     quality: new OperationalQualityService(pool),
     audit: new AuditQueryService(pool),
     io,
-    directRevoke: config.sessionRevokeDirect,
+    directRevoke: options?.revoke?.direct !== false,
   });
   if (config.serveStatic) await registerStatic(app);
   registerRealtime(io, {
@@ -118,40 +132,91 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     });
   }, 15_000);
   timer.unref();
-  const revokeListener = config.sessionRevokeNotify ? new pg.Client({ connectionString: config.databaseUrl }) : null;
-  if (revokeListener) {
-    revokeListener.on('error', (error: Error) => {
+  const notifyEnabled = options?.revoke?.notify !== false;
+  const sweepEnabled = options?.revoke?.sweepEnabled !== false;
+  let listenUp = !notifyEnabled;
+  let redisUp: boolean | null = config.redisUrl ? true : null;
+  let revokeListener: pg.Client | null = null;
+  let revokeStopped = false;
+  let redisHealth: RedisClientType | null = null;
+  if (config.redisUrl) {
+    redisHealth = createClient({ url: config.redisUrl });
+    redisHealth.on('error', () => {
+      redisUp = false;
+    });
+    await redisHealth.connect();
+  }
+  const openRevokeListener = async () => {
+    if (revokeStopped || !notifyEnabled) return;
+    const client = new pg.Client({ connectionString: config.databaseUrl });
+    revokeListener = client;
+    client.on('error', (error: Error) => {
+      listenUp = false;
+      revokeLoop.reschedule();
       app.log.error({ err: error }, 'conexão de revogação encerrada');
     });
-    await revokeListener.connect();
-    await revokeListener.query('LISTEN webchat_session_revoke');
-    revokeListener.on('notification', (message) => {
-      if (message.channel !== 'webchat_session_revoke' || !message.payload) return;
-      try {
-        const body = JSON.parse(message.payload) as { sessionId?: string };
-        if (body.sessionId) revokeRealtimeSessions(io, [body.sessionId]);
-      } catch (error: unknown) {
-        app.log.error({ err: error }, 'aviso de revogação inválido');
-      }
+    client.on('end', () => {
+      listenUp = false;
+      revokeLoop.reschedule();
+      if (!revokeStopped) setTimeout(() => void openRevokeListener(), 1_000);
     });
-  }
-  const sweepRevokedSessions = async () => {
-    for (const namespace of ['/agent', '/supervisor'] as const) {
-      const sockets = await io.of(namespace).fetchSockets();
-      for (const socket of sockets) {
-        const principal = socket.data.principal as AgentPrincipal | undefined;
-        if (!principal) continue;
-        const allowed = await sessions.staffSessionAllowed(principal).catch(() => false);
-        if (!allowed) socket.disconnect(true);
+    try {
+      await client.connect();
+      await client.query('LISTEN webchat_session_revoke');
+      client.on('notification', (message) => {
+        if (message.channel !== 'webchat_session_revoke' || !message.payload) return;
+        try {
+          const body = JSON.parse(message.payload) as { sessionId?: string };
+          if (body.sessionId) revokeRealtimeSessions(io, [body.sessionId]);
+        } catch (error: unknown) {
+          app.log.error({ err: error }, 'aviso de revogação inválido');
+        }
+      });
+      listenUp = true;
+      revokeLoop.reschedule();
+    } catch (error: unknown) {
+      listenUp = false;
+      revokeLoop.reschedule();
+      app.log.error({ err: error }, 'falha ao escutar revogação');
+      try {
+        await client.end();
+      } catch {
+        // O fim da conexão dispara uma nova tentativa.
       }
     }
   };
-  const revokeTimer = setInterval(() => {
-    void sweepRevokedSessions().catch((error: unknown) => {
-      app.log.error({ err: error }, 'falha ao varrer sessões revogadas');
-    });
-  }, config.sessionRevokeSweepMs);
-  revokeTimer.unref();
+  const sweepRevokedSessions = async () => {
+    if (redisHealth) {
+      try {
+        await redisHealth.ping();
+        if (redisUp === false) {
+          redisUp = true;
+          revokeLoop.reschedule();
+        }
+      } catch (error: unknown) {
+        redisUp = false;
+        revokeLoop.reschedule();
+        app.log.error({ err: error }, 'redis da revogação não respondeu');
+      }
+    }
+    const sockets = [];
+    for (const namespace of ['/agent', '/supervisor'] as const) {
+      sockets.push(...(await io.of(namespace).fetchSockets()));
+    }
+    await sweepStaffSockets(sockets, (sessionIds) => sessions.staffSessionsAllowed(sessionIds));
+  };
+  const revokeLoop = createSweepLoop({
+    healthyMs: options?.revoke?.sweepMs ?? config.sessionRevokeSweepMs,
+    degradedMs: degradedSweepMs,
+    isDegraded: () => !listenUp || redisUp === false,
+    onTick: async () => {
+      await sweepRevokedSessions().catch((error: unknown) => {
+        app.log.error({ err: error }, 'falha ao varrer sessões revogadas');
+      });
+    },
+  });
+  if (!sweepEnabled) revokeLoop.stop();
+  if (notifyEnabled) await openRevokeListener();
   const loginRateLimitTimer = setInterval(() => {
     void loginAttempts.sweepExpired().catch((error: unknown) => {
       app.log.error({ err: error }, 'falha ao limpar limites de login expirados');
@@ -162,13 +227,15 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
   app.addHook('onClose', async () => {
     clearInterval(timer);
     clearInterval(loginRateLimitTimer);
-    clearInterval(revokeTimer);
+    revokeStopped = true;
+    revokeLoop.stop();
     if (revokeListener) await revokeListener.end();
+    if (redisHealth) await redisHealth.quit();
     io.disconnectSockets(true);
     io.close();
     await pool.end();
     if (closeRedis) await closeRedis();
   });
 
-  return { app, io, pool, sm, sweepPresence };
+  return { app, io, pool, sm, sweepPresence, revokeListener, revokeSweepIntervalMs: () => revokeLoop.intervalMs() };
 }

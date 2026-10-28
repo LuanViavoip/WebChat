@@ -120,24 +120,22 @@ function startServer(port: number, mode: 'redis' | 'notify'): ChildProcess {
     SM_ADAPTER: 'mock',
     SEED: 'false',
     LOGIN_RATE_LIMIT_SECRET: secret,
-    SESSION_REVOKE_SWEEP_MS: '120000',
     HOST: '127.0.0.1',
     PORT: String(port),
     SERVE_STATIC: 'false',
     LOG: 'false',
   };
+  const args = ['exec', 'tsx', 'scripts/boot-app.ts', '--no-sweep'];
   if (mode === 'redis') {
     env.REDIS_URL = redisUrl;
     env.REPLICAS = '2';
-    env.SESSION_REVOKE_NOTIFY = 'false';
-    env.SESSION_REVOKE_DIRECT = 'true';
+    args.push('--no-notify');
   } else {
     delete env.REDIS_URL;
     env.REPLICAS = '1';
-    env.SESSION_REVOKE_NOTIFY = 'true';
-    env.SESSION_REVOKE_DIRECT = 'false';
+    args.push('--no-direct');
   }
-  const child = spawn('pnpm', ['exec', 'tsx', 'src/main.ts'], {
+  const child = spawn('pnpm', args, {
     cwd: serverRoot,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -207,7 +205,7 @@ async function exercise(label: string, revokeUrl: string, socketUrl: string): Pr
   const revoked = await revokedPromise;
   assert(revoked.status === 200, `revogação ${label} devolveu ${revoked.status} ${revoked.text}`);
   assert(droppedPayload, `${label}: o socket não caiu`);
-  assert(elapsedMs < 8_000, `${label}: queda em ${elapsedMs}ms, dentro da varredura de 120s`);
+  assert(elapsedMs < 8_000, `${label}: queda em ${elapsedMs}ms, com a varredura desligada`);
   assert(bruno.connected === false, `${label}: socket ainda conectado`);
   const visitor = await postJson(`${socketUrl}/visitor/sessions`, { sitePublicId: demoSites.a, parentOrigin });
   assert(visitor.status === 200, `visitante ${visitor.status}`);

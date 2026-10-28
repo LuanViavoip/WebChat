@@ -32,7 +32,7 @@ export REDIS_URL=redis://127.0.0.1:6379
 export SM_ADAPTER=mock
 export LOGIN_RATE_LIMIT_SECRET=local-only-shared-login-rate-limit-secret-change-before-deploy
 export REPLICAS=2
-export SESSION_REVOKE_SWEEP_MS=120000
+export SESSION_REVOKE_SWEEP_MS=10000
 ```
 
 ## Suíte
@@ -43,7 +43,7 @@ Docker é necessário porque `apps/server/test/global-setup.ts` usa Testcontaine
 pnpm test
 ```
 
-A suíte aplica todas as migrations, inclusive `009_company_admin.sql` e `010_receipt_expiry.sql`, e cobre o isolamento anterior mais os testes de HTTP, auditoria, qualidade e revogação entre réplicas.
+A suíte aplica todas as migrations, inclusive `009_company_admin.sql`, `010_receipt_expiry.sql` e `011_staff_sessions_alive.sql`, e cobre o isolamento anterior mais os testes de HTTP, auditoria, qualidade e revogação entre réplicas.
 
 ## Exercício ponta a ponta
 
@@ -56,7 +56,7 @@ pnpm --filter @viavoip/server exec tsx scripts/verify-fase5.ts
 O script:
 
 1. Aplica as migrations e o seed se o banco estiver vazio. `migrate()` percorre `apps/server/migrations`. A 009 cria RLS, SLA, calendário, época de sessão e recibo. A 010 acrescenta `expires_at` ao recibo; o servidor grava essa coluna, então parar na 009 deixa o comando administrativo quebrado.
-2. Sobe duas instâncias em `127.0.0.1:3000` e `127.0.0.1:3001`, com Redis e varredura de sessão em 120s, para a queda do socket não depender do timer.
+2. Sobe duas instâncias em `127.0.0.1:3000` e `127.0.0.1:3001`, com Redis e a varredura desligada no `buildApp`, para a queda do socket provar o caminho imediato.
 3. Exercita widget, fila, chat interno, setores, atividades e o painel do supervisor, e confere que a outra empresa não recebe o evento.
 4. Chama as rotas novas sem token, com visitante, agente, supervisora e administrador.
 5. Dispara o mesmo `requestId` duas vezes ao mesmo tempo, reinicia a instância e repete o pedido.
@@ -99,7 +99,7 @@ O painel aberto pede 380×640. O iframe nasce com 72×72; medir essa largura far
 
 ## Revogação isolada
 
-`SESSION_REVOKE_NOTIFY=false` não abre o `LISTEN`. `SESSION_REVOKE_DIRECT=false` não chama `disconnectSockets` depois do commit. Os dois padrões seguem ligados. A varredura fica em 120s.
+Os caminhos de revogação não se desligam por variável de ambiente. O script sobe o processo com `scripts/boot-app.ts`: Redis sem `LISTEN` (`--no-notify --no-sweep`) e `NOTIFY` sem disconnect direto (`--no-direct --no-sweep`). Em produção os três caminhos ficam ligados.
 
 ```bash
 pnpm --filter @viavoip/server exec tsx scripts/verify-revoke-paths.ts

@@ -18,7 +18,9 @@ O Compose usa credenciais de banco **de desenvolvimento** e `SEED=true`. Não as
 | `MIGRATE_DATABASE_URL` | sim | Papel que aplica migrations e seed |
 | `SM_ADAPTER` | sim | Só `mock`; outro valor aborta a subida |
 | `LOGIN_RATE_LIMIT_SECRET` | sim | Segredo aleatório compartilhado entre todas as réplicas; HMAC das chaves de login |
-| `REDIS_URL` | não | Vazio desliga o adapter do Socket.IO |
+| `REDIS_URL` | não | Vazio desliga o adapter do Socket.IO. Obrigatório quando `REPLICAS` é maior que 1 |
+| `REPLICAS` | não | 1. Acima de 1, o boot exige `REDIS_URL` |
+| `SESSION_REVOKE_SWEEP_MS` | não | 10000. Fora de teste, valor acima de 15000 impede o boot. A varredura cai para 2s se o `LISTEN` ou o Redis ficam indisponíveis |
 | `PORT` / `HOST` | não | 3000 / 0.0.0.0 |
 | `SEED` | não | `true` carrega `infra/seed/seed.sql` |
 | `SESSION_TTL_HOURS` | não | 12 |
@@ -31,4 +33,4 @@ O Compose usa credenciais de banco **de desenvolvimento** e `SEED=true`. Não as
 
 ## Produção — NÃO verificável
 
-O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é **proposta futura**. Antes de produção, configure o mesmo `LOGIN_RATE_LIMIT_SECRET` em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. `SESSION_CREATE_LIMIT` e `MESSAGE_LIMIT` ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.
+O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é **proposta futura**. Antes de produção, configure o mesmo `LOGIN_RATE_LIMIT_SECRET` em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, `NOTIFY` e varredura em lote; esses caminhos não se desligam por variável de ambiente. `SESSION_CREATE_LIMIT` e `MESSAGE_LIMIT` ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.

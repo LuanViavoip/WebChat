@@ -423,7 +423,7 @@ O Luan fechou o que segue. A limitação explícita é a troca de e-mail, que es
 - Fuso IANA por empresa, padrão `America/Sao_Paulo`. Instante absoluto em UTC. Calendário no fuso, com horário de verão.
 - `public_id` imutável. E-mail imutável nesta fase. Site novo nasce pausado e só aceita atendimento com origens explícitas. Lista vazia não é acesso livre.
 - Comandos administrativos são idempotentes por `requestId` em `company_command_receipts`, com hash e lock. O retry relê a mesa e marca `replayed: true`. Não há snapshot.
-- Revogação híbrida: `disconnectSockets` pelo Redis depois do commit, `NOTIFY` como reserva, revalidação de `auth_epoch` em cada comando e na varredura. Mais de uma réplica exige Redis no boot.
+- Revogação híbrida: `disconnectSockets` pelo Redis depois do commit, `NOTIFY` como reserva, revalidação de `auth_epoch` em cada comando e varredura em lote a cada 10s pela função `staff_sessions_alive(uuid[])`. Se o `LISTEN` ou o Redis caem, o intervalo vai a 2s. Os três caminhos ficam sempre ligados; o isolamento entre eles só existe em `buildApp({ revoke: { notify, direct, sweepEnabled } })`, não em variável de ambiente. Mais de uma réplica exige Redis no boot. `SESSION_REVOKE_SWEEP_MS` acima de 15s impede o boot fora de teste.
 - Relatório agregado até 31 dias, com total, média, p50 e p90 de espera, primeira resposta e atendimento.
 - Outbox continua adiado. Suspensão, permissão e revogação derrubam o socket na hora, com época no banco, checagem no handshake e em cada evento ou join, e `disconnectSockets` pelo adapter Redis já existente.
 - SLA sem efeito retroativo, política anterior imutável, julgamento no início do segmento, vigências futuras sem vão e sem sobreposição.

@@ -97,7 +97,7 @@ function waitEvent(socket: Socket, event: string, timeoutMs: number): Promise<un
 const serverLogs = new Map<ChildProcess, string>();
 
 function startServer(port: number): ChildProcess {
-  const child = spawn('pnpm', ['exec', 'tsx', 'src/main.ts'], {
+  const child = spawn('pnpm', ['exec', 'tsx', 'scripts/boot-app.ts', '--no-sweep'], {
     cwd: serverRoot,
     env: {
       ...process.env,
@@ -108,7 +108,6 @@ function startServer(port: number): ChildProcess {
       SEED: 'false',
       LOGIN_RATE_LIMIT_SECRET: secret,
       REPLICAS: '2',
-      SESSION_REVOKE_SWEEP_MS: '120000',
       HOST: '127.0.0.1',
       PORT: String(port),
       SERVE_STATIC: 'false',

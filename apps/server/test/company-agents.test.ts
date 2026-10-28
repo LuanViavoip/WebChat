@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SessionService } from '../src/auth/sessions.js';
 import { withTenant } from '../src/db/tenant.js';
 import { loadConfig } from '../src/config.js';
 import type { AgentPrincipal } from '../src/domain/types.js';
@@ -143,7 +144,13 @@ describe('pessoas e revogação', () => {
 
 describe('varredura de sessão', () => {
   it('derruba o socket quando a época muda e o aviso não chega', async () => {
-    const sweeping = await startTestApp({ sessionRevokeSweepMs: 200 });
+    const calls: number[] = [];
+    const original = SessionService.prototype.staffSessionsAllowed;
+    SessionService.prototype.staffSessionsAllowed = async function (sessionIds: readonly string[]) {
+      calls.push(sessionIds.length);
+      return original.call(this, sessionIds);
+    };
+    const sweeping = await startTestApp({ sessionRevokeSweepMs: 200 }, { notify: false, direct: false });
     try {
       const bruno = await login(sweeping.baseUrl, demoAccounts.bruno, demoPassword);
       const socket = connectSocket(sweeping.baseUrl, '/agent', bruno.token);
@@ -154,7 +161,10 @@ describe('varredura de sessão', () => {
       );
       await disconnected;
       expect(socket.connected).toBe(false);
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls.every((size) => size === 1)).toBe(true);
     } finally {
+      SessionService.prototype.staffSessionsAllowed = original;
       await sweeping.app.close();
     }
   });

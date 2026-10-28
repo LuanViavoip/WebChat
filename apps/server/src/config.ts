@@ -15,8 +15,6 @@ export type AppConfig = {
   presenceStaleMs: number;
   replicaCount: number;
   sessionRevokeSweepMs: number;
-  sessionRevokeNotify: boolean;
-  sessionRevokeDirect: boolean;
   corsOrigins: string[];
   serveStatic: boolean;
   logger: boolean;
@@ -25,6 +23,15 @@ export type AppConfig = {
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) throw new Error(`Variável obrigatória ausente: ${name}`);
+  return value;
+}
+
+function sweepMs(env: NodeJS.ProcessEnv): number {
+  const value = integer(env, 'SESSION_REVOKE_SWEEP_MS', 10_000);
+  const allowSlow = env.NODE_ENV === 'test' || env.ALLOW_SLOW_REVOKE_SWEEP === 'true';
+  if (value > 15_000 && !allowSlow) {
+    throw new Error('SESSION_REVOKE_SWEEP_MS não pode passar de 15 segundos');
+  }
   return value;
 }
 
@@ -69,9 +76,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     rateWindowMs: integer(env, 'RATE_WINDOW_MS', 60_000),
     presenceStaleMs: integer(env, 'PRESENCE_STALE_MS', 45_000),
     replicaCount,
-    sessionRevokeSweepMs: integer(env, 'SESSION_REVOKE_SWEEP_MS', 10_000),
-    sessionRevokeNotify: env.SESSION_REVOKE_NOTIFY !== 'false',
-    sessionRevokeDirect: env.SESSION_REVOKE_DIRECT !== 'false',
+    sessionRevokeSweepMs: sweepMs(env),
     corsOrigins: cors,
     serveStatic: env.SERVE_STATIC !== 'false',
     logger: env.LOG !== 'false',

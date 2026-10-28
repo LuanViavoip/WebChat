@@ -190,6 +190,15 @@ export class SessionService {
     });
   }
 
+  async staffSessionsAllowed(sessionIds: readonly string[]): Promise<Map<string, string>> {
+    if (sessionIds.length === 0) return new Map();
+    const result = await this.pool.query<{ session_id: string; role: string }>(
+      `SELECT session_id, role FROM staff_sessions_alive($1::uuid[])`,
+      [sessionIds],
+    );
+    return new Map(result.rows.map((row) => [row.session_id, row.role]));
+  }
+
   async staffSessionAllowed(principal: AgentPrincipal): Promise<boolean> {
     return withTenant(this.pool, principal.tenantId, async (client) => {
       const result = await client.query(
