@@ -1,9 +1,4 @@
 import type { CompanyCommandEnvelope, CompanyCommandResult, CompanyDesk } from '@viavoip/protocol';
-
-export type CompanyCommandApplied = {
-  result: CompanyCommandResult;
-  revokedSessionIds: string[];
-};
 import type { Pool } from 'pg';
 import { withTenant } from '../db/tenant.js';
 import { assertCompanyAccess } from '../domain/company-access.js';
@@ -11,6 +6,11 @@ import type { AgentPrincipal } from '../domain/types.js';
 import { executeCompanyCommand } from './company-commands.js';
 import { readCompanyDesk } from './company-desk.js';
 import { commandPayloadHash, withCommandReceipt } from './company-receipt.js';
+
+export type CompanyCommandApplied = {
+  result: CompanyCommandResult;
+  revokedSessionIds: string[];
+};
 
 export class CompanyAdministrationService {
   constructor(private readonly pool: Pool) {}

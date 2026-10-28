@@ -8,9 +8,13 @@ import { SharedLoginRateLimiter } from './auth/login-rate-limit.js';
 import type { AppConfig } from './config.js';
 import { createPool } from './db/pool.js';
 import { SlidingWindowLimiter } from './http/rate-limit.js';
+import { registerCompanyHttp } from './http/company-routes.js';
 import { registerHttp } from './http/routes.js';
 import { registerStatic } from './http/static.js';
 import { ActivityService } from './modules/activities.js';
+import { AuditQueryService } from './modules/audit-query.js';
+import { CompanyAdministrationService } from './modules/company-administration.js';
+import { OperationalQualityService } from './modules/operational-quality.js';
 import { AnnouncementService } from './modules/announcements.js';
 import { ConversationService } from './modules/conversations.js';
 import { InternalChatService } from './modules/internal-chat.js';
@@ -74,6 +78,13 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     loginLimit: config.loginLimit,
     loginAttempts,
     loginRateLimitSecret: config.loginRateLimitSecret,
+    io,
+  });
+  registerCompanyHttp(app, {
+    sessions,
+    administration: new CompanyAdministrationService(pool),
+    quality: new OperationalQualityService(pool),
+    audit: new AuditQueryService(pool),
     io,
   });
   if (config.serveStatic) await registerStatic(app);

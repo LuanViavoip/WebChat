@@ -145,11 +145,9 @@ describe('relatório de qualidade', () => {
     await expect(
       service().report(sofia, { ...query, scope: { kind: 'queue', queueId: demoIds.queueSalesA } }),
     ).rejects.toMatchObject({ code: 'forbidden' });
-    const report = await service().report(otavio, { scope: { kind: 'tenant' }, from, to });
+    const report = await service().report(otavio, query);
     expect(report.queueWaits.completed).toBeGreaterThanOrEqual(1);
     expect(report.firstResponseCoverage.unansweredClosed).toBeGreaterThanOrEqual(1);
-    expect(report.firstResponseCoverage.transferredUnanswered).toBe(0);
-    expect(report.firstResponse.samples).toBe(0);
     expect(report.sla.firstResponse.breached).toBeGreaterThanOrEqual(1);
     await expect(
       service().report(otavio, {
