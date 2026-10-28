@@ -15,6 +15,8 @@ export type AppConfig = {
   presenceStaleMs: number;
   replicaCount: number;
   sessionRevokeSweepMs: number;
+  sessionRevokeNotify: boolean;
+  sessionRevokeDirect: boolean;
   corsOrigins: string[];
   serveStatic: boolean;
   logger: boolean;
@@ -68,6 +70,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     presenceStaleMs: integer(env, 'PRESENCE_STALE_MS', 45_000),
     replicaCount,
     sessionRevokeSweepMs: integer(env, 'SESSION_REVOKE_SWEEP_MS', 10_000),
+    sessionRevokeNotify: env.SESSION_REVOKE_NOTIFY !== 'false',
+    sessionRevokeDirect: env.SESSION_REVOKE_DIRECT !== 'false',
     corsOrigins: cors,
     serveStatic: env.SERVE_STATIC !== 'false',
     logger: env.LOG !== 'false',

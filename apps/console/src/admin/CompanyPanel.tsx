@@ -1,10 +1,11 @@
 import type { Role } from '@viavoip/protocol';
-import { useEffect, useState } from 'react';
-import { loadAuditPage, loadCompanyDesk, loadQualityReport } from './company-desk.js';
+import { useEffect, useState, type FormEvent } from 'react';
+import { loadAuditPage, loadCompanyDesk, loadQualityReport, submitCompanyCommand } from './company-desk.js';
 
 export function CompanyPanel({ token, role, mode }: { token: string; role: Role; mode: 'company' | 'quality' }) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
+  const [queueName, setQueueName] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -34,10 +35,35 @@ export function CompanyPanel({ token, role, mode }: { token: string; role: Role;
     };
   }, [mode, role, token]);
 
+  async function createQueue(event: FormEvent) {
+    event.preventDefault();
+    const name = queueName.trim();
+    if (!name) return;
+    setError('');
+    try {
+      const result = await submitCompanyCommand({ token }, { kind: 'queue.create', name });
+      setSummary(
+        `Fila ${name} criada. Pedido ${result.receipt.requestId}. ${result.receipt.replayed ? 'Repetido' : 'Efeito único'}.`,
+      );
+      setQueueName('');
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : 'Falha na gestão da empresa');
+    }
+  }
+
   return (
     <section>
       <h2>{mode === 'company' ? 'Administração' : 'Qualidade'}</h2>
-      {error ? <p>{error}</p> : <p>{summary || 'Carregando…'}</p>}
+      {error ? <p role="alert">{error}</p> : <p data-testid="command-result">{summary || 'Carregando…'}</p>}
+      {mode === 'company' ? (
+        <form onSubmit={(event) => void createQueue(event)}>
+          <label>
+            Nova fila
+            <input data-testid="queue-name" value={queueName} onChange={(event) => setQueueName(event.target.value)} />
+          </label>
+          <button data-testid="queue-create" type="submit">Criar fila</button>
+        </form>
+      ) : null}
     </section>
   );
 }

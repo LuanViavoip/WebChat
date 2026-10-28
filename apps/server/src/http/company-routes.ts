@@ -24,6 +24,7 @@ export type CompanyHttpDeps = {
   quality: OperationalQualityService;
   audit: AuditQueryService;
   io: Server;
+  directRevoke?: boolean;
 };
 
 export const companyHttpCatalog = {
@@ -58,7 +59,7 @@ export function registerCompanyHttp(app: FastifyInstance, deps: CompanyHttpDeps)
     const principal = await requireAgent(deps.sessions, request.headers.authorization);
     const body = parsePayload(companyCommandEnvelopeSchema, request.body);
     const applied = await deps.administration.apply(principal, body);
-    revokeRealtimeSessions(deps.io, applied.revokedSessionIds);
+    if (deps.directRevoke !== false) revokeRealtimeSessions(deps.io, applied.revokedSessionIds);
     return companyCommandResultSchema.parse(applied.result);
   });
 

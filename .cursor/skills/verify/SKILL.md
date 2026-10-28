@@ -65,3 +65,43 @@ O script:
 8. Lê `GET /quality/report` com uma amostra conhecida: esperas 10, 20 e 40 segundos (p50 20, p90 40) e mostra que a política posterior, de limiar 1s, não rejulga o período anterior. A auditoria sem `from`/`to` não devolve o evento de 48 horas nem a senha.
 
 O script encerra as duas instâncias ao terminar. Saída diferente de zero é falha do exercício.
+
+## Página demo na porta 8090
+
+O pacote `nginx` não sobe sozinho nesta VM: o `postinst` chama `invoke-rc.d`, e o `policy-rc.d` recusa o start porque não há runlevel do systemd. O binário está em `/usr/sbin/nginx`. Suba com a configuração do repositório, que escuta só em `127.0.0.1:8090` e serve `infra/demo`:
+
+```bash
+sudo apt-get install -y nginx
+sudo nginx -c /workspace/infra/nginx-demo.conf
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/
+```
+
+Para trocar a configuração: `sudo nginx -c /workspace/infra/nginx-demo.conf -s reload`. Para encerrar: `sudo nginx -c /workspace/infra/nginx-demo.conf -s stop`.
+
+O console e o widget saem do próprio servidor, em `http://127.0.0.1:3000/console/` e `/widget.js`. Antes disso, `pnpm --filter @viavoip/widget build` e `pnpm --filter @viavoip/console build`.
+
+## Navegador
+
+Com a demo e o servidor no ar:
+
+```bash
+mkdir -p /tmp/pw && cd /tmp/pw && npm install playwright@1.56.1 && npx playwright install chromium
+node /workspace/scripts/verify-browser.mjs
+```
+
+O script abre `http://localhost:8090/`, confere o iframe do widget e grava capturas em `/opt/cursor/artifacts/screenshots/`. No console, Ana não vê Administração nem Qualidade; Sofia vê Qualidade e não vê Administração; Otávio vê as duas. Chamadas `fetch` feitas na página, com o token da sessão, recebem 403 no comando e na auditoria para a agente, e 403 no comando e no relatório da empresa para a supervisora. A fila que ela supervisiona responde 200.
+
+O botão Criar fila usa `submitCompanyCommand`. A primeira `POST /company/commands` é abortada depois do timeout de 2s; a segunda leva o mesmo `requestId`. O banco fica com uma fila e um evento `queue.create`.
+
+## Revogação isolada
+
+`SESSION_REVOKE_NOTIFY=false` não abre o `LISTEN`. `SESSION_REVOKE_DIRECT=false` não chama `disconnectSockets` depois do commit. Os dois padrões seguem ligados. A varredura fica em 120s.
+
+```bash
+pnpm --filter @viavoip/server exec tsx scripts/verify-revoke-paths.ts
+```
+
+1. Duas instâncias com Redis e sem listener. A revogação numa derruba o socket da outra. O número de `LISTEN webchat_session_revoke` não aumenta.
+2. Uma instância sem `REDIS_URL` e sem o disconnect direto. Só o `NOTIFY` derruba o socket.
+
+Nos dois casos o script mede a latência até o `disconnect`, abre uma conversa na fila e confirma que o socket revogado não recebe `conversation.updated`, recusa a reconexão com o mesmo token e mantém a Carla conectada, ainda dentro do chat interno. `auth_epoch` sobe uma unidade.

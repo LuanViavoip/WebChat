@@ -86,6 +86,7 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     quality: new OperationalQualityService(pool),
     audit: new AuditQueryService(pool),
     io,
+    directRevoke: config.sessionRevokeDirect,
   });
   if (config.serveStatic) await registerStatic(app);
   registerRealtime(io, {
@@ -117,18 +118,23 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     });
   }, 15_000);
   timer.unref();
-  const revokeListener = new pg.Client({ connectionString: config.databaseUrl });
-  await revokeListener.connect();
-  await revokeListener.query('LISTEN webchat_session_revoke');
-  revokeListener.on('notification', (message) => {
-    if (message.channel !== 'webchat_session_revoke' || !message.payload) return;
-    try {
-      const body = JSON.parse(message.payload) as { sessionId?: string };
-      if (body.sessionId) revokeRealtimeSessions(io, [body.sessionId]);
-    } catch (error: unknown) {
-      app.log.error({ err: error }, 'aviso de revogação inválido');
-    }
-  });
+  const revokeListener = config.sessionRevokeNotify ? new pg.Client({ connectionString: config.databaseUrl }) : null;
+  if (revokeListener) {
+    revokeListener.on('error', (error: Error) => {
+      app.log.error({ err: error }, 'conexão de revogação encerrada');
+    });
+    await revokeListener.connect();
+    await revokeListener.query('LISTEN webchat_session_revoke');
+    revokeListener.on('notification', (message) => {
+      if (message.channel !== 'webchat_session_revoke' || !message.payload) return;
+      try {
+        const body = JSON.parse(message.payload) as { sessionId?: string };
+        if (body.sessionId) revokeRealtimeSessions(io, [body.sessionId]);
+      } catch (error: unknown) {
+        app.log.error({ err: error }, 'aviso de revogação inválido');
+      }
+    });
+  }
   const sweepRevokedSessions = async () => {
     for (const namespace of ['/agent', '/supervisor'] as const) {
       const sockets = await io.of(namespace).fetchSockets();
@@ -157,7 +163,7 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     clearInterval(timer);
     clearInterval(loginRateLimitTimer);
     clearInterval(revokeTimer);
-    await revokeListener.end();
+    if (revokeListener) await revokeListener.end();
     io.disconnectSockets(true);
     io.close();
     await pool.end();
