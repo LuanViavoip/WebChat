@@ -1,4 +1,12 @@
-import type { AuditPage, AuditQuery, CompanyCommand, CompanyDesk, QualityQuery, QualityReport } from '@viavoip/protocol';
+import type {
+  AuditPage,
+  AuditQuery,
+  CompanyCommandEnvelope,
+  CompanyCommandResult,
+  CompanyDesk,
+  QualityQuery,
+  QualityReport,
+} from '@viavoip/protocol';
 
 export type CompanySession = {
   token: string;
@@ -11,10 +19,10 @@ export async function loadCompanyDesk(session: CompanySession): Promise<CompanyD
 
 export async function applyCompanyCommand(
   session: CompanySession,
-  command: CompanyCommand,
-): Promise<CompanyDesk> {
+  envelope: CompanyCommandEnvelope,
+): Promise<CompanyCommandResult> {
   void session;
-  void command;
+  void envelope;
   throw new Error('not implemented');
 }
 

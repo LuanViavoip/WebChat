@@ -424,9 +424,14 @@ export const qualityReportQuerySchema = z
     }
   });
 
+const averageSecondsSchema = z.number().min(0).max(8640000).nullable();
+const totalSecondsSchema = z.number().int().min(0).max(1_000_000_000_000).nullable();
+
 export const durationSummarySchema = z
   .object({
     samples: countSchema,
+    totalSeconds: totalSecondsSchema,
+    averageSeconds: averageSecondsSchema,
     p50Seconds: durationSecondsSchema,
     p90Seconds: durationSecondsSchema,
     maxSeconds: durationSecondsSchema,
@@ -434,10 +439,38 @@ export const durationSummarySchema = z
   .strict()
   .superRefine((summary, ctx) => {
     const empty = summary.samples === 0;
-    const missing = summary.p50Seconds === null && summary.p90Seconds === null && summary.maxSeconds === null;
-    const present = summary.p50Seconds !== null && summary.p90Seconds !== null && summary.maxSeconds !== null;
+    const missing =
+      summary.totalSeconds === null &&
+      summary.averageSeconds === null &&
+      summary.p50Seconds === null &&
+      summary.p90Seconds === null &&
+      summary.maxSeconds === null;
+    const present =
+      summary.totalSeconds !== null &&
+      summary.averageSeconds !== null &&
+      summary.p50Seconds !== null &&
+      summary.p90Seconds !== null &&
+      summary.maxSeconds !== null;
     if (empty ? !missing : !present) ctx.addIssue('resumo de duração inconsistente');
   });
+
+export const queueWaitIndicatorSchema = z
+  .object({
+    completed: countSchema,
+    abandoned: countSchema,
+    open: countSchema,
+    unreadable: countSchema,
+  })
+  .strict();
+
+export const firstResponseCoverageSchema = z
+  .object({
+    answered: countSchema,
+    unansweredClosed: countSchema,
+    stillOpen: countSchema,
+    unreadable: countSchema,
+  })
+  .strict();
 
 export const slaTallySchema = z
   .object({
@@ -471,12 +504,11 @@ export const qualityReportSchema = z
     queueWait: durationSummarySchema,
     firstResponse: durationSummarySchema,
     handleTime: durationSummarySchema,
+    queueWaits: queueWaitIndicatorSchema,
+    firstResponseCoverage: firstResponseCoverageSchema,
     completions: z
       .object({
         classified: countSchema,
-        leftWhileQueued: countSchema,
-        stillOpen: countSchema,
-        unreadable: countSchema,
       })
       .strict(),
     survey: surveySummarySchema,
@@ -601,6 +633,28 @@ export const auditPageSchema = z
   })
   .strict();
 
+export const companyCommandEnvelopeSchema = z
+  .object({
+    requestId: uuidSchema,
+    command: companyCommandSchema,
+  })
+  .strict();
+
+export const companyCommandReceiptSchema = z
+  .object({
+    requestId: uuidSchema,
+    replayed: z.boolean(),
+    appliedAt: instantSchema,
+  })
+  .strict();
+
+export const companyCommandResultSchema = z
+  .object({
+    desk: companyDeskSchema,
+    receipt: companyCommandReceiptSchema,
+  })
+  .strict();
+
 export const auditQuerySchema = z
   .object({
     from: instantSchema.optional(),
@@ -640,6 +694,9 @@ export type AgentAdmin = z.infer<typeof agentAdminSchema>;
 export type SlaPolicyView = z.infer<typeof slaPolicyViewSchema>;
 export type CompanyDesk = z.infer<typeof companyDeskSchema>;
 export type CompanyCommand = z.infer<typeof companyCommandSchema>;
+export type CompanyCommandEnvelope = z.infer<typeof companyCommandEnvelopeSchema>;
+export type CompanyCommandReceipt = z.infer<typeof companyCommandReceiptSchema>;
+export type CompanyCommandResult = z.infer<typeof companyCommandResultSchema>;
 export type QualityScope = z.infer<typeof qualityScopeSchema>;
 export type QualityQuery = z.infer<typeof qualityReportQuerySchema>;
 export type QualityReport = z.infer<typeof qualityReportSchema>;

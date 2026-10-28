@@ -15,6 +15,18 @@ ALTER TABLE agents
   ADD COLUMN suspension_reason text;
 
 ALTER TABLE agents
+  ADD COLUMN auth_epoch bigint NOT NULL DEFAULT 1;
+
+ALTER TABLE agents
+  ADD CONSTRAINT agents_auth_epoch_check CHECK (auth_epoch >= 1);
+
+ALTER TABLE auth_sessions
+  ADD COLUMN auth_epoch bigint NOT NULL DEFAULT 1;
+
+ALTER TABLE auth_sessions
+  ADD CONSTRAINT auth_sessions_auth_epoch_check CHECK (auth_epoch >= 1);
+
+ALTER TABLE agents
   ADD CONSTRAINT agents_membership_status_check
     CHECK (membership_status IN ('active', 'suspended')),
   ADD CONSTRAINT agents_membership_pair CHECK (
@@ -99,6 +111,29 @@ CREATE TRIGGER sites_acceptance_sync
   BEFORE INSERT OR UPDATE ON sites
   FOR EACH ROW
   EXECUTE FUNCTION sync_site_acceptance();
+
+CREATE OR REPLACE FUNCTION enforce_site_origins_when_accepting()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.acceptance = 'accepting' AND cardinality(NEW.allowed_origins) < 1 THEN
+    RAISE EXCEPTION 'accepting site requires allowed origins';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+UPDATE sites
+SET acceptance = 'paused',
+    pause_reason = 'Aguardando origens permitidas'
+WHERE acceptance = 'accepting'
+  AND cardinality(allowed_origins) < 1;
+
+CREATE TRIGGER sites_origins_when_accepting
+  BEFORE INSERT OR UPDATE ON sites
+  FOR EACH ROW
+  EXECUTE FUNCTION enforce_site_origins_when_accepting();
 
 CREATE OR REPLACE FUNCTION enforce_tenant_time_zone()
 RETURNS trigger
@@ -264,6 +299,110 @@ CREATE CONSTRAINT TRIGGER sla_policies_clocks_complete
   FOR EACH ROW
   EXECUTE FUNCTION enforce_sla_clocks_complete();
 
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+ALTER TABLE sla_policies
+  ADD CONSTRAINT sla_policies_no_overlap
+  EXCLUDE USING gist (
+    queue_id WITH =,
+    tstzrange(effective_from, retired_at, '[)') WITH &&
+  );
+
+CREATE OR REPLACE FUNCTION enforce_sla_publication()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  previous_retired_at timestamptz;
+BEGIN
+  IF NEW.effective_from < now() THEN
+    RAISE EXCEPTION 'retroactive sla publication';
+  END IF;
+  SELECT policy.retired_at
+    INTO previous_retired_at
+  FROM sla_policies AS policy
+  WHERE policy.queue_id = NEW.queue_id
+    AND policy.id <> NEW.id
+  ORDER BY policy.effective_from DESC
+  LIMIT 1;
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+  IF previous_retired_at IS NULL THEN
+    RAISE EXCEPTION 'open sla must be closed before insert';
+  END IF;
+  IF previous_retired_at > now() AND previous_retired_at <> NEW.effective_from THEN
+    RAISE EXCEPTION 'future sla leaves a gap';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER sla_policies_publication
+  BEFORE INSERT ON sla_policies
+  FOR EACH ROW
+  EXECUTE FUNCTION enforce_sla_publication();
+
+CREATE TABLE company_command_receipts (
+  tenant_id uuid NOT NULL REFERENCES tenants (id),
+  actor_id uuid NOT NULL REFERENCES agents (id),
+  request_id uuid NOT NULL,
+  command_kind text NOT NULL CHECK (char_length(command_kind) BETWEEN 1 AND 80),
+  payload_hash text NOT NULL CHECK (payload_hash ~ '^[0-9a-f]{64}$'),
+  status text NOT NULL CHECK (status IN ('in_flight', 'applied')),
+  applied_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, actor_id, request_id),
+  CHECK (
+    (status = 'in_flight' AND applied_at IS NULL)
+    OR (status = 'applied' AND applied_at IS NOT NULL)
+  )
+);
+
+CREATE OR REPLACE FUNCTION enforce_company_command_actor()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM agents AS agent
+    WHERE agent.id = NEW.actor_id
+      AND agent.tenant_id = NEW.tenant_id
+  ) THEN
+    RAISE EXCEPTION 'company command actor tenant mismatch';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER company_command_receipts_scope
+  BEFORE INSERT OR UPDATE ON company_command_receipts
+  FOR EACH ROW
+  EXECUTE FUNCTION enforce_company_command_actor();
+
+CREATE OR REPLACE FUNCTION notify_auth_session_revoked()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  PERFORM pg_notify(
+    'webchat_session_revoke',
+    json_build_object(
+      'tenantId', OLD.tenant_id,
+      'agentId', OLD.agent_id,
+      'sessionId', OLD.id
+    )::text
+  );
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER auth_sessions_revoke_notify
+  AFTER DELETE ON auth_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION notify_auth_session_revoked();
+
 WITH ranked AS (
   SELECT id, row_number() OVER (PARTITION BY tenant_id ORDER BY created_at ASC, id ASC) AS position
   FROM survey_definitions
@@ -291,12 +430,18 @@ CREATE INDEX survey_responses_tenant_time
 CREATE INDEX audit_events_tenant_action_time
   ON audit_events (tenant_id, action, created_at DESC);
 
+ALTER TABLE company_command_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE company_command_receipts FORCE ROW LEVEL SECURITY;
 ALTER TABLE site_service_windows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_service_windows FORCE ROW LEVEL SECURITY;
 ALTER TABLE sla_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sla_policies FORCE ROW LEVEL SECURITY;
 ALTER TABLE sla_policy_clocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sla_policy_clocks FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON company_command_receipts
+  USING (tenant_id = app_tenant_id())
+  WITH CHECK (tenant_id = app_tenant_id());
 
 CREATE POLICY tenant_isolation ON site_service_windows
   USING (tenant_id = app_tenant_id())
@@ -310,7 +455,9 @@ CREATE POLICY tenant_isolation ON sla_policy_clocks
   USING (tenant_id = app_tenant_id())
   WITH CHECK (tenant_id = app_tenant_id());
 
-GRANT SELECT (membership_status, suspended_at, suspension_reason) ON agents TO webchat_app;
+GRANT SELECT (membership_status, suspended_at, suspension_reason, auth_epoch) ON agents TO webchat_app;
+GRANT UPDATE (auth_epoch) ON agents TO webchat_app;
+GRANT SELECT (auth_epoch) ON auth_sessions TO webchat_app;
 GRANT INSERT (
   tenant_id,
   email,
@@ -335,6 +482,8 @@ GRANT SELECT, INSERT, DELETE ON site_service_windows TO webchat_app;
 GRANT SELECT, INSERT ON sla_policies TO webchat_app;
 GRANT UPDATE (status, retired_at) ON sla_policies TO webchat_app;
 GRANT SELECT, INSERT ON sla_policy_clocks TO webchat_app;
+GRANT SELECT, INSERT ON company_command_receipts TO webchat_app;
+GRANT UPDATE (status, applied_at) ON company_command_receipts TO webchat_app;
 
 REVOKE UPDATE, DELETE ON audit_events FROM webchat_app;
 
@@ -344,3 +493,52 @@ GRANT EXECUTE ON FUNCTION enforce_site_service_window() TO webchat_app;
 GRANT EXECUTE ON FUNCTION enforce_sla_policy() TO webchat_app;
 GRANT EXECUTE ON FUNCTION enforce_sla_clock() TO webchat_app;
 GRANT EXECUTE ON FUNCTION enforce_sla_clocks_complete() TO webchat_app;
+GRANT EXECUTE ON FUNCTION enforce_sla_publication() TO webchat_app;
+GRANT EXECUTE ON FUNCTION enforce_site_origins_when_accepting() TO webchat_app;
+GRANT EXECUTE ON FUNCTION enforce_company_command_actor() TO webchat_app;
+GRANT EXECUTE ON FUNCTION notify_auth_session_revoked() TO webchat_app;
+
+CREATE OR REPLACE FUNCTION lookup_agent_by_email(p_email text)
+RETURNS TABLE (
+  id uuid,
+  tenant_id uuid,
+  email text,
+  name text,
+  password_hash text,
+  role text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT agent.id, agent.tenant_id, agent.email, agent.name, agent.password_hash, agent.role
+  FROM agents AS agent
+  WHERE agent.email = p_email
+    AND agent.membership_status = 'active'
+$$;
+
+CREATE OR REPLACE FUNCTION lookup_auth_session(p_token_hash text)
+RETURNS TABLE (
+  session_id uuid,
+  agent_id uuid,
+  tenant_id uuid,
+  role text,
+  name text,
+  expires_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT session.id, session.agent_id, session.tenant_id, agent.role, agent.name, session.expires_at
+  FROM auth_sessions AS session
+  JOIN agents AS agent
+    ON agent.id = session.agent_id
+   AND agent.tenant_id = session.tenant_id
+  WHERE session.token_hash = p_token_hash
+    AND session.expires_at > now()
+    AND agent.membership_status = 'active'
+    AND session.auth_epoch = agent.auth_epoch
+$$;

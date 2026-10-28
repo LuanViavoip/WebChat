@@ -1,7 +1,8 @@
 import {
   auditPageSchema,
   auditQuerySchema,
-  companyCommandSchema,
+  companyCommandEnvelopeSchema,
+  companyCommandResultSchema,
   companyDeskSchema,
   qualityReportQuerySchema,
   qualityReportSchema,
@@ -24,8 +25,8 @@ export const companyHttpCatalog = {
   command: {
     method: 'POST' as const,
     path: '/company/commands',
-    body: companyCommandSchema,
-    response: companyDeskSchema,
+    body: companyCommandEnvelopeSchema,
+    response: companyCommandResultSchema,
   },
   quality: {
     method: 'GET' as const,

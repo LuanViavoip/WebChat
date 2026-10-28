@@ -41,7 +41,14 @@ export type QueueWaitFact =
 
 export type FirstResponseFact =
   | { kind: 'answered'; conversationId: string; queueId: string; elapsedSeconds: number }
-  | { kind: 'unanswered'; conversationId: string; queueId: string; reason: 'segment_ended' | 'still_open' }
+  | { kind: 'closed_without_reply'; conversationId: string; queueId: string }
+  | {
+      kind: 'handed_off_without_reply';
+      conversationId: string;
+      queueId: string;
+      end: 'transferred' | 'released';
+    }
+  | { kind: 'still_open'; conversationId: string; queueId: string }
   | { kind: 'unreadable'; conversationId: string; reason: 'missing_queue' };
 
 export type HandleTimeFact =
@@ -71,10 +78,14 @@ export type SlaPolicyVersion = {
 
 export type SlaJudgement =
   | { outcome: 'within'; elapsedSeconds: number; thresholdSeconds: number }
-  | { outcome: 'breached'; elapsedSeconds: number; thresholdSeconds: number }
+  | {
+      outcome: 'breached';
+      thresholdSeconds: number;
+      elapsed: { kind: 'measured'; elapsedSeconds: number } | { kind: 'no_reply' };
+    }
   | {
       outcome: 'not_applicable';
-      reason: 'no_policy' | 'still_open' | 'abandoned' | 'unanswered' | 'unreadable';
+      reason: 'no_policy' | 'still_open' | 'abandoned' | 'handed_off' | 'unreadable';
     };
 
 export function reconstructOperationalFacts(input: {

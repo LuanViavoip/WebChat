@@ -1,4 +1,4 @@
-import type { CompanyCommand, CompanyDesk } from '@viavoip/protocol';
+import type { CompanyCommandEnvelope, CompanyCommandResult, CompanyDesk } from '@viavoip/protocol';
 import type { Pool } from 'pg';
 import type { AgentPrincipal } from '../domain/types.js';
 
@@ -11,10 +11,11 @@ export class CompanyAdministrationService {
     throw new Error('not implemented');
   }
 
-  async apply(principal: AgentPrincipal, command: CompanyCommand): Promise<CompanyDesk> {
+  async apply(principal: AgentPrincipal, envelope: CompanyCommandEnvelope): Promise<CompanyCommandResult> {
     void this.pool;
     void principal;
-    switch (command.kind) {
+    void envelope.requestId;
+    switch (envelope.command.kind) {
       case 'agent.create':
       case 'agent.suspend':
       case 'agent.reactivate':
@@ -41,7 +42,7 @@ export class CompanyAdministrationService {
       case 'sla.retire':
         throw new Error('not implemented');
       default: {
-        const unexpected: never = command;
+        const unexpected: never = envelope.command;
         throw new Error(`not implemented: ${String(unexpected)}`);
       }
     }

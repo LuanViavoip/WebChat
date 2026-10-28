@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   auditActionSchema,
+  companyCommandEnvelopeSchema,
   companyCommandSchema,
   companyDeskSchema,
   configuredAcceptanceSchema,
+  durationSummarySchema,
+  firstResponseCoverageSchema,
   qualityReportQuerySchema,
   serviceCalendarSchema,
 } from '../src/index.js';
@@ -72,6 +75,41 @@ describe('contrato administrativo', () => {
         to: '2026-10-02T00:00:00.000Z',
       }).success,
     ).toBe(false);
+  });
+
+  it('exige requestId no envelope e rejeita tenantId', () => {
+    const requestId = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaa03';
+    const envelope = {
+      requestId,
+      command: {
+        kind: 'queue.create' as const,
+        name: 'Retenção',
+      },
+    };
+    expect(companyCommandEnvelopeSchema.parse(envelope).requestId).toBe(requestId);
+    expect(companyCommandEnvelopeSchema.safeParse({ command: envelope.command }).success).toBe(false);
+    expect(companyCommandEnvelopeSchema.safeParse({ ...envelope, tenantId: agentId }).success).toBe(false);
+  });
+
+  it('aceita cobertura de primeira resposta sem amostra de duração', () => {
+    expect(
+      firstResponseCoverageSchema.parse({
+        answered: 0,
+        unansweredClosed: 1,
+        stillOpen: 0,
+        unreadable: 0,
+      }).unansweredClosed,
+    ).toBe(1);
+    expect(
+      durationSummarySchema.parse({
+        samples: 0,
+        totalSeconds: null,
+        averageSeconds: null,
+        p50Seconds: null,
+        p90Seconds: null,
+        maxSeconds: null,
+      }).samples,
+    ).toBe(0);
   });
 
   it('guarda ação de auditoria desconhecida sem tratar como booleano', () => {
