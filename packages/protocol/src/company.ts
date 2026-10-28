@@ -467,6 +467,7 @@ export const firstResponseCoverageSchema = z
   .object({
     answered: countSchema,
     unansweredClosed: countSchema,
+    transferredUnanswered: countSchema,
     stillOpen: countSchema,
     unreadable: countSchema,
   })

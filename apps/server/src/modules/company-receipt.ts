@@ -28,6 +28,11 @@ export async function withCommandReceipt(
     [`${input.tenantId}:${input.actorId}:${input.requestId}`],
   );
   if (!locked.rows[0]?.locked) throw new DomainError('conflict', 'Comando em andamento');
+  await client.query(
+    `DELETE FROM company_command_receipts
+     WHERE tenant_id = $1 AND actor_id = $2 AND expires_at <= now()`,
+    [input.tenantId, input.actorId],
+  );
   const existing = await client.query<{ payload_hash: string; status: 'in_flight' | 'applied'; applied_at: Date | null }>(
     `SELECT payload_hash, status, applied_at
      FROM company_command_receipts
@@ -46,8 +51,8 @@ export async function withCommandReceipt(
   }
   await client.query(
     `INSERT INTO company_command_receipts (
-       tenant_id, actor_id, request_id, command_kind, payload_hash, status
-     ) VALUES ($1, $2, $3, $4, $5, 'in_flight')`,
+       tenant_id, actor_id, request_id, command_kind, payload_hash, status, expires_at
+     ) VALUES ($1, $2, $3, $4, $5, 'in_flight', now() + interval '24 hours')`,
     [input.tenantId, input.actorId, input.requestId, input.commandKind, input.payloadHash],
   );
   await apply();

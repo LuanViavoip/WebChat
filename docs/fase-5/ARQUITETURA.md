@@ -282,7 +282,7 @@ Todo comando passa por `withCommandReceipt`. O corpo é `CompanyCommandEnvelope`
 
 A tabela é `company_command_receipts`. A chave é `(tenant_id, actor_id, request_id)`. Não há coluna de mesa. O retry relê a mesa atual.
 
-Hash: SHA-256 em hexadecimal do JSON canônico do `command` já validado, com chaves ordenadas em todos os níveis, sem o `requestId`. A senha entra no hash e não é gravada. O recibo permanece no Postgres e sobrevive a restart. Não há TTL nesta fase.
+Hash: SHA-256 em hexadecimal do JSON canônico do `command` já validado, com chaves ordenadas em todos os níveis, sem o `requestId`. A senha entra no hash e não é gravada. O recibo permanece no Postgres, sobrevive a restart e expira em 24 horas. A limpeza apaga só recibos vencidos do mesmo ator, dentro da transação do comando.
 
 Na mesma transação de `withTenant`:
 
@@ -362,7 +362,7 @@ Primeira resposta. Para cada `assigned`, a resposta é a primeira `messages` com
 
 - mensagem do agente: `answered`. Entra na duração (total, média, p50, p90) e em `firstResponseCoverage.answered`. Com política, `within` ou `breached` medido.
 - `classified` sem mensagem: `unansweredClosed`. Não entra na duração. Com política aplicável no início do segmento, o juízo é `breached` sem resposta. Sem política, `not_applicable` / `no_policy`, e o contador `unansweredClosed` mesmo assim sobe.
-- `released` ou `transferred` sem mensagem: não entra em `unansweredClosed` nem em `breached`. Fica fora da cobertura até um campo próprio.
+- `released` ou `transferred` sem mensagem: `transferredUnanswered`. Não entra na duração nem em `breached`.
 - segmento ainda aberto no fim da janela: `stillOpen`. Não vira violação definitiva.
 
 Amostra da duração: só `answered` cujo assign cai na janela.
@@ -427,4 +427,4 @@ O Luan fechou o que segue. A limitação explícita é a troca de e-mail, que es
 - Relatório agregado até 31 dias, com total, média, p50 e p90 de espera, primeira resposta e atendimento.
 - Outbox continua adiado. Suspensão, permissão e revogação derrubam o socket na hora, com época no banco, checagem no handshake e em cada evento ou join, e `disconnectSockets` pelo adapter Redis já existente.
 - SLA sem efeito retroativo, política anterior imutável, julgamento no início do segmento, vigências futuras sem vão e sem sobreposição.
-- Percentis de primeira resposta só com quem respondeu. `firstResponseCoverage` conta `answered`, `unansweredClosed`, `stillOpen` e `unreadable`. Encerrado sem resposta é `breached` quando há política. A implementação desse cálculo é a unidade 7.
+- Percentis de primeira resposta só com quem respondeu. `firstResponseCoverage` conta `answered`, `unansweredClosed`, `transferredUnanswered`, `stillOpen` e `unreadable`. Transferido ou devolvido sem resposta não é violação. Encerrado sem resposta é `breached` quando há política. A implementação desse cálculo é a unidade 7.

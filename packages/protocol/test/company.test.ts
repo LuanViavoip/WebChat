@@ -96,9 +96,10 @@ describe('contrato administrativo', () => {
       firstResponseCoverageSchema.parse({
         answered: 0,
         unansweredClosed: 1,
+        transferredUnanswered: 1,
         stillOpen: 0,
         unreadable: 0,
-      }).unansweredClosed,
+      }).transferredUnanswered,
     ).toBe(1);
     expect(
       durationSummarySchema.parse({

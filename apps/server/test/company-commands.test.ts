@@ -108,6 +108,60 @@ describe('comandos de configuração', () => {
     expect(receipts.rows).toEqual([]);
   });
 
+  it('esquece o recibo vencido e preserva o recibo dentro de 24 horas', async () => {
+    const expiredId = randomUUID();
+    const liveId = randomUUID();
+    await service().apply(otavio, { requestId: expiredId, command: { kind: 'company.concurrency_limit', max: 4 } });
+    await service().apply(otavio, { requestId: liveId, command: { kind: 'company.concurrency_limit', max: 4 } });
+    const admin = new pg.Client({ connectionString: process.env.MIGRATE_DATABASE_URL });
+    await admin.connect();
+    try {
+      await admin.query(
+        `UPDATE company_command_receipts
+         SET created_at = now() - interval '2 days', expires_at = now() - interval '1 day'
+         WHERE request_id = $1`,
+        [expiredId],
+      );
+    } finally {
+      await admin.end();
+    }
+    const forgotten = randomUUID();
+    await service().apply(otavio, { requestId: forgotten, command: { kind: 'company.concurrency_limit', max: 4 } });
+    const sweeper = new pg.Client({ connectionString: process.env.MIGRATE_DATABASE_URL });
+    await sweeper.connect();
+    try {
+      await sweeper.query(
+        `UPDATE company_command_receipts
+         SET created_at = now() - interval '2 days', expires_at = now() - interval '1 day'
+         WHERE request_id = $1`,
+        [forgotten],
+      );
+    } finally {
+      await sweeper.end();
+    }
+    const repeated = await service().apply(otavio, {
+      requestId: expiredId,
+      command: { kind: 'company.concurrency_limit', max: 4 },
+    });
+    expect(repeated.result.receipt.replayed).toBe(false);
+    const replay = await service().apply(otavio, {
+      requestId: liveId,
+      command: { kind: 'company.concurrency_limit', max: 4 },
+    });
+    expect(replay.result.receipt.replayed).toBe(true);
+    const left = await withTenant(app.pool, demoIds.tenantA, (client) =>
+      client.query<{ request_id: string }>(
+        `SELECT request_id FROM company_command_receipts WHERE request_id = ANY($1::uuid[])`,
+        [[expiredId, liveId, forgotten]],
+      ),
+    );
+    expect(left.rows.map((row) => row.request_id).sort()).toEqual([expiredId, liveId].sort());
+    await service().apply(otavio, {
+      requestId: randomUUID(),
+      command: { kind: 'company.concurrency_limit', max: 3 },
+    });
+  });
+
   it('trata dois envios simultâneos do mesmo pedido como um só efeito', async () => {
     const envelope = {
       requestId: randomUUID(),
