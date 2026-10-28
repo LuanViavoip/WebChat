@@ -152,9 +152,11 @@ export class SessionService {
     const { token, tokenHash } = newToken();
     await withTenant(this.pool, agent.tenant_id, async (client) => {
       await client.query(
-        `INSERT INTO auth_sessions (token_hash, agent_id, tenant_id, role, expires_at)
-         VALUES ($1, $2, $3, $4, now() + make_interval(hours => $5::integer))`,
-        [tokenHash, agent.id, agent.tenant_id, agent.role, this.sessionTtlHours],
+        `INSERT INTO auth_sessions (token_hash, agent_id, tenant_id, role, expires_at, auth_epoch)
+         SELECT $1, agent.id, agent.tenant_id, agent.role, now() + make_interval(hours => $2::integer), agent.auth_epoch
+         FROM agents AS agent
+         WHERE agent.id = $3 AND agent.tenant_id = $4`,
+        [tokenHash, this.sessionTtlHours, agent.id, agent.tenant_id],
       );
     });
     return { token, role: agent.role, name: agent.name };
@@ -185,6 +187,34 @@ export class SessionService {
         principal.sessionId,
         principal.tenantId,
       ]);
+    });
+  }
+
+  async staffSessionsAllowed(sessionIds: readonly string[]): Promise<Map<string, string>> {
+    if (sessionIds.length === 0) return new Map();
+    const result = await this.pool.query<{ session_id: string; role: string }>(
+      `SELECT session_id, role FROM staff_sessions_alive($1::uuid[])`,
+      [sessionIds],
+    );
+    return new Map(result.rows.map((row) => [row.session_id, row.role]));
+  }
+
+  async staffSessionAllowed(principal: AgentPrincipal): Promise<boolean> {
+    return withTenant(this.pool, principal.tenantId, async (client) => {
+      const result = await client.query(
+        `SELECT 1
+         FROM auth_sessions AS session
+         JOIN agents AS agent
+           ON agent.id = session.agent_id AND agent.tenant_id = session.tenant_id
+         WHERE session.id = $1
+           AND session.tenant_id = $2
+           AND session.expires_at > now()
+           AND agent.membership_status = 'active'
+           AND session.auth_epoch = agent.auth_epoch
+           AND agent.role = $3`,
+        [principal.sessionId, principal.tenantId, principal.kind],
+      );
+      return Boolean(result.rows[0]);
     });
   }
 

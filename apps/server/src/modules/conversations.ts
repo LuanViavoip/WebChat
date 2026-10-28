@@ -2,6 +2,7 @@ import type { ConversationSummary, MessageRecord, QueuePosition, SurveyPrompt } 
 import type { Pool, PoolClient } from 'pg';
 import { withTenant } from '../db/tenant.js';
 import { assertCanRead, assertSupervisorQueueAccess, isStaff } from '../domain/access.js';
+import { resolveAcceptance } from '../domain/acceptance.js';
 import { DomainError } from '../domain/errors.js';
 import type { AgentPrincipal, ConversationRecord, Principal, VisitorPrincipal } from '../domain/types.js';
 import { listMessages, loadActiveSurvey } from './messages.js';
@@ -42,15 +43,45 @@ export class ConversationService {
           positions: await positionsFor(client, principal.tenantId, [existing.queueId], existing),
         };
       }
-      const site = await client.query<{ require_visitor_name: boolean; accepting_chats: boolean }>(
-        `SELECT require_visitor_name, accepting_chats
-         FROM sites
-         WHERE id = $1 AND tenant_id = $2`,
+      const site = await client.query<{
+        require_visitor_name: boolean;
+        acceptance: 'accepting' | 'paused';
+        pause_reason: string | null;
+        time_zone: string;
+      }>(
+        `SELECT site.require_visitor_name, site.acceptance, site.pause_reason, tenant.time_zone
+         FROM sites AS site
+         JOIN tenants AS tenant ON tenant.id = site.tenant_id
+         WHERE site.id = $1 AND site.tenant_id = $2`,
         [principal.siteId, principal.tenantId],
       );
       const settings = site.rows[0];
       if (!settings) throw new DomainError('not_found', 'Site não encontrado');
-      if (!settings.accepting_chats) throw new DomainError('invalid_state', 'Atendimento indisponível');
+      const windows = await client.query<{ weekday: number; start_minute: number; end_minute: number }>(
+        `SELECT weekday, start_minute, end_minute
+         FROM site_service_windows
+         WHERE site_id = $1 AND tenant_id = $2
+         ORDER BY weekday, start_minute`,
+        [principal.siteId, principal.tenantId],
+      );
+      const effective = resolveAcceptance(
+        settings.acceptance === 'paused'
+          ? { kind: 'paused', reason: settings.pause_reason ?? 'Suspenso' }
+          : { kind: 'accepting' },
+        windows.rows.length === 0
+          ? { kind: 'always_open' }
+          : {
+              kind: 'weekly',
+              windows: windows.rows.map((window) => ({
+                weekday: window.weekday,
+                startMinute: window.start_minute,
+                endMinute: window.end_minute,
+              })),
+            },
+        settings.time_zone,
+        new Date().toISOString(),
+      );
+      if (effective.kind !== 'accepting') throw new DomainError('invalid_state', 'Atendimento indisponível');
       if (settings.require_visitor_name && !displayName) {
         throw new DomainError('invalid_payload', 'Informe seu nome para entrar na fila');
       }
@@ -355,7 +386,10 @@ export class ConversationService {
   ): Promise<HistoryResult> {
     return withTenant(this.pool, principal.tenantId, async (client) => {
       const conversation = await loadConversation(client, conversationId, principal.tenantId, false);
-      if (!conversation) throw new DomainError('not_found', 'Conversa não encontrada');
+      if (!conversation) {
+        if (principal.kind === 'supervisor') throw new DomainError('forbidden', 'Conversa fora do escopo do supervisor');
+        throw new DomainError('not_found', 'Conversa não encontrada');
+      }
       await assertCanRead(client, principal, conversation);
       if (auditAction && principal.kind !== 'visitor') {
         await client.query(
@@ -448,7 +482,8 @@ export class ConversationService {
          FROM conversations AS conversation
          ${conversationJoins}
          WHERE conversation.tenant_id = $1
-           AND conversation.status IN ('queued', 'assigned', 'awaiting_survey')
+           AND (conversation.status IN ('queued', 'assigned', 'awaiting_survey')
+                OR (conversation.status = 'closed' AND conversation.ended_at >= now() - interval '24 hours'))
            AND (
              $2::boolean
              OR conversation.queue_id IN (

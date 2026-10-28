@@ -62,7 +62,7 @@ export class SocketHub {
     if (summary.agentId) {
       this.io.of('/agent').to(rooms.agent(tenantId, summary.agentId)).emit('conversation.updated', summary);
     }
-    this.supervisorQueues(tenantId, [summary.queueId, ...(previousQueueId ? [previousQueueId] : [])]).emit('conversation.updated', summary);
+    this.supervisorQueues(tenantId, [summary.queueId]).emit('conversation.updated', summary);
     this.touch(tenantId);
   }
 

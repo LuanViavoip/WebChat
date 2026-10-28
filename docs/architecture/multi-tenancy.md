@@ -6,7 +6,7 @@ Defesa em camadas; nenhuma depende só de filtros na consulta.
 2. **`withTenant`** (`apps/server/src/db/tenant.ts`): abre transação, valida o UUID e executa `set_config('app.tenant_id', $1, true)` (local à transação).
 3. **RLS forçada.** Todas as tabelas de negócio têm `ENABLE` e `FORCE ROW LEVEL SECURITY` e a política `tenant_isolation` (`tenant_id = app_tenant_id()`); `tenants` usa `tenant_self`. As exceções são `schema_migrations` e `login_rate_limits`, que é global e armazena identificadores em HMAC.
 4. **Papel restrito.** A aplicação conecta como `webchat_app` (NOSUPERUSER, NOBYPASSRLS). Migrations usam outro papel (`MIGRATE_DATABASE_URL`).
-5. **Funções `SECURITY DEFINER`** para consultas anteriores ao tenant: `lookup_site_by_public_id`, `lookup_agent_by_email`, `lookup_auth_session`, `lookup_visitor_session`; e `sweep_stale_agent_connections` (varredura entre tenants).
+5. **Funções `SECURITY DEFINER`** para consultas anteriores ao tenant: `lookup_site_by_public_id`, `lookup_agent_by_email`, `lookup_auth_session`, `lookup_visitor_session`; `sweep_stale_agent_connections` (varredura entre tenants); e `staff_sessions_alive` (lote da revogação de sessão).
 6. **Grants por coluna:** `agents.password_hash`, `auth_sessions` e `visitor_sessions` não são legíveis livremente pelo papel da aplicação.
 7. **Triggers de consistência** (`enforce_*`) impedem referências entre tenants (ex.: fila de outro tenant em `site_queues`).
 8. **Salas WebSocket** incluem o tenant no nome.

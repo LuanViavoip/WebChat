@@ -46,6 +46,7 @@ export function bindSocket(
   schemas: Record<string, ZodType>,
   handlers: Record<string, (payload: unknown) => Promise<object>>,
   logger: AppLogger,
+  revalidate?: () => Promise<boolean>,
 ): void {
   socket.onAny(async (event: string, ...args: unknown[]) => {
     const last = args.at(-1);
@@ -68,6 +69,11 @@ export function bindSocket(
       return;
     }
     try {
+      if (revalidate && !(await revalidate())) {
+        socket.disconnect(true);
+        respond({ ok: false, error: { code: 'unauthorized', message: 'Sessão revogada' } });
+        return;
+      }
       const sessionValidation = socket.data.sessionValidation as Promise<boolean> | undefined;
       if (sessionValidation && !(await sessionValidation)) {
         socket.disconnect(true);

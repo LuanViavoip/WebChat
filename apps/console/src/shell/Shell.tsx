@@ -8,6 +8,7 @@ import {
 } from '@viavoip/protocol';
 import { useEffect, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
+import { CompanyPanel } from '../admin/CompanyPanel.js';
 import { ActivityPanel } from '../activity/ActivityPanel.js';
 import { AnnouncementsPanel } from '../announcements/AnnouncementsPanel.js';
 import { Desk, type LinkState } from '../desk/Desk.js';
@@ -139,6 +140,8 @@ export function Shell({ token, profile, onLogout }: { token: string; profile: Au
         <AnnouncementsPanel socket={socket} canPublish={staff} isAdmin={profile.role === 'admin'} />
       ) : null}
       {section === 'activity' ? <ActivityPanel socket={socket} selfId={profile.selfId} canAssign={staff} isAdmin={profile.role === 'admin'} /> : null}
+      {section === 'company' && profile.role === 'admin' ? <CompanyPanel token={token} role={profile.role} mode="company" /> : null}
+      {section === 'quality' ? <CompanyPanel token={token} role={profile.role} mode="quality" /> : null}
       {section === 'overview' ? <OverviewPanel socket={socket} mode="overview" /> : null}
       {section === 'agents' ? <OverviewPanel socket={socket} mode="agents" /> : null}
     </main>

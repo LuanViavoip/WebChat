@@ -10,7 +10,7 @@ import {
 } from '@viavoip/protocol';
 import { MockSMAdapter } from '@viavoip/sm-adapter';
 import { io, type Socket } from 'socket.io-client';
-import { buildApp, type WebChatApp } from '../src/app.js';
+import { buildApp, type RevokeBuildOptions, type WebChatApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 
 export type TestApp = WebChatApp & {
@@ -34,7 +34,10 @@ export function closeTestSockets(): void {
 
 afterEach(closeTestSockets);
 
-export async function startTestApp(overrides: Partial<ReturnType<typeof loadConfig>> = {}): Promise<TestApp> {
+export async function startTestApp(
+  overrides: Partial<ReturnType<typeof loadConfig>> = {},
+  revoke?: RevokeBuildOptions,
+): Promise<TestApp> {
   const config = loadConfig();
   const sm = new MockSMAdapter();
   const web = await buildApp(
@@ -49,6 +52,7 @@ export async function startTestApp(overrides: Partial<ReturnType<typeof loadConf
       ...overrides,
     },
     sm,
+    revoke ? { revoke } : undefined,
   );
   await web.app.listen({ port: 0, host: '127.0.0.1' });
   const address = web.app.server.address() as AddressInfo;

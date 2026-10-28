@@ -7,7 +7,9 @@ export type Section =
   | 'internal'
   | 'sectors'
   | 'announcements'
-  | 'activity';
+  | 'activity'
+  | 'company'
+  | 'quality';
 
 export function isStaffRole(role: Role): boolean {
   switch (role) {
@@ -63,10 +65,22 @@ export function sectionsFor(role: Role): { id: Section; label: string }[] {
         { id: 'activity', label: 'Minha atividade' },
       ];
     case 'supervisor':
+      return [
+        { id: 'overview', label: 'Visão geral' },
+        { id: 'agents', label: 'Agentes' },
+        { id: 'quality', label: 'Qualidade' },
+        { id: 'sectors', label: 'Setores' },
+        { id: 'desk', label: 'Atendimentos' },
+        { id: 'activity', label: 'Atividades' },
+        { id: 'announcements', label: 'Anúncios' },
+        { id: 'internal', label: 'Chat interno' },
+      ];
     case 'admin':
       return [
         { id: 'overview', label: 'Visão geral' },
         { id: 'agents', label: 'Agentes' },
+        { id: 'company', label: 'Administração' },
+        { id: 'quality', label: 'Qualidade' },
         { id: 'sectors', label: 'Setores' },
         { id: 'desk', label: 'Atendimentos' },
         { id: 'activity', label: 'Atividades' },
