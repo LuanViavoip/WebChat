@@ -1,14 +1,18 @@
 import type { CompanyCommandEnvelope, CompanyCommandResult, CompanyDesk } from '@viavoip/protocol';
 import type { Pool } from 'pg';
+import { withTenant } from '../db/tenant.js';
+import { assertCompanyAccess } from '../domain/company-access.js';
 import type { AgentPrincipal } from '../domain/types.js';
+import { readCompanyDesk } from './company-desk.js';
 
 export class CompanyAdministrationService {
   constructor(private readonly pool: Pool) {}
 
   async load(principal: AgentPrincipal): Promise<CompanyDesk> {
-    void this.pool;
-    void principal;
-    throw new Error('not implemented');
+    return withTenant(this.pool, principal.tenantId, async (client) => {
+      await assertCompanyAccess(client, principal, { capability: 'company.desk' });
+      return readCompanyDesk(client, principal.tenantId);
+    });
   }
 
   async apply(principal: AgentPrincipal, envelope: CompanyCommandEnvelope): Promise<CompanyCommandResult> {
