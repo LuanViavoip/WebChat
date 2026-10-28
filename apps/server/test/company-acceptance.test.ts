@@ -48,6 +48,27 @@ describe('aceitação efetiva', () => {
     );
   });
 
+  it('marca a próxima abertura no offset daquele instante, inclusive no vão da virada', () => {
+    const afterSpring = { kind: 'weekly' as const, windows: [{ weekday: 7, startMinute: 210, endMinute: 720 }] };
+    // 2026-03-08T06:00:00Z é 01:00 EST. 03:30 local só existe em EDT, às 07:30Z.
+    expect(resolveAcceptance({ kind: 'accepting' }, afterSpring, 'America/New_York', '2026-03-08T06:00:00.000Z')).toEqual({
+      kind: 'outside_service_window',
+      resumesAt: '2026-03-08T07:30:00.000Z',
+    });
+    // 02:30 não existe nesse domingo: o relógio salta de 02:00 EST para 03:00 EDT (07:00Z).
+    const gap = { kind: 'weekly' as const, windows: [{ weekday: 7, startMinute: 150, endMinute: 720 }] };
+    expect(resolveAcceptance({ kind: 'accepting' }, gap, 'America/New_York', '2026-03-08T06:00:00.000Z')).toEqual({
+      kind: 'outside_service_window',
+      resumesAt: '2026-03-08T07:00:00.000Z',
+    });
+    // 2026-11-01T05:30:00Z é 01:30 EDT. 02:30 local, depois do retorno, é 07:30Z.
+    const afterFall = { kind: 'weekly' as const, windows: [{ weekday: 7, startMinute: 150, endMinute: 240 }] };
+    expect(resolveAcceptance({ kind: 'accepting' }, afterFall, 'America/New_York', '2026-11-01T05:30:00.000Z')).toEqual({
+      kind: 'outside_service_window',
+      resumesAt: '2026-11-01T07:30:00.000Z',
+    });
+  });
+
   it('recusa abrir conversa fora da janela e durante a pausa', async () => {
     await withTenant(app.pool, demoIds.tenantA, (client) =>
       client.query(

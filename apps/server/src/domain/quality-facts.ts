@@ -96,8 +96,10 @@ export function reconstructOperationalFacts(input: {
 }): OperationalFacts {
   const from = Date.parse(input.window.from);
   const to = Date.parse(input.window.to);
+  const events = input.events.filter((event) => Date.parse(event.at) < to);
+  const agentReplies = input.agentReplies.filter((reply) => Date.parse(reply.at) < to);
   const grouped = new Map<string, ConversationTimelineEvent[]>();
-  for (const event of input.events) {
+  for (const event of events) {
     const list = grouped.get(event.conversationId) ?? [];
     list.push(event);
     grouped.set(event.conversationId, list);
@@ -107,7 +109,7 @@ export function reconstructOperationalFacts(input: {
   const handleTimes: HandleTimeFact[] = [];
   for (const [conversationId, events] of grouped) {
     const ordered = [...events].sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
-    const replies = input.agentReplies
+    const replies = agentReplies
       .filter((reply) => reply.conversationId === conversationId)
       .sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
     let openWait: { queueId: string | null; startedAt: string } | null = null;

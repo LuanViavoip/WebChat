@@ -57,6 +57,34 @@ describe('fatos de qualidade', () => {
     expect(answered.queueWaits[0]).toMatchObject({ kind: 'completed', elapsedSeconds: 10 });
     expect(answered.handleTimes[0]).toMatchObject({ kind: 'closed_segment', elapsedSeconds: 30 });
   });
+
+  it('não fecha segmento com evento ou resposta posteriores ao fim da janela', () => {
+    const narrow = { from: '2026-10-10T00:00:00.000Z', to: '2026-10-10T12:00:00.000Z' };
+    const facts = reconstructOperationalFacts({
+      events: [
+        event('queued', '2026-10-10T10:00:00.000Z', { queueId: demoIds.queueSupportA }),
+        event('assigned', '2026-10-10T10:05:00.000Z', { agentId: demoIds.agentAna }),
+        event('classified', '2026-10-10T13:00:00.000Z', { dispositionId: demoIds.dispositionResolvedA }),
+      ],
+      agentReplies: [{ conversationId, agentId: demoIds.agentAna, at: '2026-10-10T13:30:00.000Z' }],
+      window: narrow,
+    });
+    expect(facts.queueWaits).toEqual([
+      expect.objectContaining({ kind: 'completed', elapsedSeconds: 300 }),
+    ]);
+    expect(facts.firstResponses.map((fact) => fact.kind)).toEqual(['still_open']);
+    expect(facts.handleTimes.map((fact) => fact.kind)).toEqual(['still_open']);
+    const openWait = reconstructOperationalFacts({
+      events: [
+        event('queued', '2026-10-10T10:00:00.000Z', { queueId: demoIds.queueSupportA }),
+        event('assigned', '2026-10-10T13:00:00.000Z', { agentId: demoIds.agentAna }),
+      ],
+      agentReplies: [],
+      window: narrow,
+    });
+    expect(openWait.queueWaits.map((fact) => fact.kind)).toEqual(['open']);
+    expect(openWait.firstResponses).toEqual([]);
+  });
 });
 
 describe('relatório de qualidade', () => {
@@ -156,5 +184,72 @@ describe('relatório de qualidade', () => {
         to: new Date(Date.parse(from) + 32 * 24 * 60 * 60 * 1000).toISOString(),
       }),
     ).rejects.toMatchObject({ code: 'invalid_payload' });
+  });
+
+  it('atribui a espera à fila do evento e responde not_found para fila de outra empresa', async () => {
+    const visitor = randomUUID();
+    const conversation = randomUUID();
+    const from = '2026-06-01T00:00:00.000Z';
+    const to = '2026-06-02T00:00:00.000Z';
+    await withTenant(app.pool, demoIds.tenantA, async (client) => {
+      await client.query(`INSERT INTO visitors (id, tenant_id, site_id) VALUES ($1, $2, $3)`, [
+        visitor,
+        demoIds.tenantA,
+        demoIds.siteA,
+      ]);
+      await client.query(
+        `INSERT INTO conversations (id, tenant_id, site_id, queue_id, visitor_id, status, queued_at)
+         VALUES ($1, $2, $3, $4, $5, 'queued', $6)`,
+        [conversation, demoIds.tenantA, demoIds.siteA, demoIds.queueSalesA, visitor, '2026-06-01T15:00:00.000Z'],
+      );
+      await client.query(
+        `INSERT INTO conversation_events (tenant_id, conversation_id, type, payload, created_at)
+         VALUES
+           ($1, $2, 'queued', $3::jsonb, '2026-06-01T15:00:00.000Z'),
+           ($1, $2, 'assigned', $4::jsonb, '2026-06-01T15:00:50.000Z'),
+           ($1, $2, 'transferred', $5::jsonb, '2026-06-01T15:01:00.000Z')`,
+        [
+          demoIds.tenantA,
+          conversation,
+          JSON.stringify({ queueId: demoIds.queueSupportA }),
+          JSON.stringify({ agentId: demoIds.agentAna }),
+          JSON.stringify({ toQueueId: demoIds.queueSalesA }),
+        ],
+      );
+    });
+    try {
+      const support = await service().report(otavio, {
+        scope: { kind: 'queue', queueId: demoIds.queueSupportA },
+        from,
+        to,
+      });
+      const sales = await service().report(otavio, {
+        scope: { kind: 'queue', queueId: demoIds.queueSalesA },
+        from,
+        to,
+      });
+      expect(support.queueWaits.completed).toBe(1);
+      expect(support.queueWait).toMatchObject({ samples: 1, totalSeconds: 50, p50Seconds: 50, p90Seconds: 50 });
+      expect(sales.queueWaits.completed).toBe(0);
+      expect(sales.queueWait.samples).toBe(0);
+      expect(sales.queueWaits.open).toBe(1);
+      await expect(
+        service().report(otavio, {
+          scope: { kind: 'queue', queueId: demoIds.queueSupportB },
+          from,
+          to,
+        }),
+      ).rejects.toMatchObject({ code: 'not_found' });
+    } finally {
+      const admin = new pg.Client({ connectionString: process.env.MIGRATE_DATABASE_URL });
+      await admin.connect();
+      try {
+        await admin.query(`DELETE FROM conversation_events WHERE conversation_id = $1`, [conversation]);
+        await admin.query(`DELETE FROM conversations WHERE id = $1`, [conversation]);
+        await admin.query(`DELETE FROM visitors WHERE id = $1`, [visitor]);
+      } finally {
+        await admin.end();
+      }
+    }
   });
 });

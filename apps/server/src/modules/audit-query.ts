@@ -38,6 +38,10 @@ export class AuditQueryService {
       if (query.from && query.to) {
         params.push(query.from, query.to);
         filters.push(`event.created_at >= $${params.length - 1} AND event.created_at < $${params.length}`);
+      } else if (!query.from && !query.to) {
+        filters.push(`event.created_at >= now() - interval '24 hours' AND event.created_at <= now()`);
+      } else {
+        throw new DomainError('invalid_payload', 'Período inválido');
       }
       if (query.cursor) {
         const cursor = decodeCursor(query.cursor);

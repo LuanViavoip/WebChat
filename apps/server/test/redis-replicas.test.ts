@@ -69,4 +69,25 @@ describe('Socket.IO com Redis entre réplicas', () => {
     await disconnected;
     expect(socket.connected).toBe(false);
   });
+
+  it('revoga a sessão na outra réplica e mantém o socket da outra empresa', async () => {
+    if (!first || !second) throw new Error('Aplicações de teste indisponíveis');
+    const anaLogin = await login(first.baseUrl, demoAccounts.ana, demoPassword);
+    const carlaLogin = await login(second.baseUrl, demoAccounts.carla, demoPassword);
+    const ana = connectSocket(second.baseUrl, '/agent', anaLogin.token);
+    const carla = connectSocket(second.baseUrl, '/agent', carlaLogin.token);
+    await Promise.all([waitConnect(ana), waitConnect(carla)]);
+    const disconnected = waitEvent(ana, 'disconnect');
+    const otavio = await login(first.baseUrl, demoAccounts.otavio, demoPassword);
+    const revoked = await postJson(
+      `${first.baseUrl}/company/commands`,
+      { requestId: randomUUID(), command: { kind: 'agent.sessions_revoke', agentId: demoIds.agentAna } },
+      otavio.token,
+    );
+    expect(revoked.status).toBe(200);
+    await disconnected;
+    expect(ana.connected).toBe(false);
+    expect(carla.connected).toBe(true);
+    expect(internalListAckSchema.parse(await emitAck(carla, 'internal.list', {})).ok).toBe(true);
+  });
 });

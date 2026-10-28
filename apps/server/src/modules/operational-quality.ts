@@ -33,28 +33,27 @@ export class OperationalQualityService {
     }
     return withTenant(this.pool, principal.tenantId, async (client) => {
       await assertCompanyAccess(client, principal, { capability: 'quality.report', scope: query.scope });
+      await assertScopeVisible(client, principal.tenantId, query.scope);
       return buildReport(client, principal.tenantId, query);
     });
   }
 }
 
 async function buildReport(client: PoolClient, tenantId: string, query: QualityQuery): Promise<QualityReport> {
-  const eventScope = scopeFilter(query.scope, 2);
   const windowScope = scopeFilter(query.scope, 4);
+  const allowedQueues = await queueIdsForScope(client, tenantId, query.scope);
   const events = await client.query<{ conversation_id: string; type: string; payload: Record<string, string>; created_at: Date }>(
     `SELECT event.conversation_id, event.type, event.payload, event.created_at
      FROM conversation_events AS event
-     JOIN conversations AS conversation ON conversation.id = event.conversation_id AND conversation.tenant_id = event.tenant_id
-     WHERE event.tenant_id = $1 ${eventScope.sql}
+     WHERE event.tenant_id = $1 AND event.created_at < $2
      ORDER BY event.created_at, event.id`,
-    [tenantId, ...eventScope.params],
+    [tenantId, query.to],
   );
   const replies = await client.query<{ conversation_id: string; sender_id: string; created_at: Date }>(
     `SELECT message.conversation_id, message.sender_id, message.created_at
      FROM messages AS message
-     JOIN conversations AS conversation ON conversation.id = message.conversation_id AND conversation.tenant_id = message.tenant_id
-     WHERE message.tenant_id = $1 AND message.sender_type = 'agent' ${eventScope.sql}`,
-    [tenantId, ...eventScope.params],
+     WHERE message.tenant_id = $1 AND message.sender_type = 'agent' AND message.created_at < $2`,
+    [tenantId, query.to],
   );
   const policies = await client.query<{
     queue_id: string;
@@ -100,7 +99,7 @@ async function buildReport(client: PoolClient, tenantId: string, query: QualityQ
     queueWaitThresholdSeconds: row.queue_wait,
     firstResponseThresholdSeconds: row.first_response,
   }));
-  const facts = reconstructOperationalFacts({
+  const reconstructed = reconstructOperationalFacts({
     events: events.rows.flatMap((row) => {
       if (!isTimelineType(row.type)) return [];
       const event: ConversationTimelineEvent = {
@@ -118,6 +117,11 @@ async function buildReport(client: PoolClient, tenantId: string, query: QualityQ
     })),
     window: { from: query.from, to: query.to },
   });
+  const facts = {
+    queueWaits: reconstructed.queueWaits.filter((fact) => factInScope(fact, query.scope, allowedQueues)),
+    firstResponses: reconstructed.firstResponses.filter((fact) => factInScope(fact, query.scope, allowedQueues)),
+    handleTimes: reconstructed.handleTimes.filter((fact) => factInScope(fact, query.scope, allowedQueues)),
+  };
   const queueSamples = facts.queueWaits.flatMap((fact) => (fact.kind === 'completed' ? [fact.elapsedSeconds] : []));
   const responseSamples = facts.firstResponses.flatMap((fact) => (fact.kind === 'answered' ? [fact.elapsedSeconds] : []));
   const handleSamples = facts.handleTimes.flatMap((fact) => (fact.kind === 'closed_segment' ? [fact.elapsedSeconds] : []));
@@ -155,6 +159,61 @@ async function buildReport(client: PoolClient, tenantId: string, query: QualityQ
     sla: { queueWait: queueSla, firstResponse: responseSla },
     presenceSeconds: presenceSeconds(presence.rows, query.from, query.to),
   });
+}
+
+async function assertScopeVisible(client: PoolClient, tenantId: string, scope: QualityScope): Promise<void> {
+  switch (scope.kind) {
+    case 'tenant':
+      return;
+    case 'queue': {
+      const row = await client.query(`SELECT 1 FROM queues WHERE id = $1 AND tenant_id = $2`, [scope.queueId, tenantId]);
+      if (!row.rows[0]) throw new DomainError('not_found', 'Fila não encontrada');
+      return;
+    }
+    case 'sector': {
+      const row = await client.query(`SELECT 1 FROM sectors WHERE id = $1 AND tenant_id = $2`, [scope.sectorId, tenantId]);
+      if (!row.rows[0]) throw new DomainError('not_found', 'Setor não encontrado');
+      return;
+    }
+    default: {
+      const unexpected: never = scope;
+      throw new DomainError('invalid_payload', `Escopo inesperado: ${String(unexpected)}`);
+    }
+  }
+}
+
+async function queueIdsForScope(
+  client: PoolClient,
+  tenantId: string,
+  scope: QualityScope,
+): Promise<ReadonlySet<string> | null> {
+  switch (scope.kind) {
+    case 'tenant':
+      return null;
+    case 'queue':
+      return new Set([scope.queueId]);
+    case 'sector': {
+      const rows = await client.query<{ queue_id: string }>(
+        `SELECT queue_id FROM sector_queues WHERE tenant_id = $1 AND sector_id = $2`,
+        [tenantId, scope.sectorId],
+      );
+      return new Set(rows.rows.map((row) => row.queue_id));
+    }
+    default: {
+      const unexpected: never = scope;
+      throw new DomainError('invalid_payload', `Escopo inesperado: ${String(unexpected)}`);
+    }
+  }
+}
+
+function factInScope(
+  fact: { kind: string; queueId?: string },
+  scope: QualityScope,
+  allowed: ReadonlySet<string> | null,
+): boolean {
+  if (scope.kind === 'tenant') return true;
+  if (!allowed || !('queueId' in fact) || !fact.queueId) return false;
+  return allowed.has(fact.queueId);
 }
 
 function scopeFilter(scope: QualityScope, index: number): { sql: string; params: string[] } {

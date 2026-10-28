@@ -73,9 +73,29 @@ function addDays(year: number, month: number, day: number, offset: number): { ye
 function utcFromLocal(timeZone: string, year: number, month: number, day: number, minuteOfDay: number): Date {
   const hour = Math.floor(minuteOfDay / 60);
   const minute = minuteOfDay % 60;
-  const guess = Date.UTC(year, month - 1, day, hour, minute);
-  const seen = partsOf(timeZone, new Date(guess));
+  const desired = Date.UTC(year, month - 1, day, hour, minute);
+  let guess = desired;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const asUtc = localAsUtc(timeZone, new Date(guess));
+    if (asUtc === desired) return new Date(guess);
+    const next = guess - (asUtc - desired);
+    if (next === guess) return new Date(guess);
+    guess = next;
+  }
+  if (localAsUtc(timeZone, new Date(guess)) === desired) return new Date(guess);
+  const start = guess - 3 * 60 * 60 * 1000;
+  for (let step = 0; step <= 8 * 60; step += 1) {
+    const instant = start + step * 60_000;
+    const local = localParts(timeZone, new Date(instant));
+    if (local.year === year && local.month === month && local.day === day && local.minute >= minuteOfDay) {
+      return new Date(instant);
+    }
+  }
+  return new Date(guess);
+}
+
+function localAsUtc(timeZone: string, instant: Date): number {
+  const seen = partsOf(timeZone, instant);
   const seenHour = seen.hour === '24' ? 0 : Number(seen.hour);
-  const asUtc = Date.UTC(Number(seen.year), Number(seen.month) - 1, Number(seen.day), seenHour, Number(seen.minute));
-  return new Date(guess - (asUtc - guess));
+  return Date.UTC(Number(seen.year), Number(seen.month) - 1, Number(seen.day), seenHour, Number(seen.minute));
 }

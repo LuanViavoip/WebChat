@@ -62,4 +62,27 @@ describe('leitura da auditoria', () => {
       code: 'forbidden',
     });
   });
+
+  it('sem período devolve só as últimas 24 horas', async () => {
+    const inserted = await withTenant(app.pool, demoIds.tenantA, (client) =>
+      client.query<{ id: string; age: string }>(
+        `INSERT INTO audit_events (tenant_id, actor_id, action, resource_type, resource_id, created_at)
+         VALUES
+           ($1, $2, 'company.time_zone', 'tenant', $1, now() - interval '48 hours'),
+           ($1, $2, 'company.time_zone', 'tenant', $1, now())
+         RETURNING id, CASE WHEN created_at < now() - interval '24 hours' THEN 'old' ELSE 'recent' END AS age`,
+        [demoIds.tenantA, demoIds.adminOtavio],
+      ),
+    );
+    const oldId = inserted.rows.find((row) => row.age === 'old')?.id;
+    const recentId = inserted.rows.find((row) => row.age === 'recent')?.id;
+    const audit = new AuditQueryService(app.pool);
+    const page = await audit.page(otavio, { action: 'company.time_zone' });
+    expect(page.entries.map((entry) => entry.id)).toContain(recentId);
+    expect(page.entries.map((entry) => entry.id)).not.toContain(oldId);
+    const from = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const to = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const ranged = await audit.page(otavio, { action: 'company.time_zone', from, to });
+    expect(ranged.entries.map((entry) => entry.id)).toContain(oldId);
+  });
 });
