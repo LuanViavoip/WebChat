@@ -2,7 +2,7 @@ import cors from '@fastify/cors';
 import { Server } from 'socket.io';
 import type { SMAdapter } from '@viavoip/sm-adapter';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type pg from 'pg';
+import pg from 'pg';
 import { SessionService } from './auth/sessions.js';
 import { SharedLoginRateLimiter } from './auth/login-rate-limit.js';
 import type { AppConfig } from './config.js';
@@ -18,7 +18,9 @@ import { MessageService } from './modules/messages.js';
 import { PresenceService } from './modules/presence.js';
 import { SectorService } from './modules/sectors.js';
 import { SupervisorService } from './modules/supervisor.js';
+import type { AgentPrincipal } from './domain/types.js';
 import { SocketHub } from './realtime/hub.js';
+import { revokeRealtimeSessions } from './realtime/revoke.js';
 import { attachRedis } from './realtime/redis.js';
 import { refreshSupervisors } from './realtime/refresh.js';
 import { registerRealtime } from './realtime/register.js';
@@ -32,6 +34,9 @@ export type WebChatApp = {
 };
 
 export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebChatApp> {
+  if (config.replicaCount > 1 && !config.redisUrl) {
+    throw new Error('REDIS_URL é obrigatório com mais de uma réplica');
+  }
   const app = Fastify({
     logger: config.logger,
     bodyLimit: 32 * 1024,
@@ -101,6 +106,35 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
     });
   }, 15_000);
   timer.unref();
+  const revokeListener = new pg.Client({ connectionString: config.databaseUrl });
+  await revokeListener.connect();
+  await revokeListener.query('LISTEN webchat_session_revoke');
+  revokeListener.on('notification', (message) => {
+    if (message.channel !== 'webchat_session_revoke' || !message.payload) return;
+    try {
+      const body = JSON.parse(message.payload) as { sessionId?: string };
+      if (body.sessionId) revokeRealtimeSessions(io, [body.sessionId]);
+    } catch (error: unknown) {
+      app.log.error({ err: error }, 'aviso de revogação inválido');
+    }
+  });
+  const sweepRevokedSessions = async () => {
+    for (const namespace of ['/agent', '/supervisor'] as const) {
+      const sockets = await io.of(namespace).fetchSockets();
+      for (const socket of sockets) {
+        const principal = socket.data.principal as AgentPrincipal | undefined;
+        if (!principal) continue;
+        const allowed = await sessions.staffSessionAllowed(principal).catch(() => false);
+        if (!allowed) socket.disconnect(true);
+      }
+    }
+  };
+  const revokeTimer = setInterval(() => {
+    void sweepRevokedSessions().catch((error: unknown) => {
+      app.log.error({ err: error }, 'falha ao varrer sessões revogadas');
+    });
+  }, config.sessionRevokeSweepMs);
+  revokeTimer.unref();
   const loginRateLimitTimer = setInterval(() => {
     void loginAttempts.sweepExpired().catch((error: unknown) => {
       app.log.error({ err: error }, 'falha ao limpar limites de login expirados');
@@ -111,6 +145,8 @@ export async function buildApp(config: AppConfig, sm: SMAdapter): Promise<WebCha
   app.addHook('onClose', async () => {
     clearInterval(timer);
     clearInterval(loginRateLimitTimer);
+    clearInterval(revokeTimer);
+    await revokeListener.end();
     io.disconnectSockets(true);
     io.close();
     await pool.end();

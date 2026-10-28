@@ -162,8 +162,12 @@ function registerAgent(namespace: Namespace, deps: RealtimeDeps): void {
 
   namespace.on('connection', (socket) => {
     const principal = socket.data.principal as AgentPrincipal;
-    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.isSessionActive(principal));
+    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.staffSessionAllowed(principal));
     const ready = afterSessionValidation(socket, sessionReady, async () => {
+      if (!(await deps.sessions.staffSessionAllowed(principal))) {
+        socket.disconnect(true);
+        return;
+      }
       socket.join(rooms.agent(principal.tenantId, principal.agentId));
       await prepareAgent(socket, principal, deps);
       if (socket.connected) await joinOwnRooms(deps.internalChat, socket, principal);
@@ -305,7 +309,7 @@ function registerAgent(namespace: Namespace, deps: RealtimeDeps): void {
         };
       },
       ...staffHandlers(staffDeps(deps), socket, principal, ready),
-    }, deps.logger);
+    }, deps.logger, () => deps.sessions.staffSessionAllowed(principal));
   });
 }
 
@@ -326,8 +330,12 @@ function registerSupervisor(namespace: Namespace, deps: RealtimeDeps): void {
 
   namespace.on('connection', (socket) => {
     const principal = socket.data.principal as AgentPrincipal;
-    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.isSessionActive(principal));
+    const sessionReady = joinSessionRoom(socket, principal, () => deps.sessions.staffSessionAllowed(principal));
     const ready = afterSessionValidation(socket, sessionReady, async () => {
+      if (!(await deps.sessions.staffSessionAllowed(principal))) {
+        socket.disconnect(true);
+        return;
+      }
       socket.join(rooms.supervisorRefresh(principal.tenantId));
       if (principal.kind === 'admin') {
         socket.join(rooms.supervisors(principal.tenantId));
@@ -391,7 +399,7 @@ function registerSupervisor(namespace: Namespace, deps: RealtimeDeps): void {
         return { status: change.next.status };
       },
       ...staffHandlers(staffDeps(deps), socket, principal, ready),
-    }, deps.logger);
+    }, deps.logger, () => deps.sessions.staffSessionAllowed(principal));
   });
 }
 

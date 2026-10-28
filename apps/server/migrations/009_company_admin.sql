@@ -456,7 +456,8 @@ CREATE POLICY tenant_isolation ON sla_policy_clocks
   WITH CHECK (tenant_id = app_tenant_id());
 
 GRANT SELECT (membership_status, suspended_at, suspension_reason, auth_epoch) ON agents TO webchat_app;
-GRANT UPDATE (auth_epoch) ON agents TO webchat_app;
+GRANT UPDATE (auth_epoch, password_hash) ON agents TO webchat_app;
+GRANT INSERT (auth_epoch) ON auth_sessions TO webchat_app;
 GRANT SELECT (auth_epoch) ON auth_sessions TO webchat_app;
 GRANT INSERT (
   tenant_id,
