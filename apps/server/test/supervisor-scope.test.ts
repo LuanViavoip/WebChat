@@ -2,6 +2,7 @@ import { conversationAckSchema, conversationListAckSchema, historySyncAckSchema,
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../src/db/tenant.js';
+import { rooms } from '../src/realtime/rooms.js';
 import { demoAccounts, demoIds, demoPassword, demoSites } from '../src/demo/ids.js';
 import {
   connectSocket,
@@ -11,6 +12,7 @@ import {
   startConversation,
   startTestApp,
   waitConnect,
+  waitEvent,
   type TestApp,
 } from './helpers.js';
 
@@ -25,6 +27,93 @@ afterAll(async () => {
 });
 
 describe('supervisão', () => {
+  it('entrega mensagens somente à supervisão da fila', async () => {
+    const visitor = await openVisitor(app.baseUrl, demoSites.a);
+    const started = await startConversation(visitor.socket, demoIds.queueSupportA);
+    const sofia = connectSocket(app.baseUrl, '/supervisor', (await login(app.baseUrl, demoAccounts.sofia, demoPassword)).token);
+    const helena = connectSocket(app.baseUrl, '/supervisor', (await login(app.baseUrl, demoAccounts.helena, demoPassword)).token);
+    await Promise.all([waitConnect(sofia), waitConnect(helena)]);
+    await Promise.all([emitAck(sofia, 'conversation.list', {}), emitAck(helena, 'conversation.list', {})]);
+    const received = waitEvent(sofia, 'message.new');
+    let leaked = false;
+    helena.on('message.new', () => { leaked = true; });
+    await emitAck(visitor.socket, 'message.send', { conversationId: started.conversation.id, requestId: randomUUID(), body: 'mensagem supervisionada' });
+    expect(received && (await received)).toMatchObject({ conversationId: started.conversation.id, body: 'mensagem supervisionada' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(leaked).toBe(false);
+  });
+
+  it('nega leitura de conversa de outro setor e outra empresa', async () => {
+    const otherSector = await openVisitor(app.baseUrl, demoSites.a);
+    const otherCompany = await openVisitor(app.baseUrl, demoSites.b);
+    const sales = await startConversation(otherSector.socket, demoIds.queueSalesA);
+    const foreign = await startConversation(otherCompany.socket, demoIds.queueSupportB);
+    const sofia = connectSocket(app.baseUrl, '/supervisor', (await login(app.baseUrl, demoAccounts.sofia, demoPassword)).token);
+    await waitConnect(sofia);
+    const listed = conversationListAckSchema.parse(await emitAck(sofia, 'conversation.list', {}));
+    expect(listed.ok && listed.conversations.some((item) => item.id === foreign.conversation.id)).toBe(false);
+    for (const conversationId of [sales.conversation.id, foreign.conversation.id]) {
+      const result = historySyncAckSchema.parse(await emitAck(sofia, 'history.sync', { conversationId }));
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('não envia os dados da conversa transferida para fora da fila supervisionada', async () => {
+    const visitor = await openVisitor(app.baseUrl, demoSites.a);
+    const started = await startConversation(visitor.socket, demoIds.queueSupportA);
+    const sofia = connectSocket(app.baseUrl, '/supervisor', (await login(app.baseUrl, demoAccounts.sofia, demoPassword)).token);
+    const admin = connectSocket(app.baseUrl, '/supervisor', (await login(app.baseUrl, demoAccounts.otavio, demoPassword)).token);
+    await Promise.all([waitConnect(sofia), waitConnect(admin)]);
+    await Promise.all([emitAck(sofia, 'conversation.list', {}), emitAck(admin, 'conversation.list', {})]);
+    const received: unknown[] = [];
+    sofia.on('conversation.updated', (value) => received.push(value));
+    const transfer = conversationAckSchema.parse(await emitAck(admin, 'conversation.transfer', {
+      conversationId: started.conversation.id, queueId: demoIds.queueSalesA,
+    }));
+    expect(transfer.ok).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(received).not.toContainEqual(expect.objectContaining({ id: started.conversation.id, queueId: demoIds.queueSalesA }));
+  });
+
+  it('remove supervisor suspenso da room pela varredura', async () => {
+    const sweeping = await startTestApp({ sessionRevokeSweepMs: 200 }, { notify: false, direct: false });
+    try {
+      const sofia = connectSocket(sweeping.baseUrl, '/supervisor', (await login(sweeping.baseUrl, demoAccounts.sofia, demoPassword)).token);
+      await waitConnect(sofia);
+      await emitAck(sofia, 'conversation.list', {});
+      const room = rooms.supervisorQueue(demoIds.tenantA, demoIds.queueSupportA);
+      expect((await sweeping.io.of('/supervisor').in(room).fetchSockets()).length).toBe(1);
+      const disconnected = waitEvent(sofia, 'disconnect');
+      await withTenant(sweeping.pool, demoIds.tenantA, (client) => client.query(
+        `UPDATE agents SET membership_status = 'suspended', suspended_at = now(), suspension_reason = 'teste', auth_epoch = auth_epoch + 1 WHERE id = $1`,
+        [demoIds.supervisorSofia],
+      ));
+      await disconnected;
+      expect((await sweeping.io.of('/supervisor').in(room).fetchSockets()).length).toBe(0);
+    } finally {
+      await withTenant(sweeping.pool, demoIds.tenantA, (client) => client.query(
+        `UPDATE agents SET membership_status = 'active', suspended_at = NULL, suspension_reason = NULL WHERE id = $1`,
+        [demoIds.supervisorSofia],
+      ));
+      await sweeping.app.close();
+    }
+  });
+  it('inclui conversas encerradas recentemente da fila supervisionada', async () => {
+    const visitor = await openVisitor(app.baseUrl, demoSites.a);
+    const started = await startConversation(visitor.socket, demoIds.queueSupportA);
+    await withTenant(app.pool, demoIds.tenantA, (client) => client.query(
+      `UPDATE conversations SET status = 'closed', ended_at = now() WHERE id = $1`,
+      [started.conversation.id],
+    ));
+    const loginResult = await login(app.baseUrl, demoAccounts.sofia, demoPassword);
+    const supervisor = connectSocket(app.baseUrl, '/supervisor', loginResult.token);
+    await waitConnect(supervisor);
+    const listed = conversationListAckSchema.parse(await emitAck(supervisor, 'conversation.list', {}));
+    expect(listed.ok && listed.conversations.some((item) => item.id === started.conversation.id)).toBe(true);
+    const history = historySyncAckSchema.parse(await emitAck(supervisor, 'history.sync', { conversationId: started.conversation.id }));
+    expect(history.ok).toBe(true);
+  });
   it('não envia presença de agente da fila sem membresia no setor ao supervisor', async () => {
     await withTenant(app.pool, demoIds.tenantA, (client) =>
       client.query(

@@ -386,7 +386,10 @@ export class ConversationService {
   ): Promise<HistoryResult> {
     return withTenant(this.pool, principal.tenantId, async (client) => {
       const conversation = await loadConversation(client, conversationId, principal.tenantId, false);
-      if (!conversation) throw new DomainError('not_found', 'Conversa não encontrada');
+      if (!conversation) {
+        if (principal.kind === 'supervisor') throw new DomainError('forbidden', 'Conversa fora do escopo do supervisor');
+        throw new DomainError('not_found', 'Conversa não encontrada');
+      }
       await assertCanRead(client, principal, conversation);
       if (auditAction && principal.kind !== 'visitor') {
         await client.query(
@@ -479,7 +482,8 @@ export class ConversationService {
          FROM conversations AS conversation
          ${conversationJoins}
          WHERE conversation.tenant_id = $1
-           AND conversation.status IN ('queued', 'assigned', 'awaiting_survey')
+           AND (conversation.status IN ('queued', 'assigned', 'awaiting_survey')
+                OR (conversation.status = 'closed' AND conversation.ended_at >= now() - interval '24 hours'))
            AND (
              $2::boolean
              OR conversation.queue_id IN (
