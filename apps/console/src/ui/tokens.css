@@ -1,0 +1,88 @@
+/*
+ * Tokens do console ViaVoip.
+ * Os valores da marca vêm de Site_ViaVoip/src/app/globals.css e docs/DESIGN_SYSTEM.md.
+ * As cores semânticas não existem no site: são variantes derivadas, com contraste AA
+ * (texto sobre fundo e fundo sobre branco) no estilo de pill com tint.
+ * Breakpoints (custom properties não valem em @media): 640, 960 e 1280.
+ */
+:root {
+  /* marca */
+  --color-primary: #3740b0;
+  --color-primary-hover: #2c3490;
+  --color-navy: #112349;
+  --color-navy-deep: #101f41;
+  --color-accent: #08e4e7; /* só sobre navy; nunca como texto em fundo claro */
+  --color-on-navy: #c5cfe8;
+  --color-line-navy: rgb(255 255 255 / 0.14);
+
+  /* texto e superfícies */
+  --color-text: #1f2430;
+  --color-text-secondary: #4b5263;
+  --color-bg: #f5f5f5;
+  --color-surface: #fff;
+  --color-tint: #eff1fb;
+  --color-tint-strong: #e2e6f6;
+  --color-border: #e6e6e6;
+
+  /* semânticas derivadas (texto / fundo / borda) */
+  --color-success: #17623a;
+  --color-success-bg: #e6f4ec;
+  --color-success-border: #b7dfc7;
+  --color-warning: #8a4b00;
+  --color-warning-bg: #fff3df;
+  --color-warning-border: #f0cf9c;
+  --color-error: #a52a2a;
+  --color-error-bg: #fdeaea;
+  --color-error-border: #f1bcbc;
+  --color-info: #2c3490;
+  --color-info-bg: #eff1fb;
+  --color-info-border: #c9d0ee;
+  --color-neutral: #4b5263;
+  --color-neutral-bg: #eceef2;
+  --color-neutral-border: #d9dce4;
+
+  /* sombras (copiadas do site) */
+  --shadow-soft: 0 1px 2px rgb(17 35 73 / 0.06), 0 18px 40px -24px rgb(17 35 73 / 0.35);
+  --shadow-lift: 0 2px 4px rgb(17 35 73 / 0.08), 0 28px 56px -28px rgb(17 35 73 / 0.5);
+
+  /* raios */
+  --radius-control: 999px;
+  --radius-box: 6px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+
+  /* tipografia */
+  --font-sans: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+
+  /* espaçamento (escala de 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* alturas de controle */
+  --control-sm: 36px;
+  --control-md: 44px;
+  --control-lg: 48px;
+
+  /* camadas */
+  --z-sidebar: 30;
+  --z-topbar: 20;
+  --z-drawer: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+
+  /* movimento e foco */
+  --transition: 150ms ease;
+  --focus-ring: 3px solid var(--color-primary);
+
+  /* layout */
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 72px;
+  --topbar-height: 64px;
+}

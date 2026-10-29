@@ -1,5 +1,7 @@
 import type { Socket } from 'socket.io-client';
 
+export type LinkState = 'connected' | 'reconnecting' | 'disconnected';
+
 export function emitAck(socket: Socket, event: string, payload: unknown = {}): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('timeout')), 8000);

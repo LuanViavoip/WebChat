@@ -245,6 +245,10 @@ export class SessionService {
       );
       const maxConcurrentAssignments = limit.rows[0]?.max_concurrent_assignments;
       if (!maxConcurrentAssignments) throw new DomainError('internal', 'Limite do tenant ausente');
+      const authority = await client.query<{ can_change_own_activity: boolean }>(
+        `SELECT can_change_own_activity FROM agents WHERE id = $1 AND tenant_id = $2`,
+        [principal.agentId, principal.tenantId],
+      );
       return {
         selfId: principal.agentId,
         name: principal.name,
@@ -252,6 +256,8 @@ export class SessionService {
         queues: queues.map((queue) => ({ id: queue.id, name: queue.name })),
         dispositions: dispositions.rows.map((item) => ({ id: item.id, name: item.name })),
         maxConcurrentAssignments,
+        // Mesma regra de `assertCanAllocate`: só o papel de agente depende da concessão.
+        canChangeOwnActivity: principal.kind !== 'agent' || authority.rows[0]?.can_change_own_activity === true,
       };
     });
   }

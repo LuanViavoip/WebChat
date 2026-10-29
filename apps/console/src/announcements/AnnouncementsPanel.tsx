@@ -4,10 +4,20 @@ import {
   sectorListAckSchema,
   type Announcement,
 } from '@viavoip/protocol';
-import { useEffect, useState, type FormEvent } from 'react';
+import { Archive, CheckCheck, Megaphone, Pencil, Pin, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Socket } from 'socket.io-client';
-import { formatClock } from '../desk/format.js';
+import { formatDateTime } from '../desk/format.js';
+import { isoToLocalInput } from '../quality/period.js';
 import { ackMessage, emitAck } from '../realtime.js';
+import { Button } from '../ui/Button.js';
+import { Card } from '../ui/Card.js';
+import { ConfirmDialog, Modal } from '../ui/Dialog.js';
+import { Field, Input, Select, Textarea } from '../ui/Field.js';
+import { EmptyState, LoadingState } from '../ui/states.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
+import { useToast } from '../ui/Toast.js';
+import { orderAnnouncements } from './order.js';
 
 export function AnnouncementsPanel({
   socket,
@@ -18,16 +28,11 @@ export function AnnouncementsPanel({
   canPublish: boolean;
   isAdmin: boolean;
 }) {
-  const [items, setItems] = useState<Announcement[]>([]);
+  const [items, setItems] = useState<Announcement[] | null>(null);
   const [sectors, setSectors] = useState<{ id: string; name: string }[]>([]);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [audience, setAudience] = useState<'tenant' | 'sectors'>(isAdmin ? 'tenant' : 'sectors');
-  const [sectorId, setSectorId] = useState('');
-  const [notice, setNotice] = useState('');
-  const [pinned, setPinned] = useState(false);
-  const [expiresAt, setExpiresAt] = useState('');
-  const [editingId, setEditingId] = useState('');
+  const [editor, setEditor] = useState<{ item: Announcement | null } | null>(null);
+  const [archiving, setArchiving] = useState<Announcement | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     if (!socket) return;
@@ -58,15 +63,150 @@ export function AnnouncementsPanel({
     };
   }, [canPublish, socket]);
 
-  async function publish(event: FormEvent) {
-    event.preventDefault();
+  function upsert(announcement: Announcement) {
+    setItems((current) => [announcement, ...(current ?? []).filter((item) => item.id !== announcement.id)]);
+  }
+
+  async function archive(item: Announcement) {
     if (!socket) return;
+    const parsed = announcementAckSchema.safeParse(await emitAck(socket, 'announcement.archive', { announcementId: item.id }));
+    if (!parsed.success || !parsed.data.ok) {
+      toast.notify('error', ackMessage(parsed, 'Arquivamento recusado'));
+      return;
+    }
+    const archived = parsed.data.announcement;
+    setItems((current) => (current ?? []).map((entry) => (entry.id === item.id ? archived : entry)));
+    toast.notify('ok', 'Anúncio arquivado');
+  }
+
+  async function markRead(announcementId: string) {
+    if (!socket) return;
+    const parsed = announcementAckSchema.safeParse(await emitAck(socket, 'announcement.read', { announcementId }));
+    if (!parsed.success || !parsed.data.ok) return;
+    const announcement = parsed.data.announcement;
+    setItems((current) => (current ?? []).map((item) => (item.id === announcementId ? announcement : item)));
+  }
+
+  const ordered = useMemo(() => orderAnnouncements(items ?? []), [items]);
+  if (!items) return <LoadingState label="Carregando anúncios…" />;
+  const unread = items.filter((item) => item.unread && !item.archivedAt).length;
+  const canEdit = (item: Announcement) =>
+    !item.archivedAt && (isAdmin || (item.audience === 'sectors' && item.sectorIds.every((id) => sectors.some((sector) => sector.id === id))));
+
+  return (
+    <div className="page">
+      <Card
+        title="Anúncios"
+        actions={
+          <>
+            {unread > 0 ? <StatusBadge tone="info" dot>{unread} não lido(s)</StatusBadge> : null}
+            {canPublish ? <Button size="sm" icon={<Plus size={14} />} onClick={() => setEditor({ item: null })}>Novo anúncio</Button> : null}
+          </>
+        }
+      >
+        {ordered.length === 0 ? (
+          <EmptyState icon={Megaphone} title="Nenhum anúncio" description="Os comunicados da empresa e dos seus setores aparecem aqui." />
+        ) : (
+          <div className="card-grid">
+            {ordered.map((item) => (
+              <article
+                key={item.id}
+                className={['item-card', item.pinned && !item.archivedAt ? 'item-card--pinned' : '', item.unread && !item.archivedAt ? 'item-card--unread' : ''].join(' ').trim()}
+                style={item.archivedAt ? { opacity: 0.65 } : undefined}
+              >
+                <header className="item-card__head">
+                  <h3>{item.title}</h3>
+                  <span className="chip-list">
+                    {item.pinned ? <StatusBadge tone="info"><Pin size={12} aria-hidden="true" />Fixado</StatusBadge> : null}
+                    {item.archivedAt ? <StatusBadge>Arquivado</StatusBadge> : item.unread ? <StatusBadge tone="warning" dot>Não lido</StatusBadge> : <StatusBadge tone="neutral">Lido</StatusBadge>}
+                  </span>
+                </header>
+                <p className="item-card__body">{item.body}</p>
+                <footer className="item-card__foot">
+                  <span>{item.authorName} · {formatDateTime(item.publishedAt)}{item.expiresAt ? ` · expira ${formatDateTime(item.expiresAt)}` : ''}</span>
+                  <span className="row-actions">
+                    {item.unread && !item.archivedAt ? (
+                      <Button size="sm" variant="secondary" icon={<CheckCheck size={14} />} onClick={() => void markRead(item.id)}>Marcar como lido</Button>
+                    ) : null}
+                    {canEdit(item) ? (
+                      <>
+                        <Button size="sm" variant="ghost" icon={<Pencil size={14} />} onClick={() => setEditor({ item })}>Editar</Button>
+                        <Button size="sm" variant="ghost" icon={<Archive size={14} />} onClick={() => setArchiving(item)}>Arquivar</Button>
+                      </>
+                    ) : null}
+                  </span>
+                </footer>
+              </article>
+            ))}
+          </div>
+        )}
+      </Card>
+      <Modal open={editor !== null} onClose={() => setEditor(null)} title={editor?.item ? 'Editar anúncio' : 'Novo anúncio'} size="lg">
+        {editor ? (
+          <AnnouncementForm
+            socket={socket}
+            item={editor.item}
+            sectors={sectors}
+            isAdmin={isAdmin}
+            onClose={() => setEditor(null)}
+            onSaved={(announcement) => {
+              upsert(announcement);
+              toast.notify('ok', editor.item ? 'Anúncio atualizado' : 'Anúncio publicado');
+            }}
+          />
+        ) : null}
+      </Modal>
+      <ConfirmDialog
+        open={archiving !== null}
+        title="Arquivar anúncio?"
+        description={`“${archiving?.title ?? ''}” deixa de aparecer para a equipe. Essa ação não pode ser desfeita.`}
+        confirmLabel="Arquivar"
+        danger
+        onCancel={() => setArchiving(null)}
+        onConfirm={() => {
+          const item = archiving;
+          setArchiving(null);
+          if (item) void archive(item);
+        }}
+      />
+    </div>
+  );
+}
+
+function AnnouncementForm({
+  socket,
+  item,
+  sectors,
+  isAdmin,
+  onClose,
+  onSaved,
+}: {
+  socket: Socket | null;
+  item: Announcement | null;
+  sectors: { id: string; name: string }[];
+  isAdmin: boolean;
+  onClose: () => void;
+  onSaved: (announcement: Announcement) => void;
+}) {
+  const [title, setTitle] = useState(item?.title ?? '');
+  const [body, setBody] = useState(item?.body ?? '');
+  const [audience, setAudience] = useState<'tenant' | 'sectors'>(isAdmin ? 'tenant' : 'sectors');
+  const [sectorId, setSectorId] = useState('');
+  const [pinned, setPinned] = useState(item?.pinned ?? false);
+  const [expiresAt, setExpiresAt] = useState(item?.expiresAt ? isoToLocalInput(item.expiresAt) : '');
+  const [pending, setPending] = useState(false);
+  const toast = useToast();
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!socket || pending) return;
     const expiry = expiresAt ? new Date(expiresAt).toISOString() : null;
+    setPending(true);
     const parsed = announcementAckSchema.safeParse(await emitAck(
       socket,
-      editingId ? 'announcement.update' : 'announcement.publish',
-      editingId
-        ? { announcementId: editingId, title, body, pinned, expiresAt: expiry }
+      item ? 'announcement.update' : 'announcement.publish',
+      item
+        ? { announcementId: item.id, title, body, pinned, expiresAt: expiry }
         : {
             title,
             body,
@@ -76,112 +216,54 @@ export function AnnouncementsPanel({
             ...(expiry ? { expiresAt: expiry } : {}),
           },
     ));
+    setPending(false);
     if (!parsed.success || !parsed.data.ok) {
-      setNotice(ackMessage(parsed, 'Publicação recusada'));
+      toast.notify('error', ackMessage(parsed, 'Publicação recusada'));
       return;
     }
-    const announcement = parsed.data.announcement;
-    setTitle('');
-    setBody('');
-    setPinned(false);
-    setExpiresAt('');
-    setNotice(editingId ? 'Anúncio atualizado' : 'Anúncio publicado');
-    setEditingId('');
-    setItems((current) => [announcement, ...current.filter((item) => item.id !== announcement.id)]);
+    onSaved(parsed.data.announcement);
+    onClose();
   }
-
-  function edit(item: Announcement) {
-    setEditingId(item.id);
-    setTitle(item.title);
-    setBody(item.body);
-    setPinned(item.pinned);
-    if (item.expiresAt) {
-      const local = new Date(item.expiresAt);
-      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-      setExpiresAt(local.toISOString().slice(0, 16));
-    } else setExpiresAt('');
-  }
-
-  async function archive(announcementId: string) {
-    if (!socket) return;
-    const parsed = announcementAckSchema.safeParse(await emitAck(socket, 'announcement.archive', { announcementId }));
-    if (!parsed.success || !parsed.data.ok) {
-      setNotice(ackMessage(parsed, 'Arquivamento recusado'));
-      return;
-    }
-    const archived = parsed.data.announcement;
-    setItems((current) => current.map((item) => item.id === announcementId ? archived : item));
-    setNotice('Anúncio arquivado');
-  }
-
-  async function markRead(announcementId: string) {
-    if (!socket) return;
-    const parsed = announcementAckSchema.safeParse(await emitAck(socket, 'announcement.read', { announcementId }));
-    if (!parsed.success || !parsed.data.ok) return;
-    const announcement = parsed.data.announcement;
-    setItems((current) => current.map((item) => (item.id === announcementId ? announcement : item)));
-  }
-
-  const unread = items.filter((item) => item.unread).length;
 
   return (
-    <section className="panel">
-      <h2>Anúncios {unread > 0 ? <em>{unread}</em> : null}</h2>
-      {notice ? <p className="ok">{notice}</p> : null}
-      {canPublish ? (
-        <form onSubmit={(event) => void publish(event)}>
-          <label>
-            Título
-            <input data-testid="announcement-title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          </label>
-          <label>
-            Conteúdo
-            <input data-testid="announcement-body" value={body} onChange={(event) => setBody(event.target.value)} />
-          </label>
-          <label>
-            Público
-            <select value={audience} onChange={(event) => setAudience(event.target.value === 'tenant' ? 'tenant' : 'sectors')}>
+    <form className="form-stack" onSubmit={(event) => void submit(event)}>
+      <Field label="Título">
+        <Input data-testid="announcement-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} autoFocus />
+      </Field>
+      <Field label="Conteúdo">
+        <Textarea data-testid="announcement-body" rows={5} value={body} onChange={(event) => setBody(event.target.value)} maxLength={4000} />
+      </Field>
+      {!item ? (
+        <div className="form-grid">
+          <Field label="Público">
+            <Select value={audience} onChange={(event) => setAudience(event.target.value === 'tenant' ? 'tenant' : 'sectors')}>
               {isAdmin ? <option value="tenant">Toda a empresa</option> : null}
               <option value="sectors">Setores</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
           {audience === 'sectors' ? (
-            <label>
-              Setor
-              <select value={sectorId} onChange={(event) => setSectorId(event.target.value)}>
+            <Field label="Setor">
+              <Select value={sectorId} onChange={(event) => setSectorId(event.target.value)}>
                 <option value="">Escolha</option>
-                {sectors.map((sector) => (
-                  <option key={sector.id} value={sector.id}>{sector.name}</option>
-                ))}
-              </select>
-            </label>
+                {sectors.map((sector) => <option key={sector.id} value={sector.id}>{sector.name}</option>)}
+              </Select>
+            </Field>
           ) : null}
-          <label><input type="checkbox" checked={pinned} onChange={(event) => setPinned(event.target.checked)} /> Fixar anúncio</label>
-          <label>Expira em<input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
-          <button type="submit">{editingId ? 'Salvar anúncio' : 'Publicar'}</button>
-          {editingId ? (
-            <button type="button" onClick={() => { setEditingId(''); setTitle(''); setBody(''); setPinned(false); setExpiresAt(''); }}>
-              Cancelar edição
-            </button>
-          ) : null}
-        </form>
+        </div>
       ) : null}
-      {items.map((item) => (
-        <article key={item.id} className="pane">
-          <h3>{item.pinned ? 'Fixado · ' : ''}{item.title}</h3>
-          <p>{item.body}</p>
-          <p className="muted">{item.authorName} · {formatClock(item.publishedAt)} · {item.unread ? 'Não lido' : 'Lido'}</p>
-          {item.unread ? (
-            <button type="button" onClick={() => void markRead(item.id)}>Marcar como lido</button>
-          ) : null}
-          {(isAdmin || (item.audience === 'sectors' && item.sectorIds.every((id) => sectors.some((sector) => sector.id === id)))) && !item.archivedAt ? (
-            <div className="stack">
-              <button type="button" onClick={() => edit(item)}>Editar</button>
-              <button type="button" onClick={() => void archive(item.id)}>Arquivar</button>
-            </div>
-          ) : null}
-        </article>
-      ))}
-    </section>
+      <div className="form-grid">
+        <Field label="Expira em (opcional)">
+          <Input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+        </Field>
+        <label className="check" style={{ alignSelf: 'end', minHeight: 44 }}>
+          <input type="checkbox" checked={pinned} onChange={(event) => setPinned(event.target.checked)} />
+          Fixar no topo
+        </label>
+      </div>
+      <div className="form-actions">
+        <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+        <Button type="submit" disabled={pending || !title.trim() || !body.trim() || (!item && audience === 'sectors' && !sectorId)}>{item ? 'Salvar anúncio' : 'Publicar'}</Button>
+      </div>
+    </form>
   );
 }

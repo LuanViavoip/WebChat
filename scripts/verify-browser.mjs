@@ -52,6 +52,11 @@ async function login(page, email) {
   await page.getByRole('navigation', { name: 'Central' }).waitFor();
 }
 
+// O widget nasce como botão; o visitante abre o painel antes de usá-lo.
+async function openWidget(frame) {
+  await frame.getByTestId('launcher').click();
+}
+
 async function sectionLabels(page) {
   return page.getByRole('navigation', { name: 'Central' }).getByRole('button').allTextContents();
 }
@@ -176,6 +181,7 @@ async function atendimentoCompleto(browser) {
 
   await visitor.goto(demoUrl);
   const frame = visitor.frameLocator('iframe[title="Webchat ViaVoip"]');
+  await openWidget(frame);
   await frame.getByRole('button', { name: 'Suporte' }).click();
   await frame.getByText('Aguardando atendente').waitFor();
   await agent.getByTestId('conversation').filter({ hasText: 'Visitante' }).last().waitFor();
@@ -241,6 +247,7 @@ async function atendimentoCompleto(browser) {
 
   await agent.getByTestId('close').selectOption({ label: 'Resolvido' });
   await agent.getByRole('button', { name: 'Encerrar' }).click();
+  await agent.getByRole('dialog').getByRole('button', { name: 'Encerrar' }).click();
   await agent.getByTestId('notice').filter({ hasText: 'Atendimento encerrado' }).waitFor();
   await frame.getByTestId('survey').waitFor();
   await waitMetric(supervisor, 'Na pesquisa', String(surveyBefore + 1));
@@ -305,6 +312,7 @@ async function atendimentoCompleto(browser) {
   const laterVisitor = await laterContext.newPage();
   await laterVisitor.goto(demoUrl);
   const laterFrame = laterVisitor.frameLocator('iframe[title="Webchat ViaVoip"]');
+  await openWidget(laterFrame);
   await laterFrame.getByRole('button', { name: 'Suporte' }).click();
   await laterFrame.getByText('Aguardando atendente').waitFor();
   const laterBody = `mensagem-apos-suspensao-${stamp}`;
@@ -338,6 +346,7 @@ try {
   await demo.goto(demoUrl);
   await demo.locator('iframe[title="Webchat ViaVoip"]').waitFor();
   const frame = demo.frameLocator('iframe[title="Webchat ViaVoip"]');
+  await openWidget(frame);
   await frame.getByRole('heading', { name: 'Site A' }).waitFor();
   await frame.getByRole('button', { name: 'Suporte' }).waitFor();
   await demo.screenshot({ path: `${artifacts}/demo-widget.png`, fullPage: true });
@@ -436,6 +445,8 @@ try {
     await route.continue();
   });
   await adminPage.getByRole('button', { name: 'Administração' }).click();
+  await adminPage.getByRole('tab', { name: 'Filas' }).click();
+  await adminPage.getByRole('button', { name: 'Nova fila' }).click();
   await adminPage.getByTestId('queue-name').fill(queueName);
   await adminPage.getByTestId('queue-create').click();
   await adminPage.getByTestId('command-result').filter({ hasText: queueName }).waitFor({ timeout: 15_000 });

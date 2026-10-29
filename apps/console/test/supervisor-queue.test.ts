@@ -19,7 +19,7 @@ describe('lista de atendimentos da supervisão', () => {
       queues: [{ id: conversation.queueId, name: 'Suporte' }],
       conversations: [conversation, { ...conversation, id: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaa5', status: 'closed', visitorDisplayName: 'Cliente encerrado', endedAt: '2026-10-28T12:02:00.000Z' }],
       messages: {}, cursors: {}, selectedId: null, selfId: 'outro', now: Date.parse('2026-10-28T12:02:00.000Z'),
-      active: true, onSelect: () => {}, supervisory: true,
+      hidden: false, loading: false, onSelect: () => {}, supervisory: true,
     }));
     expect(html).toContain('Cliente encerrado');
     expect(html).toContain('Em atendimento');

@@ -59,6 +59,8 @@ export const authMeSchema = z
     queues: z.array(queueSummarySchema).max(50),
     dispositions: z.array(dispositionSummarySchema).max(50),
     maxConcurrentAssignments: z.number().int().min(1).max(100),
+    /** O agente só registra a própria atividade quando o administrador concedeu; supervisão e administração sempre podem. */
+    canChangeOwnActivity: z.boolean(),
   })
   .strict();
 

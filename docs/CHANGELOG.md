@@ -1,5 +1,13 @@
 # Changelog da documentação
 
+## 2026-10-29 — Fase 5.5: redesign do console, widget corrigido e demo no site
+
+- Novos documentos em `docs/fase-5.5/`: `DEMO_SITE_LOCAL.md` (serviços, portas, variáveis, origens pelo admin e roteiro de teste), `DESIGN_SYSTEM.md` (tokens, componentes e padrões) e `RELATORIO.md` (relatório final com testes reais, capturas e pendências).
+- Console reescrito sobre um design system próprio (identidade ViaVoip, sidebar e topbar, rotas por hash). Conectividade e presença separadas; Central do Agente, Supervisor, Qualidade, Administração (oito seções), Chat interno, Setores, Anúncios e Atividades redesenhados.
+- Widget: o painel nasce fechado quando embutido; o loader calcula a geometria pelo viewport do site (`frame-geometry.ts`), com `window.ViaVoipWebchat.open()/close()`. Causa raiz do recorte no canto documentada em `RELATORIO.md`.
+- Novo `scripts/verify-visual.mjs` (cinco viewports, console e widget em :8090 e :3100). `scripts/verify-browser.mjs` ganhou o clique no botão do widget, a aba Filas, o modal "Nova fila" e a confirmação de encerramento.
+- Sem mudanças em `apps/server`, `packages/protocol`, migrations e seed.
+
 ## 2026-10-27 — Correções e validação da Fase 4
 
 - Atualizados escopos, autenticação, interface e resultados: 62 testes passaram com PostgreSQL e Redis descartáveis.
