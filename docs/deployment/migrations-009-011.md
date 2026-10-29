@@ -37,6 +37,6 @@ Cria a função `staff_sessions_alive(uuid[])` (`SECURITY DEFINER`, `search_path
 
 ## Observações
 
-- O servidor aplica as três migrations; o cabeçalho de `009_company_admin.sql` ainda traz o aviso da fase de desenho ("não é aplicada"), que está desatualizado.
+- O servidor aplica as três migrations na inicialização (`migrate.ts`), controladas pelo nome do arquivo em `schema_migrations`.
 - `docs/fase-5/migrations/` guarda só 009 e 010 como cópia histórica do desenho; a 011 existe apenas em `apps/server/migrations/`. A fonte de verdade é `apps/server/migrations/`.
 - Regenere o [dicionário de dados](../database/data-dictionary.md) após mudar o schema ([Manutenção](../MAINTENANCE.md)).

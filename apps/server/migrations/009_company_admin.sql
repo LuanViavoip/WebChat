@@ -1,6 +1,6 @@
--- Proposta da Fase 5. Este arquivo NÃO é aplicado pelo migrate.ts.
--- A unidade 1 do plano move esta cópia para apps/server/migrations/009_company_admin.sql.
--- Até lá, o servidor e os testes continuam no schema da Fase 4.
+-- Fase 5: administração da empresa (fuso, suspensão, recibos de comandos, SLA e qualidade).
+-- Aplicada pelo migrate.ts na inicialização do servidor, como as demais migrations.
+-- O controle é pelo nome do arquivo em schema_migrations; não altere o SQL depois de publicado.
 
 ALTER TABLE tenants
   ADD COLUMN time_zone text NOT NULL DEFAULT 'America/Sao_Paulo';
