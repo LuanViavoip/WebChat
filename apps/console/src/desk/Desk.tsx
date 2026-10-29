@@ -16,8 +16,13 @@ import {
 } from '@viavoip/protocol';
 import { useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
+import { ackMessage, emitAck, type LinkState } from '../realtime.js';
+import { ConfirmDialog, Drawer } from '../ui/Dialog.js';
+import { useElementWidth, useNow } from '../ui/hooks.js';
+import { useToast } from '../ui/Toast.js';
 import { ConversationPane } from './ConversationPane.js';
 import { DetailColumn } from './DetailColumn.js';
+import { deskLayout, type DeskLayout } from './layout.js';
 import { QueueColumn } from './QueueColumn.js';
 import {
   latestMessageId,
@@ -28,9 +33,8 @@ import {
   type ReadCursors,
 } from './state.js';
 
-type Pane = 'queues' | 'thread' | 'details';
-export type LinkState = 'connected' | 'reconnecting' | 'disconnected';
-type Notice = { tone: 'ok' | 'error'; text: string };
+type Screen = 'queues' | 'thread';
+type Confirmation = 'release' | 'close';
 
 export function Desk({
   profile,
@@ -41,7 +45,7 @@ export function Desk({
   profile: AuthMe;
   socket: Socket | null;
   link: LinkState;
-  selfStatus: PresenceStatus;
+  selfStatus: PresenceStatus | null;
 }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [messages, setMessages] = useState<MessageBuckets>({});
@@ -51,9 +55,14 @@ export function Desk({
   const [draft, setDraft] = useState('');
   const [queueId, setQueueId] = useState(profile.queues[0]?.id ?? '');
   const [dispositionId, setDispositionId] = useState('');
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [pane, setPane] = useState<Pane>('queues');
-  const [now, setNow] = useState(() => Date.now());
+  const [screen, setScreen] = useState<Screen>('queues');
+  const [layout, setLayout] = useState<DeskLayout>('wide');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [confirming, setConfirming] = useState<Confirmation | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(rootRef);
+  const now = useNow();
+  const toast = useToast();
   const selectedRef = useRef<string | null>(null);
   const cursorsRef = useRef<Map<string, { afterMessageId?: string; afterEventId?: string }>>(new Map());
   const profileRef = useRef(profile);
@@ -70,10 +79,10 @@ export function Desk({
     && selfStatus === 'available'
     && !atCapacity;
 
+  // Largura 0 = central oculta (outra seção aberta): mantém o último layout conhecido.
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (width > 0) setLayout(deskLayout(width));
+  }, [width]);
 
   useEffect(() => {
     if (!socket) return;
@@ -138,8 +147,7 @@ export function Desk({
 
   function selectConversation(conversationId: string) {
     setSelectedId(conversationId);
-    setPane('thread');
-    setNotice(null);
+    setScreen('thread');
     const latest = latestMessageId(messages[conversationId]);
     if (latest && socket && profile.role === 'agent') markLatest(socket, conversationId, latest, setCursors);
   }
@@ -147,15 +155,15 @@ export function Desk({
   async function claim() {
     if (!socket || !selected) return;
     const parsed = conversationAckSchema.safeParse(
-      await emit(socket, 'conversation.claim', { conversationId: selected.id }),
+      await emitAck(socket, 'conversation.claim', { conversationId: selected.id }),
     );
     if (!parsed.success || !parsed.data.ok) {
-      setNotice({ tone: 'error', text: ackError(parsed, 'Não foi possível assumir') });
+      toast.notify('error', ackMessage(parsed, 'Não foi possível assumir'));
       return;
     }
     const conversation = parsed.data.conversation;
     setConversations((current) => upsertConversation(current, conversation));
-    setNotice({ tone: 'ok', text: 'Atendimento assumido' });
+    toast.notify('ok', 'Atendimento assumido');
   }
 
   async function send() {
@@ -165,57 +173,56 @@ export function Desk({
     const requestId = crypto.randomUUID();
     setDraft('');
     const parsed = messageSendAckSchema.safeParse(
-      await emit(socket, 'message.send', { conversationId: selected.id, requestId, body }),
+      await emitAck(socket, 'message.send', { conversationId: selected.id, requestId, body }),
     );
     if (!parsed.success || !parsed.data.ok) {
       setDraft(body);
-      setNotice({ tone: 'error', text: ackError(parsed, 'Mensagem recusada') });
+      toast.notify('error', ackMessage(parsed, 'Mensagem recusada'));
       return;
     }
-    setNotice(null);
   }
 
   async function release() {
     if (!socket || !selected) return;
     const parsed = conversationAckSchema.safeParse(
-      await emit(socket, 'conversation.release', { conversationId: selected.id }),
+      await emitAck(socket, 'conversation.release', { conversationId: selected.id }),
     );
     if (!parsed.success || !parsed.data.ok) {
-      setNotice({ tone: 'error', text: ackError(parsed, 'Não foi possível devolver') });
+      toast.notify('error', ackMessage(parsed, 'Não foi possível devolver'));
       return;
     }
     const conversation = parsed.data.conversation;
     setConversations((current) => upsertConversation(current, conversation));
-    setNotice({ tone: 'ok', text: 'Contato devolvido à fila' });
+    toast.notify('ok', 'Contato devolvido à fila');
   }
 
   async function transfer() {
     if (!socket || !selected || !queueId) return;
     const parsed = conversationAckSchema.safeParse(
-      await emit(socket, 'conversation.transfer', { conversationId: selected.id, queueId }),
+      await emitAck(socket, 'conversation.transfer', { conversationId: selected.id, queueId }),
     );
     if (!parsed.success || !parsed.data.ok) {
-      setNotice({ tone: 'error', text: ackError(parsed, 'Transferência recusada') });
+      toast.notify('error', ackMessage(parsed, 'Transferência recusada'));
       return;
     }
     const conversation = parsed.data.conversation;
     setConversations((current) => upsertConversation(current, conversation));
-    setNotice({ tone: 'ok', text: 'Atendimento transferido' });
+    toast.notify('ok', 'Atendimento transferido');
   }
 
   async function closeConversation() {
     if (!socket || !selected || !dispositionId) return;
     const parsed = conversationCloseAckSchema.safeParse(
-      await emit(socket, 'conversation.close', { conversationId: selected.id, dispositionId }),
+      await emitAck(socket, 'conversation.close', { conversationId: selected.id, dispositionId }),
     );
     if (!parsed.success || !parsed.data.ok) {
-      setNotice({ tone: 'error', text: ackError(parsed, 'Não foi possível encerrar') });
+      toast.notify('error', ackMessage(parsed, 'Não foi possível encerrar'));
       return;
     }
     const conversation = parsed.data.conversation;
     setConversations((current) => upsertConversation(current, conversation));
     setDispositionId('');
-    setNotice({ tone: 'ok', text: 'Atendimento encerrado. O visitante recebeu a pesquisa.' });
+    toast.notify('ok', 'Atendimento encerrado. O visitante recebeu a pesquisa.');
   }
 
   function syncOne(
@@ -251,17 +258,35 @@ export function Desk({
     );
   }
 
+  // Em tela estreita, se a conversa aberta sai da lista (encerrada ou devolvida), volta para a lista.
+  useEffect(() => {
+    if (layout === 'narrow' && screen === 'thread' && !selected) setScreen('queues');
+  }, [layout, screen, selected]);
+
   const canTransfer = profile.role === 'supervisor' || profile.role === 'admin' || owns;
+  const loading = link === 'disconnected' && conversations.length === 0;
+  const narrow = layout === 'narrow';
+
+  const detailProps = {
+    conversation: selected,
+    events: selectedId ? events[selectedId] ?? [] : [],
+    queues: profile.queues,
+    dispositions: profile.dispositions,
+    queueId,
+    dispositionId,
+    now,
+    owns,
+    canTransfer,
+    selfStatus,
+    onQueue: setQueueId,
+    onDisposition: setDispositionId,
+    onRelease: () => setConfirming('release'),
+    onTransfer: () => void transfer(),
+    onClose: () => setConfirming('close'),
+  };
 
   return (
-    <div className="desk-view">
-      <nav className="pane-switch" aria-label="Seções da central">
-        <button type="button" aria-pressed={pane === 'queues'} onClick={() => setPane('queues')}>Filas</button>
-        <button type="button" aria-pressed={pane === 'thread'} onClick={() => setPane('thread')}>Conversa</button>
-        <button type="button" aria-pressed={pane === 'details'} onClick={() => setPane('details')}>Detalhes</button>
-      </nav>
-      {notice ? <p className={notice.tone === 'error' ? 'error' : 'ok'} role="status" data-testid="notice">{notice.text}</p> : null}
-      {link === 'disconnected' && conversations.length === 0 ? <p className="muted">Conectando à central…</p> : null}
+    <div className="desk" data-layout={layout} ref={rootRef}>
       <div className="desk-grid">
         <QueueColumn
           queues={profile.queues}
@@ -272,7 +297,8 @@ export function Desk({
           selfId={profile.selfId}
           supervisory={profile.role !== 'agent'}
           now={now}
-          active={pane === 'queues'}
+          hidden={narrow && screen !== 'queues'}
+          loading={loading}
           onSelect={selectConversation}
         />
         <ConversationPane
@@ -280,36 +306,76 @@ export function Desk({
           messages={selectedMessages}
           draft={draft}
           link={link}
+          layout={layout}
+          now={now}
           canReply={owns}
           canClaim={canClaim}
-          loading={link === 'disconnected' && conversations.length === 0}
-          active={pane === 'thread'}
+          readOnlyNote={readOnlyNote(profile.role, selected, selfStatus, atCapacity)}
+          loading={loading}
+          hidden={narrow && screen !== 'thread'}
           onDraft={setDraft}
           onSend={() => void send()}
           onClaim={() => void claim()}
-          onOpenDetails={() => setPane('details')}
+          onOpenDetails={() => setDetailsOpen(true)}
+          onBack={() => setScreen('queues')}
         />
-        <DetailColumn
-          conversation={selected}
-          events={selectedId ? events[selectedId] ?? [] : []}
-          queues={profile.queues}
-          dispositions={profile.dispositions}
-          queueId={queueId}
-          dispositionId={dispositionId}
-          now={now}
-          owns={owns}
-          canTransfer={canTransfer}
-          selfStatus={selfStatus}
-          active={pane === 'details'}
-          onQueue={setQueueId}
-          onDisposition={setDispositionId}
-          onRelease={() => void release()}
-          onTransfer={() => void transfer()}
-          onClose={() => void closeConversation()}
-        />
+        {layout === 'wide' ? <DetailColumn {...detailProps} variant="card" /> : null}
       </div>
+      {layout !== 'wide' ? (
+        <Drawer open={detailsOpen} onClose={() => setDetailsOpen(false)} title="Detalhes do atendimento">
+          <DetailColumn {...detailProps} variant="plain" />
+        </Drawer>
+      ) : null}
+      <ConfirmDialog
+        open={confirming === 'release'}
+        title="Devolver à fila?"
+        description="O contato volta para a fila de espera e outro agente poderá assumir o atendimento."
+        confirmLabel="Devolver à fila"
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          setConfirming(null);
+          void release();
+        }}
+      />
+      <ConfirmDialog
+        open={confirming === 'close'}
+        title="Encerrar o atendimento?"
+        description="O visitante receberá a pesquisa de satisfação e a conversa será classificada. Essa ação não pode ser desfeita."
+        confirmLabel="Encerrar atendimento"
+        danger
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          setConfirming(null);
+          void closeConversation();
+        }}
+      />
     </div>
   );
+}
+
+function readOnlyNote(
+  role: AuthMe['role'],
+  conversation: ConversationSummary | null,
+  selfStatus: PresenceStatus | null,
+  atCapacity: boolean,
+): string | null {
+  if (!conversation) return null;
+  if (role !== 'agent') return 'Modo supervisão: você acompanha a conversa sem responder.';
+  switch (conversation.status) {
+    case 'queued':
+      if (selfStatus !== 'available') return 'Fique disponível para assumir este atendimento.';
+      return atCapacity ? 'Você atingiu o limite de atendimentos simultâneos.' : null;
+    case 'assigned':
+      return 'Este atendimento é de outro agente.';
+    case 'awaiting_survey':
+      return 'Aguardando a resposta do visitante à pesquisa.';
+    case 'closed':
+      return 'Esta conversa foi encerrada.';
+    default: {
+      const unexpected: never = conversation.status;
+      return unexpected;
+    }
+  }
 }
 
 function markLatest(
@@ -357,22 +423,4 @@ function mergeEvents(current: ConversationEvent[] | undefined, extra: Conversati
   return [...byId.values()].sort(
     (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
   );
-}
-
-function ackError(parsed: { success: boolean; data?: unknown }, fallback: string): string {
-  if (!parsed.success || !parsed.data || typeof parsed.data !== 'object') return fallback;
-  if (!('ok' in parsed.data) || parsed.data.ok !== false) return fallback;
-  if (!('error' in parsed.data) || !parsed.data.error || typeof parsed.data.error !== 'object') return fallback;
-  if (!('message' in parsed.data.error) || typeof parsed.data.error.message !== 'string') return fallback;
-  return parsed.data.error.message;
-}
-
-function emit(socket: Socket, event: string, payload: unknown): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout')), 8000);
-    socket.emit(event, payload, (response: unknown) => {
-      clearTimeout(timer);
-      resolve(response);
-    });
-  });
 }

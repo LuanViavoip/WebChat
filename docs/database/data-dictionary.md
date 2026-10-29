@@ -18,6 +18,7 @@ Convenções: toda tabela de negócio tem `tenant_id` (FK para `tenants`), RLS *
 - [`announcements`](#announcements)
 - [`audit_events`](#audit_events)
 - [`auth_sessions`](#auth_sessions)
+- [`company_command_receipts`](#company_command_receipts)
 - [`conversation_events`](#conversation_events)
 - [`conversation_reads`](#conversation_reads)
 - [`conversations`](#conversations)
@@ -36,7 +37,10 @@ Convenções: toda tabela de negócio tem `tenant_id` (FK para `tenants`), RLS *
 - [`sector_supervisors`](#sector_supervisors)
 - [`sectors`](#sectors)
 - [`site_queues`](#site_queues)
+- [`site_service_windows`](#site_service_windows)
 - [`sites`](#sites)
+- [`sla_policies`](#sla_policies)
+- [`sla_policy_clocks`](#sla_policy_clocks)
 - [`survey_definitions`](#survey_definitions)
 - [`survey_responses`](#survey_responses)
 - [`tenants`](#tenants)
@@ -202,6 +206,10 @@ Usuário interno (agent, supervisor ou admin) com credencial local (hash argon2i
 | `role` | text | não |  |  |
 | `created_at` | timestamptz | não | `now()` |  |
 | `can_change_own_activity` | boolean | não | `false` |  |
+| `membership_status` | text | não | `'active'::text` |  |
+| `suspended_at` | timestamptz | sim |  |  |
+| `suspension_reason` | text | sim |  |  |
+| `auth_epoch` | bigint | não | `1` |  |
 
 **Chave primária:** `id`
 
@@ -209,8 +217,13 @@ Usuário interno (agent, supervisor ou admin) com credencial local (hash argon2i
 - `tenant_id` → `tenants(id)`
 
 **Constraints (UNIQUE/CHECK):**
+- `agents_auth_epoch_check`: `CHECK ((auth_epoch >= 1))`
 - `agents_email_check`: `CHECK ((email = lower(email)))`
 - `agents_email_key`: `UNIQUE (email)`
+- `agents_email_len`: `CHECK (((char_length(email) >= 3) AND (char_length(email) <= 200)))`
+- `agents_membership_pair`: `CHECK ((((membership_status = 'active'::text) AND (suspended_at IS NULL) AND (suspension_reason IS NULL)) OR ((membership_status = 'suspended'::text) AND (suspended_at IS NOT NULL) AND (suspension_reason IS NOT NULL) AND ((char_length(suspension_reason) >= 1) AND (char_length(suspension_reason) <= 200)))))`
+- `agents_membership_status_check`: `CHECK ((membership_status = ANY (ARRAY['active'::text, 'suspended'::text])))`
+- `agents_name_len`: `CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))`
 - `agents_role_check`: `CHECK ((role = ANY (ARRAY['agent'::text, 'supervisor'::text, 'admin'::text])))`
 
 **Índices:**
@@ -364,6 +377,7 @@ Trilha de auditoria de ações administrativas e de supervisão.
 
 **Índices:**
 - `audit_events_pkey`: `CREATE UNIQUE INDEX audit_events_pkey ON public.audit_events USING btree (id)`
+- `audit_events_tenant_action_time`: `CREATE INDEX audit_events_tenant_action_time ON public.audit_events USING btree (tenant_id, action, created_at DESC)`
 - `audit_events_tenant_time`: `CREATE INDEX audit_events_tenant_time ON public.audit_events USING btree (tenant_id, created_at DESC)`
 
 **Triggers:**
@@ -384,6 +398,7 @@ Sessões opacas de agentes/supervisores/admin (apenas o hash SHA-256 do token).
 | `role` | text | não |  |  |
 | `created_at` | timestamptz | não | `now()` |  |
 | `expires_at` | timestamptz | não |  |  |
+| `auth_epoch` | bigint | não | `1` |  |
 
 **Chave primária:** `id`
 
@@ -392,12 +407,54 @@ Sessões opacas de agentes/supervisores/admin (apenas o hash SHA-256 do token).
 - `tenant_id` → `tenants(id)`
 
 **Constraints (UNIQUE/CHECK):**
+- `auth_sessions_auth_epoch_check`: `CHECK ((auth_epoch >= 1))`
 - `auth_sessions_role_check`: `CHECK ((role = ANY (ARRAY['agent'::text, 'supervisor'::text, 'admin'::text])))`
 - `auth_sessions_token_hash_key`: `UNIQUE (token_hash)`
 
 **Índices:**
 - `auth_sessions_pkey`: `CREATE UNIQUE INDEX auth_sessions_pkey ON public.auth_sessions USING btree (id)`
 - `auth_sessions_token_hash_key`: `CREATE UNIQUE INDEX auth_sessions_token_hash_key ON public.auth_sessions USING btree (token_hash)`
+
+**Triggers:**
+- `auth_sessions_revoke_notify`
+
+**RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
+
+## company_command_receipts
+
+
+
+| Coluna | Tipo | Nulo? | Padrão | Observação |
+|---|---|---|---|---|
+| `tenant_id` | uuid | não |  | PK, FK → tenants.id |
+| `actor_id` | uuid | não |  | PK, FK → agents.id |
+| `request_id` | uuid | não |  | PK |
+| `command_kind` | text | não |  |  |
+| `payload_hash` | text | não |  |  |
+| `status` | text | não |  |  |
+| `applied_at` | timestamptz | sim |  |  |
+| `created_at` | timestamptz | não | `now()` |  |
+| `expires_at` | timestamptz | não | `(now() + '24:00:00'::interval)` |  |
+
+**Chave primária:** `tenant_id`, `actor_id`, `request_id`
+
+**Chaves estrangeiras:**
+- `actor_id` → `agents(id)`
+- `tenant_id` → `tenants(id)`
+
+**Constraints (UNIQUE/CHECK):**
+- `company_command_receipts_check`: `CHECK ((((status = 'in_flight'::text) AND (applied_at IS NULL)) OR ((status = 'applied'::text) AND (applied_at IS NOT NULL))))`
+- `company_command_receipts_command_kind_check`: `CHECK (((char_length(command_kind) >= 1) AND (char_length(command_kind) <= 80)))`
+- `company_command_receipts_expiry`: `CHECK ((expires_at >= created_at))`
+- `company_command_receipts_payload_hash_check`: `CHECK ((payload_hash ~ '^[0-9a-f]{64}$'::text))`
+- `company_command_receipts_status_check`: `CHECK ((status = ANY (ARRAY['in_flight'::text, 'applied'::text])))`
+
+**Índices:**
+- `company_command_receipts_expiry`: `CREATE INDEX company_command_receipts_expiry ON public.company_command_receipts USING btree (tenant_id, actor_id, expires_at)`
+- `company_command_receipts_pkey`: `CREATE UNIQUE INDEX company_command_receipts_pkey ON public.company_command_receipts USING btree (tenant_id, actor_id, request_id)`
+
+**Triggers:**
+- `company_command_receipts_scope`
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
 
@@ -421,7 +478,9 @@ Linha do tempo durável do atendimento (queued, assigned, released, transferred,
 - `tenant_id` → `tenants(id)`
 
 **Índices:**
+- `conversation_events_conversation_time`: `CREATE INDEX conversation_events_conversation_time ON public.conversation_events USING btree (conversation_id, created_at)`
 - `conversation_events_pkey`: `CREATE UNIQUE INDEX conversation_events_pkey ON public.conversation_events USING btree (id)`
+- `conversation_events_tenant_time`: `CREATE INDEX conversation_events_tenant_time ON public.conversation_events USING btree (tenant_id, created_at)`
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
 
@@ -504,6 +563,8 @@ Classificações de encerramento de atendimento.
 | `tenant_id` | uuid | não |  | FK → tenants.id |
 | `name` | text | não |  |  |
 | `created_at` | timestamptz | não | `now()` |  |
+| `status` | text | não | `'active'::text` |  |
+| `retired_at` | timestamptz | sim |  |  |
 
 **Chave primária:** `id`
 
@@ -511,6 +572,9 @@ Classificações de encerramento de atendimento.
 - `tenant_id` → `tenants(id)`
 
 **Constraints (UNIQUE/CHECK):**
+- `dispositions_name_len`: `CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))`
+- `dispositions_status_check`: `CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text])))`
+- `dispositions_status_pair`: `CHECK ((((status = 'active'::text) AND (retired_at IS NULL)) OR ((status = 'retired'::text) AND (retired_at IS NOT NULL))))`
 - `dispositions_tenant_id_name_key`: `UNIQUE (tenant_id, name)`
 
 **Índices:**
@@ -748,6 +812,7 @@ Fila de atendimento externo do tenant.
 - `tenant_id` → `tenants(id)`
 
 **Constraints (UNIQUE/CHECK):**
+- `queues_name_len`: `CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))`
 - `queues_tenant_id_name_key`: `UNIQUE (tenant_id, name)`
 
 **Índices:**
@@ -908,6 +973,39 @@ Filas oferecidas por cada site (N:N).
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
 
+## site_service_windows
+
+
+
+| Coluna | Tipo | Nulo? | Padrão | Observação |
+|---|---|---|---|---|
+| `site_id` | uuid | não |  | PK, FK → sites.id |
+| `tenant_id` | uuid | não |  | FK → tenants.id |
+| `weekday` | smallint | não |  | PK |
+| `start_minute` | smallint | não |  | PK |
+| `end_minute` | smallint | não |  |  |
+
+**Chave primária:** `site_id`, `weekday`, `start_minute`
+
+**Chaves estrangeiras:**
+- `site_id` → `sites(id)`
+- `tenant_id` → `tenants(id)`
+
+**Constraints (UNIQUE/CHECK):**
+- `site_service_windows_check`: `CHECK ((end_minute > start_minute))`
+- `site_service_windows_end_minute_check`: `CHECK (((end_minute >= 1) AND (end_minute <= 1440)))`
+- `site_service_windows_start_minute_check`: `CHECK (((start_minute >= 0) AND (start_minute <= 1439)))`
+- `site_service_windows_weekday_check`: `CHECK (((weekday >= 1) AND (weekday <= 7)))`
+
+**Índices:**
+- `site_service_windows_pkey`: `CREATE UNIQUE INDEX site_service_windows_pkey ON public.site_service_windows USING btree (site_id, weekday, start_minute)`
+- `site_service_windows_tenant`: `CREATE INDEX site_service_windows_tenant ON public.site_service_windows USING btree (tenant_id, site_id)`
+
+**Triggers:**
+- `site_service_windows_scope`
+
+**RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
+
 ## sites
 
 Site/widget de um tenant, identificado por `public_id`; guarda origens permitidas e aparência do widget.
@@ -925,6 +1023,8 @@ Site/widget de um tenant, identificado por `public_id`; guarda origens permitida
 | `welcome_message` | text | não | `'Olá. Escolha uma fila para começar.'::text` |  |
 | `require_visitor_name` | boolean | não | `false` |  |
 | `accepting_chats` | boolean | não | `true` |  |
+| `acceptance` | text | não | `'accepting'::text` |  |
+| `pause_reason` | text | sim |  |  |
 
 **Chave primária:** `id`
 
@@ -932,7 +1032,10 @@ Site/widget de um tenant, identificado por `public_id`; guarda origens permitida
 - `tenant_id` → `tenants(id)`
 
 **Constraints (UNIQUE/CHECK):**
+- `sites_acceptance_check`: `CHECK ((acceptance = ANY (ARRAY['accepting'::text, 'paused'::text])))`
 - `sites_logo_url_https`: `CHECK (((logo_url IS NULL) OR (logo_url ~ '^https://'::text)))`
+- `sites_name_len`: `CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))`
+- `sites_pause_reason_pair`: `CHECK ((((acceptance = 'accepting'::text) AND (pause_reason IS NULL)) OR ((acceptance = 'paused'::text) AND (pause_reason IS NOT NULL) AND ((char_length(pause_reason) >= 1) AND (char_length(pause_reason) <= 200)))))`
 - `sites_primary_color_hex`: `CHECK ((primary_color ~ '^#[0-9a-fA-F]{6}$'::text))`
 - `sites_public_id_check`: `CHECK ((public_id ~ '^[a-z0-9_-]+$'::text))`
 - `sites_public_id_key`: `UNIQUE (public_id)`
@@ -941,6 +1044,78 @@ Site/widget de um tenant, identificado por `public_id`; guarda origens permitida
 **Índices:**
 - `sites_pkey`: `CREATE UNIQUE INDEX sites_pkey ON public.sites USING btree (id)`
 - `sites_public_id_key`: `CREATE UNIQUE INDEX sites_public_id_key ON public.sites USING btree (public_id)`
+
+**Triggers:**
+- `sites_acceptance_sync`
+- `sites_origins_when_accepting`
+
+**RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
+
+## sla_policies
+
+
+
+| Coluna | Tipo | Nulo? | Padrão | Observação |
+|---|---|---|---|---|
+| `id` | uuid | não | `gen_random_uuid()` | PK |
+| `tenant_id` | uuid | não |  | FK → tenants.id |
+| `queue_id` | uuid | não |  | FK → queues.id |
+| `status` | text | não |  |  |
+| `effective_from` | timestamptz | não |  |  |
+| `retired_at` | timestamptz | sim |  |  |
+| `created_by` | uuid | não |  | FK → agents.id |
+| `created_at` | timestamptz | não | `now()` |  |
+
+**Chave primária:** `id`
+
+**Chaves estrangeiras:**
+- `created_by` → `agents(id)`
+- `queue_id` → `queues(id)`
+- `tenant_id` → `tenants(id)`
+
+**Constraints (UNIQUE/CHECK):**
+- `sla_policies_check`: `CHECK ((((status = 'active'::text) AND (retired_at IS NULL)) OR ((status = 'retired'::text) AND (retired_at IS NOT NULL) AND (retired_at >= effective_from))))`
+- `sla_policies_status_check`: `CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text])))`
+
+**Índices:**
+- `sla_policies_no_overlap`: `CREATE INDEX sla_policies_no_overlap ON public.sla_policies USING gist (queue_id, tstzrange(effective_from, retired_at, '[)'::text))`
+- `sla_policies_one_active`: `CREATE UNIQUE INDEX sla_policies_one_active ON public.sla_policies USING btree (queue_id) WHERE (status = 'active'::text)`
+- `sla_policies_pkey`: `CREATE UNIQUE INDEX sla_policies_pkey ON public.sla_policies USING btree (id)`
+- `sla_policies_queue_effective`: `CREATE INDEX sla_policies_queue_effective ON public.sla_policies USING btree (tenant_id, queue_id, effective_from DESC)`
+
+**Triggers:**
+- `sla_policies_clocks_complete`
+- `sla_policies_publication`
+- `sla_policies_scope`
+
+**RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
+
+## sla_policy_clocks
+
+
+
+| Coluna | Tipo | Nulo? | Padrão | Observação |
+|---|---|---|---|---|
+| `policy_id` | uuid | não |  | PK, FK → sla_policies.id |
+| `tenant_id` | uuid | não |  | FK → tenants.id |
+| `metric` | text | não |  | PK |
+| `threshold_seconds` | integer | não |  |  |
+
+**Chave primária:** `policy_id`, `metric`
+
+**Chaves estrangeiras:**
+- `policy_id` → `sla_policies(id)`
+- `tenant_id` → `tenants(id)`
+
+**Constraints (UNIQUE/CHECK):**
+- `sla_policy_clocks_metric_check`: `CHECK ((metric = ANY (ARRAY['queue_wait'::text, 'first_response'::text])))`
+- `sla_policy_clocks_threshold_seconds_check`: `CHECK (((threshold_seconds >= 1) AND (threshold_seconds <= 86400)))`
+
+**Índices:**
+- `sla_policy_clocks_pkey`: `CREATE UNIQUE INDEX sla_policy_clocks_pkey ON public.sla_policy_clocks USING btree (policy_id, metric)`
+
+**Triggers:**
+- `sla_policy_clocks_scope`
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
 
@@ -967,6 +1142,7 @@ Definição da pesquisa de satisfação do tenant.
 - `survey_definitions_scale_check`: `CHECK (((scale >= 1) AND (scale <= 5)))`
 
 **Índices:**
+- `survey_definitions_one_active`: `CREATE UNIQUE INDEX survey_definitions_one_active ON public.survey_definitions USING btree (tenant_id) WHERE (active = true)`
 - `survey_definitions_pkey`: `CREATE UNIQUE INDEX survey_definitions_pkey ON public.survey_definitions USING btree (id)`
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
@@ -999,6 +1175,7 @@ Resposta da pesquisa (no máximo uma por atendimento).
 **Índices:**
 - `survey_responses_conversation_id_key`: `CREATE UNIQUE INDEX survey_responses_conversation_id_key ON public.survey_responses USING btree (conversation_id)`
 - `survey_responses_pkey`: `CREATE UNIQUE INDEX survey_responses_pkey ON public.survey_responses USING btree (id)`
+- `survey_responses_tenant_time`: `CREATE INDEX survey_responses_tenant_time ON public.survey_responses USING btree (tenant_id, created_at DESC)`
 
 **RLS:** habilitada e forçada — política `tenant_isolation` (ALL)
 
@@ -1014,18 +1191,24 @@ Organização cliente (raiz do isolamento multi-tenant). Guarda limite de atendi
 | `created_at` | timestamptz | não | `now()` |  |
 | `max_concurrent_assignments` | integer | não | `3` |  |
 | `internal_history_policy` | text | não | `'retain_until_removed'::text` |  |
+| `time_zone` | text | não | `'America/Sao_Paulo'::text` |  |
 
 **Chave primária:** `id`
 
 **Constraints (UNIQUE/CHECK):**
 - `tenants_internal_history_policy_check`: `CHECK ((internal_history_policy = 'retain_until_removed'::text))`
 - `tenants_max_concurrent_assignments_range`: `CHECK (((max_concurrent_assignments >= 1) AND (max_concurrent_assignments <= 100)))`
+- `tenants_name_len`: `CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))`
 - `tenants_slug_check`: `CHECK ((slug ~ '^[a-z0-9-]+$'::text))`
 - `tenants_slug_key`: `UNIQUE (slug)`
+- `tenants_time_zone_len`: `CHECK (((char_length(time_zone) >= 1) AND (char_length(time_zone) <= 64)))`
 
 **Índices:**
 - `tenants_pkey`: `CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id)`
 - `tenants_slug_key`: `CREATE UNIQUE INDEX tenants_slug_key ON public.tenants USING btree (slug)`
+
+**Triggers:**
+- `tenants_time_zone`
 
 **RLS:** habilitada e forçada — política `tenant_self` (ALL)
 

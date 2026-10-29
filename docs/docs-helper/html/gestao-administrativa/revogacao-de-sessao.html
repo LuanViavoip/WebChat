@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Revogação de sessão — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="revoga%C3%A7%C3%A3o-de-sess%C3%A3o" tabindex="-1">Revogação de sessão</h1>
+<p>Código de referência: <code>02f5373</code>. Fontes: <code>apps/server/src/app.ts</code>, <code>realtime/revoke.ts</code>, <code>realtime/revoke-sweep.ts</code>, <code>auth/sessions.ts</code>, <code>config.ts</code>, migrations <code>009</code> e <code>011</code>.</p>
+<h2 id="o-que-dispara" tabindex="-1">O que dispara</h2>
+<p>Os comandos <code>agent.suspend</code>, <code>agent.role_change</code>, <code>agent.queues_replace</code>, <code>agent.activity_authority</code>, <code>agent.credential_reset</code> e <code>agent.sessions_revoke</code> removem as sessões da pessoa (<code>auth_sessions</code>) e incrementam sua <code>auth_epoch</code>. Sessões antigas, mesmo que sobrevivam, deixam de valer: a sessão guarda a época em que nasceu e só é aceita enquanto for igual à da pessoa. Suspensão também invalida a sessão (<code>membership_status = 'active'</code> é condição de <code>lookup_auth_session</code>).</p>
+<h2 id="quatro-camadas-para-fechar-o-socket" tabindex="-1">Quatro camadas para fechar o socket</h2>
+<ol>
+<li><strong>Disconnect direto.</strong> Após o commit, a rota chama <code>revokeRealtimeSessions</code>, que desconecta os sockets da sessão nos namespaces <code>/agent</code> e <code>/supervisor</code> (sala <code>session:&lt;id&gt;</code>). Vale para réplicas conectadas ao mesmo Socket.IO.</li>
+<li><strong>Redis.</strong> Com <code>REDIS_URL</code>, o adapter do Socket.IO leva o <code>disconnectSockets</code> às demais réplicas.</li>
+<li><strong><code>LISTEN</code>/<code>NOTIFY</code>.</strong> O trigger <code>auth_sessions_revoke_notify</code> emite <code>pg_notify('webchat_session_revoke', …)</code> a cada <code>DELETE</code> em <code>auth_sessions</code> (inclusive expurgo e logout). Cada réplica mantém um <code>LISTEN</code> e desconecta a sessão citada.</li>
+<li><strong>Varredura em lote.</strong> Periodicamente a réplica coleta as sessões dos sockets de equipe (<code>/agent</code>, <code>/supervisor</code>) e consulta <code>staff_sessions_alive(uuid[])</code> (migration 011, <code>SECURITY DEFINER</code>): a sessão precisa estar dentro da validade, com pessoa ativa, <code>auth_epoch</code> igual e papel igual ao do socket. Quem não passa é desconectado.</li>
+</ol>
+<p>A varredura cobre perda de mensagem do <code>NOTIFY</code> e falha do Redis. Revogação, portanto, é efetiva em no máximo o intervalo da varredura (padrão 10 s; teto 15 s).</p>
+<h2 id="intervalo-da-varredura" tabindex="-1">Intervalo da varredura</h2>
+<table>
+<thead>
+<tr>
+<th>Variável</th>
+<th>Padrão</th>
+<th>Regra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SESSION_REVOKE_SWEEP_MS</code></td>
+<td>10000</td>
+<td>Valor acima de 15000 impede a subida, salvo <code>NODE_ENV=test</code> ou <code>ALLOW_SLOW_REVOKE_SWEEP=true</code></td>
+</tr>
+</tbody>
+</table>
+<p>Se o <code>LISTEN</code> ou o Redis ficam indisponíveis, o intervalo cai para 2 s (<code>degradedSweepMs</code>) e volta ao normal quando recuperam. A saúde do Redis é verificada com <code>PING</code> a cada varredura.</p>
+<h2 id="limites-conhecidos" tabindex="-1">Limites conhecidos</h2>
+<ul>
+<li>Os caminhos de revogação não se desligam por variável de ambiente; testes usam opções de construção do app.</li>
+<li>Entre o commit e a varredura, um evento já em trânsito pode ainda chegar ao socket.</li>
+<li>Com mais de uma réplica, <code>REDIS_URL</code> é obrigatório (ver <a href="../implantacao-e-operacao/ambientes.html">Ambientes</a>).</li>
+</ul>
+</article>
+</body>
+</html>

@@ -10,3 +10,6 @@ apps/server/test/.pg-meta.json
 !.env.example
 docs/docs-helper/dist
 node_modules/.cache
+
+# capturas visuais locais
+artifacts/

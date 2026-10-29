@@ -45,7 +45,17 @@
 <tr>
 <td><code>REDIS_URL</code></td>
 <td>não</td>
-<td>Vazio desliga o adapter do Socket.IO</td>
+<td>Vazio desliga o adapter do Socket.IO. Obrigatório quando <code>REPLICAS</code> é maior que 1</td>
+</tr>
+<tr>
+<td><code>REPLICAS</code></td>
+<td>não</td>
+<td>1. Acima de 1, o boot exige <code>REDIS_URL</code></td>
+</tr>
+<tr>
+<td><code>SESSION_REVOKE_SWEEP_MS</code></td>
+<td>não</td>
+<td>10000. Fora de teste, valor acima de 15000 impede o boot. A varredura cai para 2s se o <code>LISTEN</code> ou o Redis ficam indisponíveis</td>
 </tr>
 <tr>
 <td><code>PORT</code> / <code>HOST</code></td>
@@ -95,7 +105,7 @@
 </tbody>
 </table>
 <h2 id="produ%C3%A7%C3%A3o-%E2%80%94-n%C3%A3o-verific%C3%A1vel" tabindex="-1">Produção — NÃO verificável</h2>
-<p>O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Antes de produção, configure o mesmo <code>LOGIN_RATE_LIMIT_SECRET</code> em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. <code>SESSION_CREATE_LIMIT</code> e <code>MESSAGE_LIMIT</code> ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.</p>
+<p>O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Antes de produção, configure o mesmo <code>LOGIN_RATE_LIMIT_SECRET</code> em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, <code>NOTIFY</code> e varredura em lote; esses caminhos não se desligam por variável de ambiente. <code>SESSION_CREATE_LIMIT</code> e <code>MESSAGE_LIMIT</code> ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
 <figure><img src="../../assets/infrastructure.png" alt="Infraestrutura"><figcaption>Infraestrutura</figcaption></figure>
 </section>

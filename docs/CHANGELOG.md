@@ -1,5 +1,24 @@
 # Changelog da documentação
 
+## 2026-10-29 — Fase 5.5: redesign do console, widget corrigido e demo no site
+
+- Novos documentos em `docs/fase-5.5/`: `DEMO_SITE_LOCAL.md` (serviços, portas, variáveis, origens pelo admin e roteiro de teste), `DESIGN_SYSTEM.md` (tokens, componentes e padrões) e `RELATORIO.md` (relatório final com testes reais, capturas e pendências).
+- Console reescrito sobre um design system próprio (identidade ViaVoip, sidebar e topbar, rotas por hash). Conectividade e presença separadas; Central do Agente, Supervisor, Qualidade, Administração (oito seções), Chat interno, Setores, Anúncios e Atividades redesenhados.
+- Widget: o painel nasce fechado quando embutido; o loader calcula a geometria pelo viewport do site (`frame-geometry.ts`), com `window.ViaVoipWebchat.open()/close()`. Causa raiz do recorte no canto documentada em `RELATORIO.md`.
+- Novo `scripts/verify-visual.mjs` (cinco viewports, console e widget em :8090 e :3100). `scripts/verify-browser.mjs` ganhou o clique no botão do widget, a aba Filas, o modal "Nova fila" e a confirmação de encerramento.
+- Correção da afirmação anterior de "sem mudanças no servidor": `GET /auth/me` passou a devolver `canChangeOwnActivity` (`apps/server/src/auth/sessions.ts` e `packages/protocol/src/http.ts`, com teste em `operations.test.ts`). Não há migrations nem mudança de seed.
+- Docs Helper atualizado para o commit `3d9e2cf`: novos módulos *Interface do Console* e *Demonstração e Testes*; novas páginas *Painel de administração*, *Geometria e correção do recorte do widget*, *Relatório da Fase 5.5*, *Design system*, *Demo local* e *Testes visuais*; Widget, Central do Agente, Supervisor, Qualidade, SLA, Atividades, Status e Visão geral atualizados.
+- `pnpm test` reexecutado: 192 testes passaram (protocol 11, adaptador SM 2, widget 18, console 61, servidor 100). Última rodada de `verify-visual.mjs`: 155 verificações, 0 falhas.
+- Incorporado o conteúdo do PR #3 (Fase 5 no Docs Helper) a esta branch para que o ZIP único contenha as duas fases.
+- Publicação no site de teste: **não realizada**; exige reimportar o ZIP em `/admin/import` (ver `docs-helper/PUBLICATION-BLOCKER.md`).
+
+## 2026-10-28 — Fase 5 (commit `02f5373`)
+
+- Novos módulos no Docs Helper: Gestão Administrativa (papéis, configuração por empresa, comandos idempotentes, auditoria, revogação de sessão) e Qualidade Operacional (política de SLA, relatório de qualidade).
+- Nova página de migrations 009–011; Ambientes, Status, Visão geral e Supervisor atualizados.
+- Divergências de código registradas: cabeçalho de `009_company_admin.sql` e `docs/fase-5/ARQUITETURA.md` ainda dizem "não aplicada"; a página de auditoria usa 50 entradas embora o contrato aceite 100.
+- Publicação no site de teste: **não realizada**. Exige reimportar o ZIP depois do merge, por ordem do responsável.
+
 ## 2026-10-27 — Correções e validação da Fase 4
 
 - Atualizados escopos, autenticação, interface e resultados: 62 testes passaram com PostgreSQL e Redis descartáveis.

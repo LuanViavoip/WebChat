@@ -1,0 +1,40 @@
+.login {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  background:
+    radial-gradient(900px 480px at 85% -10%, rgb(55 64 176 / 0.55), transparent 70%),
+    linear-gradient(160deg, var(--color-navy) 0%, var(--color-navy-deep) 100%);
+  color: var(--color-on-navy);
+}
+.login__stack { display: grid; justify-items: center; gap: var(--space-6); width: min(420px, 100%); }
+.login__logo { width: 200px; height: auto; }
+.login__card {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-8);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lift);
+  color: var(--color-text-secondary);
+}
+.login__card h1 { font-size: 1.375rem; }
+.login__card p { margin-top: var(--space-1); font-size: 0.875rem; }
+.login__card .ui-button { width: 100%; }
+.login .login__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-box);
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+.login__hint { max-width: 40ch; font-size: 0.75rem; text-align: center; opacity: 0.85; }
+.login .ui-state { color: var(--color-on-navy); }
+.login .ui-state__icon { background: rgb(255 255 255 / 0.1); color: var(--color-accent); }
+@media (max-width: 480px) {
+  .login__card { padding: var(--space-5); }
+}

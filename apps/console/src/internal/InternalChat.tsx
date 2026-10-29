@@ -8,11 +8,20 @@ import {
   type InternalConversation,
   type InternalMessage,
 } from '@viavoip/protocol';
-import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, MessagesSquare, UserPlus, Users } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
-import { formatClock } from '../desk/format.js';
-import type { LinkState } from '../desk/Desk.js';
-import { ackMessage, emitAck } from '../realtime.js';
+import { groupMessagesByDay, mergeMessages } from '../desk/state.js';
+import { ackMessage, emitAck, type LinkState } from '../realtime.js';
+import { Avatar } from '../ui/Avatar.js';
+import { Button } from '../ui/Button.js';
+import { Composer } from '../ui/Composer.js';
+import { Field, Select } from '../ui/Field.js';
+import { useNow } from '../ui/hooks.js';
+import { MessageBubble } from '../ui/MessageBubble.js';
+import { EmptyState } from '../ui/states.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
+import { useToast } from '../ui/Toast.js';
 import { recoverAndCommitInternalHistory } from './history-sync.js';
 
 export function InternalChat({
@@ -33,7 +42,9 @@ export function InternalChat({
   const historyCursors = useRef<Record<string, string>>({});
   const [draft, setDraft] = useState('');
   const [peerId, setPeerId] = useState('');
-  const [notice, setNotice] = useState('');
+  const [screen, setScreen] = useState<'list' | 'thread'>('list');
+  const toast = useToast();
+  const now = useNow(30_000);
   const [connectionVersion, setConnectionVersion] = useState(0);
   const [hasOlderById, setHasOlderById] = useState<Record<string, boolean>>({});
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -115,7 +126,7 @@ export function InternalChat({
           void emitAck(socket, 'internal.message.read', { conversationId: selectedId, messageId: latest.id });
         }
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : 'Histórico indisponível');
+        toast.notify('error', error instanceof Error ? error.message : 'Histórico indisponível');
       }
     })();
   }, [connectionVersion, selectedId, socket]);
@@ -133,7 +144,7 @@ export function InternalChat({
       });
       const parsed = internalHistoryAckSchema.safeParse(ack);
       if (!parsed.success || !parsed.data.ok) {
-        setNotice(ackMessage(parsed, 'Histórico indisponível'));
+        toast.notify('error', ackMessage(parsed, 'Histórico indisponível'));
         return;
       }
       const olderMessages = parsed.data.messages;
@@ -151,11 +162,12 @@ export function InternalChat({
     if (!socket || !peerId) return;
     const parsed = internalOpenAckSchema.safeParse(await emitAck(socket, 'internal.open', { peerId }));
     if (!parsed.success || !parsed.data.ok) {
-      setNotice(ackMessage(parsed, 'Conversa recusada'));
+      toast.notify('error', ackMessage(parsed, 'Conversa recusada'));
       return;
     }
     setSelectedId(parsed.data.conversation.id);
-    setNotice('');
+    setScreen('thread');
+    setPeerId('');
     const listed = internalListAckSchema.safeParse(await emitAck(socket, 'internal.list', {}));
     if (listed.success && listed.data.ok) setConversations(listed.data.conversations);
   }
@@ -171,75 +183,117 @@ export function InternalChat({
     );
     if (!parsed.success || !parsed.data.ok) {
       setDraft(body);
-      setNotice(ackMessage(parsed, 'Mensagem recusada'));
+      toast.notify('error', ackMessage(parsed, 'Mensagem recusada'));
     }
   }
 
   const selectedMessages = selectedId ? messages[selectedId] ?? [] : [];
+  const selected = conversations.find((conversation) => conversation.id === selectedId) ?? null;
+  const groups = useMemo(() => groupMessagesByDay(selectedMessages, now), [selectedMessages, now]);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [selectedMessages.length, selectedId]);
 
   return (
-    <section className="panel split">
-      <div className="pane">
-        <h2>Chat interno</h2>
-        <p className="link">{link === 'connected' ? 'Conectado' : 'Reconectando'}</p>
-        <label>
-          Nova conversa direta
-          <select data-testid="internal-peer" value={peerId} onChange={(event) => setPeerId(event.target.value)}>
-            <option value="">Escolha uma pessoa</option>
-            {peers.map((peer) => (
-              <option key={peer.agentId} value={peer.agentId}>{peer.name}</option>
-            ))}
-          </select>
-        </label>
-        <button type="button" onClick={() => void openDirect()} disabled={!peerId}>Iniciar</button>
-        <div role="list">
+    <div className="chat" data-screen={screen}>
+      <section className="desk-card chat__list" aria-label="Conversas internas">
+        <header className="desk-card__head">
+          <h2>Chat interno</h2>
+          <StatusBadge tone={link === 'connected' ? 'success' : 'warning'} dot>{link === 'connected' ? 'Conectado' : 'Reconectando'}</StatusBadge>
+        </header>
+        <div className="chat__new">
+          <Field label="Nova conversa direta">
+            <Select data-testid="internal-peer" value={peerId} onChange={(event) => setPeerId(event.target.value)}>
+              <option value="">Escolha uma pessoa</option>
+              {peers.map((peer) => (
+                <option key={peer.agentId} value={peer.agentId}>{peer.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Button variant="secondary" icon={<UserPlus size={16} />} onClick={() => void openDirect()} disabled={!peerId}>Iniciar</Button>
+        </div>
+        <div className="chat__items" role="list">
+          {conversations.length === 0 ? <p className="desk-queues__empty">Nenhuma conversa ainda.</p> : null}
           {conversations.map((conversation) => (
             <button
               type="button"
               key={conversation.id}
-              className={conversation.id === selectedId ? 'selected' : undefined}
-              onClick={() => setSelectedId(conversation.id)}
+              role="listitem"
+              className={conversation.id === selectedId ? 'chat-item is-selected' : 'chat-item'}
+              aria-current={conversation.id === selectedId ? 'true' : undefined}
+              onClick={() => {
+                setSelectedId(conversation.id);
+                setScreen('thread');
+              }}
             >
-              <span>{conversation.kind === 'group' ? 'Grupo' : 'Direta'} · {conversation.title}</span>
-              {conversation.unread > 0 ? <em>{conversation.unread}</em> : null}
+              {conversation.kind === 'group' ? (
+                <span className="ui-avatar ui-avatar--group" style={{ width: 40, height: 40 }} aria-hidden="true"><Users size={18} /></span>
+              ) : (
+                <Avatar name={conversation.title} size={40} />
+              )}
+              <span className="chat-item__body">
+                <strong>{conversation.title}</strong>
+                <small>{conversation.kind === 'group' ? `Grupo · ${conversation.participants.length} pessoas` : 'Conversa direta'}</small>
+              </span>
+              {conversation.unread > 0 ? <em className="contact__unread" data-testid="internal-unread">{conversation.unread}</em> : null}
             </button>
           ))}
         </div>
-      </div>
-      <div className="pane thread-pane">
-        {selectedId && hasOlderById[selectedId] ? (
-          <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder}>
-            {loadingOlder ? 'Carregando…' : 'Carregar mensagens anteriores'}
+      </section>
+      <section className="desk-card desk-thread chat__thread" aria-label="Conversa interna">
+        <header className="desk-thread__head">
+          <button type="button" className="ui-icon-button chat__back" aria-label="Voltar para as conversas" onClick={() => setScreen('list')}>
+            <ArrowLeft size={20} aria-hidden="true" />
           </button>
-        ) : null}
-        <div className="messages" data-testid="internal-thread">
-          {selectedMessages.map((message) => (
-            <article key={message.id} className={message.senderId === selfId ? 'agent' : undefined}>
-              <p>{message.senderName}</p>
-              <p>{message.body}</p>
-              <time dateTime={message.createdAt}>{formatClock(message.createdAt)}</time>
-            </article>
-          ))}
-        </div>
-        {notice ? <p className="error">{notice}</p> : null}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void send();
-          }}
-        >
-          <input className="composer" data-testid="internal-draft" value={draft} onChange={(event) => setDraft(event.target.value)} />
-          <button type="submit" disabled={!selectedId || link !== 'connected'}>Enviar</button>
-        </form>
-      </div>
-    </section>
-  );
-}
-
-function mergeMessages(existing: InternalMessage[], incoming: InternalMessage[]): InternalMessage[] {
-  const merged = new Map(existing.map((message) => [message.id, message]));
-  for (const message of incoming) merged.set(message.id, message);
-  return [...merged.values()].sort((left, right) =>
-    left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+          {selected ? <Avatar name={selected.title} size={40} group={selected.kind === 'group'} /> : null}
+          <div className="desk-thread__title">
+            <h2>{selected ? selected.title : 'Nenhuma conversa'}</h2>
+            {selected ? <p>{selected.kind === 'group' ? `Grupo · ${selected.participants.length} pessoas` : 'Conversa direta'}</p> : null}
+          </div>
+        </header>
+        {!selected ? (
+          <EmptyState icon={MessagesSquare} title="Escolha uma conversa" description="Selecione uma conversa da lista ou inicie uma conversa direta com alguém da equipe." />
+        ) : (
+          <>
+            <div className="desk-messages" ref={listRef} data-testid="internal-thread" aria-live="polite">
+              {selectedId && hasOlderById[selectedId] ? (
+                <Button variant="secondary" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder}>
+                  {loadingOlder ? 'Carregando…' : 'Carregar mensagens anteriores'}
+                </Button>
+              ) : null}
+              {selectedMessages.length === 0 ? <p className="desk-messages__empty">Sem mensagens ainda.</p> : null}
+              {groups.map((group) => (
+                <div className="desk-day" key={group.key}>
+                  <p className="desk-day__label"><span>{group.label}</span></p>
+                  {group.messages.map((message) => (
+                    <MessageBubble
+                      key={message.id}
+                      variant={message.senderId === selfId ? 'agent' : 'visitor'}
+                      author={message.senderId === selfId ? undefined : message.senderName}
+                      body={message.body}
+                      createdAt={message.createdAt}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="desk-footer">
+              <Composer
+                value={draft}
+                onChange={setDraft}
+                onSend={() => void send()}
+                testId="internal-draft"
+                placeholder="Escreva uma mensagem"
+                disabled={link !== 'connected'}
+                resetKey={selected.id}
+              />
+            </div>
+          </>
+        )}
+      </section>
+    </div>
   );
 }

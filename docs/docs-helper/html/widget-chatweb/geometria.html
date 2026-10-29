@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Geometria e correção do recorte — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="widget%3A-geometria-e-corre%C3%A7%C3%A3o-do-recorte" tabindex="-1">Widget: geometria e correção do recorte</h1>
+<p>Código de referência: Fase 5.5. Fontes: <code>apps/widget/src/frame-geometry.ts</code>, <code>apps/widget/src/loader.ts</code>, <code>apps/widget/src/WidgetApp.tsx</code>, <code>apps/widget/src/panel-size.ts</code> e os testes <code>frame-geometry.test.ts</code> e <code>panel-size.test.ts</code>. Instalação e opções estão em <a href="widget.html">Widget ChatWeb</a>.</p>
+<h2 id="o-problema%3A-painel-cortado-no-canto" tabindex="-1">O problema: painel cortado no canto</h2>
+<p>Antes da Fase 5.5 o widget aparecia cortado no canto inferior direito do site.</p>
+<h3 id="causa-raiz" tabindex="-1">Causa raiz</h3>
+<ol>
+<li><code>WidgetApp</code> iniciava com <code>panelOpen = true</code>: o painel inteiro era desenhado já na carga.</li>
+<li>O aviso de tamanho (<code>resize</code>) para o site só saía depois de <code>setParentOrigin</code>, que ocorria no fim de <code>boot()</code>, <strong>depois de criar a sessão</strong>.</li>
+<li>Até esse momento, e <strong>para sempre</strong> se o boot falhasse (origem não autorizada, <code>referrer</code> vazio, erro de rede), o painel era desenhado dentro do iframe de 72×72 do loader. O resultado visível era o recorte no canto.</li>
+</ol>
+<p>Agravantes: o widget medindo o próprio iframe (origem de um bug anterior, corrigido em <code>2cdc8a5</code>), nenhum recálculo ao redimensionar ou girar a tela, <code>.panel</code> sem <code>overflow</code>, nenhuma área segura e o anel de foco cortado pelo iframe justo ao botão.</p>
+<h3 id="corre%C3%A7%C3%A3o" tabindex="-1">Correção</h3>
+<ol>
+<li><strong>O painel nasce fechado</strong> quando embutido (<code>useState(!embedded)</code>).</li>
+<li><strong>A origem é validada antes de qualquer sessão.</strong> <code>authorizedParent</code> define <code>parentOrigin</code> logo depois de buscar a configuração do site, e essa é a única origem para a qual o widget posta. Sem origem válida o iframe continua do tamanho do botão e o botão fica inerte (<code>disabled</code>).</li>
+<li><strong>O loader calcula a geometria pelo viewport do site</strong>, com a função pura <code>frameGeometry</code>. O widget informa só aberto/fechado pelos eventos <code>open</code> e <code>close</code> que já existiam no protocolo. O schema de <code>resize</code> é estrito (<code>width</code> e <code>height</code>), então não ganhou um campo de modo.</li>
+<li><strong>Recálculo contínuo</strong>: <code>resize</code>, <code>orientationchange</code>, <code>visualViewport.resize</code> e mudanças de <code>style</code>/<code>class</code> no <code>&lt;html&gt;</code>.</li>
+<li><strong>API e segurança do loader</strong>: <code>window.ViaVoipWebchat.open()/close()</code>, estilos inline com <code>setProperty(..., 'important')</code>, guarda de instância única e validação de <code>event.origin</code> e <code>event.source</code>.</li>
+</ol>
+<h2 id="geometria-do-iframe" tabindex="-1">Geometria do iframe</h2>
+<table>
+<thead>
+<tr>
+<th>Modo</th>
+<th>Condição</th>
+<th>Tamanho</th>
+<th>Posição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Botão (<code>launcher</code>)</td>
+<td>Painel fechado</td>
+<td><strong>88×88 px</strong> (botão de 72 px mais 8 px de folga por lado para sombra e foco)</td>
+<td>O botão fica a <code>offset</code> das bordas; o iframe recua 8 px</td>
+</tr>
+<tr>
+<td>Painel</td>
+<td>Viewport de mais de 640 px de largura</td>
+<td><code>min(400, largura − direita − 16)</code> × <code>min(640, altura − base − 16)</code>, nunca abaixo de 200 px</td>
+<td>Margens de pelo menos 16 px</td>
+</tr>
+<tr>
+<td>Painel em tela cheia</td>
+<td>Viewport de até 640 px de largura</td>
+<td><code>100vw</code> × <code>100dvh</code></td>
+<td>Colado às quatro bordas, sem raio e sem sombra</td>
+</tr>
+</tbody>
+</table>
+<p>O deslocamento efetivo é <code>data-offset-*</code> (padrão 16 px) mais o valor em px das variáveis CSS indicadas por <code>data-offset-*-var</code> e por <code>--viavoip-webchat-bottom</code>/<code>--viavoip-webchat-right</code>. No painel, o deslocamento nunca fica abaixo da margem de 16 px.</p>
+<p>No modo tela cheia, a área segura (<code>env(safe-area-inset-*)</code>) é tratada <strong>dentro</strong> do widget.</p>
+<h2 id="mensagens-entre-site-e-widget" tabindex="-1">Mensagens entre site e widget</h2>
+<table>
+<thead>
+<tr>
+<th>Direção</th>
+<th><code>source</code></th>
+<th><code>type</code></th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Widget → site</td>
+<td><code>viavoip-webchat</code></td>
+<td><code>ready</code></td>
+<td>O widget já sabe a origem do site; libera comandos pendentes</td>
+</tr>
+<tr>
+<td>Widget → site</td>
+<td><code>viavoip-webchat</code></td>
+<td><code>open</code> / <code>close</code></td>
+<td>Fonte do modo do iframe</td>
+</tr>
+<tr>
+<td>Widget → site</td>
+<td><code>viavoip-webchat</code></td>
+<td><code>resize</code></td>
+<td>Compatibilidade; só vale sem <code>open</code>/<code>close</code></td>
+</tr>
+<tr>
+<td>Site → widget</td>
+<td><code>viavoip-webchat-parent</code></td>
+<td><code>open</code> / <code>close</code></td>
+<td>Enviado por <code>window.ViaVoipWebchat</code>, com <code>targetOrigin</code> = origem do iframe</td>
+</tr>
+</tbody>
+</table>
+<p>Cada lado confere a origem e a janela de quem enviou: o loader aceita só mensagens da origem do script e da janela do iframe; o widget aceita só mensagens da janela pai e da origem validada (<code>parentOrigin</code>).</p>
+<h2 id="cobertura-de-testes" tabindex="-1">Cobertura de testes</h2>
+<p><code>frame-geometry.test.ts</code> cobre a geometria, os estilos, os deslocamentos e o modo; <code>panel-size.test.ts</code> cobre o tamanho nominal. No navegador, <code>verify-visual.mjs</code> confere o botão de 88×88, o painel dentro do viewport nos cinco tamanhos e o caso de origem não autorizada (<a href="../demonstracao-e-testes/testes-visuais.html">Testes visuais</a>).</p>
+</article>
+</body>
+</html>

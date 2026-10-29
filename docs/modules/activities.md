@@ -23,3 +23,7 @@ admin: qualquer agente. Supervisor: agentes que compartilham um setor que ele su
 ## Concorrência e auditoria
 
 Dois pedidos simultâneos para o mesmo agente são serializados pelo lock e pelo índice único. Gravam auditoria: `activity.type_save`, `activity.assign`, `activity.finish`. Evento: `activity.updated`.
+
+## Interface (Fase 5.5)
+
+`GET /auth/me` informa `canChangeOwnActivity`: `true` para supervisor e administrador e, para o agente, somente quando `agents.can_change_own_activity` foi concedido (campo *Atividades* = `self_service` na Administração; ver [Painel de administração](../gestao-administrativa/painel-de-administracao.md)). Na seção **Minha atividade** (agente) ou **Atividades** (supervisão e administração) o formulário de registro aparece quando a pessoa pode alocar; a tela mostra a atividade atual, o histórico e, para o administrador, o catálogo de tipos. O servidor continua aplicando `assertCanAllocate`.

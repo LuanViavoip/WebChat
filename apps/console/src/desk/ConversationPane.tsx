@@ -1,22 +1,36 @@
 import type { ConversationSummary, MessageRecord } from '@viavoip/protocol';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { formatClock, statusLabel, visitorLabel } from './format.js';
-
-type LinkState = 'connected' | 'reconnecting' | 'disconnected';
+import { ArrowLeft, ArrowDown, Info, MessageSquareText } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { LinkState } from '../realtime.js';
+import { Avatar } from '../ui/Avatar.js';
+import { Button } from '../ui/Button.js';
+import { Composer } from '../ui/Composer.js';
+import { MessageBubble } from '../ui/MessageBubble.js';
+import { EmptyState, LoadingState } from '../ui/states.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
+import { linkLabel, statusLabel, visitorLabel } from './format.js';
+import type { DeskLayout } from './layout.js';
+import { statusTone } from './QueueColumn.js';
+import { dayKey, groupMessagesByDay } from './state.js';
 
 type Props = {
   conversation: ConversationSummary | null;
   messages: MessageRecord[];
   draft: string;
   link: LinkState;
+  layout: DeskLayout;
+  now: number;
   canReply: boolean;
   canClaim: boolean;
+  /** Motivo exibido no lugar do composer quando o usuário não pode responder. */
+  readOnlyNote: string | null;
   loading: boolean;
+  hidden: boolean;
   onDraft: (value: string) => void;
   onSend: () => void;
   onClaim: () => void;
   onOpenDetails: () => void;
-  active: boolean;
+  onBack: () => void;
 };
 
 export function ConversationPane({
@@ -24,18 +38,25 @@ export function ConversationPane({
   messages,
   draft,
   link,
+  layout,
+  now,
   canReply,
   canClaim,
+  readOnlyNote,
   loading,
+  hidden,
   onDraft,
   onSend,
   onClaim,
   onOpenDetails,
-  active,
+  onBack,
 }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const [pendingBelow, setPendingBelow] = useState(false);
+  const today = dayKey(now);
+  // `today` entra nas dependências para renovar "Hoje"/"Ontem" na virada do dia.
+  const groups = useMemo(() => groupMessagesByDay(messages, now), [messages, today]);
 
   useEffect(() => {
     stickRef.current = true;
@@ -69,78 +90,84 @@ export function ConversationPane({
     setPendingBelow(false);
   }
 
+  const linkTone = link === 'connected' ? 'success' : link === 'reconnecting' ? 'warning' : 'error';
+
   return (
-    <section className={active ? 'pane thread-pane active' : 'pane thread-pane'} data-pane="thread" aria-label="Conversa">
-      <header className="thread-head">
-        <div>
-          <p className="eyebrow">Conversa</p>
+    <section className="desk-card desk-thread" data-pane="thread" aria-label="Conversa" hidden={hidden}>
+      <header className="desk-thread__head">
+        {layout === 'narrow' ? (
+          <button type="button" className="ui-icon-button" aria-label="Voltar para a lista" onClick={onBack}>
+            <ArrowLeft size={20} aria-hidden="true" />
+          </button>
+        ) : null}
+        {conversation ? <Avatar name={visitorLabel(conversation.visitorDisplayName)} size={40} /> : null}
+        <div className="desk-thread__title">
           <h2>{conversation ? visitorLabel(conversation.visitorDisplayName) : 'Nenhuma conversa'}</h2>
           {conversation ? (
-            <p className="muted">
-              {conversation.queueName} · {statusLabel(conversation.status)}
+            <p>
+              {conversation.queueName}
+              <StatusBadge tone={statusTone(conversation.status)}>{statusLabel(conversation.status)}</StatusBadge>
             </p>
           ) : null}
         </div>
-        <div className="thread-tools">
-          <p className="link" data-testid="connection">{linkLabel(link)}</p>
-          <button className="ghost mobile-only" type="button" onClick={onOpenDetails}>Detalhes</button>
-        </div>
+        <StatusBadge tone={linkTone} dot>{linkLabel(link)}</StatusBadge>
+        {layout !== 'wide' && conversation ? (
+          <button type="button" className="ui-icon-button" aria-label="Ver detalhes" onClick={onOpenDetails}>
+            <Info size={20} aria-hidden="true" />
+          </button>
+        ) : null}
       </header>
-      {loading ? <p className="muted">Carregando sessão…</p> : null}
-      {!loading && !conversation ? <p className="muted" data-testid="empty">Selecione um contato para atender.</p> : null}
+      {loading ? <LoadingState label="Carregando sessão…" /> : null}
+      {!loading && !conversation ? (
+        <EmptyState
+          testId="empty"
+          icon={MessageSquareText}
+          title="Selecione um contato para atender."
+          description="Escolha uma conversa na lista para ver as mensagens e os detalhes do atendimento."
+        />
+      ) : null}
       {conversation ? (
         <>
-          <div className="messages" ref={listRef} onScroll={onScroll} aria-live="polite">
-            {messages.length === 0 ? <p className="muted">Sem mensagens ainda.</p> : null}
-            {messages.map((message) => (
-              <article key={message.id} data-testid="message" className={message.senderType}>
-                <p>{message.body}</p>
-                <time dateTime={message.createdAt}>{formatClock(message.createdAt)}</time>
-              </article>
+          <div className="desk-messages" ref={listRef} onScroll={onScroll} aria-live="polite">
+            {messages.length === 0 ? <p className="desk-messages__empty">Sem mensagens ainda.</p> : null}
+            {groups.map((group) => (
+              <div className="desk-day" key={group.key}>
+                <p className="desk-day__label"><span>{group.label}</span></p>
+                {group.messages.map((message) => (
+                  <MessageBubble
+                    key={message.id}
+                    testId="message"
+                    variant={message.senderType}
+                    body={message.body}
+                    createdAt={message.createdAt}
+                  />
+                ))}
+              </div>
             ))}
           </div>
           {pendingBelow ? (
-            <button type="button" className="jump" onClick={jumpToLatest}>Novas mensagens</button>
+            <button type="button" className="desk-jump" onClick={jumpToLatest}>
+              <ArrowDown size={14} aria-hidden="true" />
+              Novas mensagens
+            </button>
           ) : null}
-          {canClaim ? (
-            <button data-testid="claim" type="button" onClick={onClaim}>Assumir</button>
-          ) : null}
-          {canReply ? (
-            <form
-              onSubmit={(event: FormEvent) => {
-                event.preventDefault();
-                onSend();
-              }}
-            >
-              <label className="composer">
-                Mensagem
-                <input
-                  data-testid="composer"
-                  value={draft}
-                  onChange={(event) => onDraft(event.target.value)}
-                  placeholder="Responder"
-                />
-              </label>
-              <button type="submit">Enviar</button>
-            </form>
-          ) : null}
+          <div className="desk-footer">
+            {canClaim ? (
+              <Button data-testid="claim" onClick={onClaim} size="lg">Assumir</Button>
+            ) : null}
+            {canReply ? (
+              <Composer
+                value={draft}
+                onChange={onDraft}
+                onSend={onSend}
+                testId="composer"
+                resetKey={conversation.id}
+              />
+            ) : null}
+            {!canReply && !canClaim && readOnlyNote ? <p className="desk-readonly">{readOnlyNote}</p> : null}
+          </div>
         </>
       ) : null}
     </section>
   );
-}
-
-function linkLabel(link: LinkState): string {
-  switch (link) {
-    case 'connected':
-      return 'Conectado';
-    case 'reconnecting':
-      return 'Reconectando';
-    case 'disconnected':
-      return 'Desconectado';
-    default: {
-      const neverLink: never = link;
-      return neverLink;
-    }
-  }
 }

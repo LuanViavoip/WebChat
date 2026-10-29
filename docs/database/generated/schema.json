@@ -331,6 +331,46 @@
             "def": "false"
         },
         {
+            "t": "agents",
+            "n": 9,
+            "col": "membership_status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'active'::text"
+        },
+        {
+            "t": "agents",
+            "n": 10,
+            "col": "suspended_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 11,
+            "col": "suspension_reason",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "agents",
+            "n": 12,
+            "col": "auth_epoch",
+            "typ": "bigint",
+            "udt": "int8",
+            "len": null,
+            "nullable": "NO",
+            "def": "1"
+        },
+        {
             "t": "announcement_reads",
             "n": 1,
             "col": "announcement_id",
@@ -731,6 +771,106 @@
             "def": null
         },
         {
+            "t": "auth_sessions",
+            "n": 8,
+            "col": "auth_epoch",
+            "typ": "bigint",
+            "udt": "int8",
+            "len": null,
+            "nullable": "NO",
+            "def": "1"
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 1,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 2,
+            "col": "actor_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 3,
+            "col": "request_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 4,
+            "col": "command_kind",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 5,
+            "col": "payload_hash",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 6,
+            "col": "status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 7,
+            "col": "applied_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 8,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "company_command_receipts",
+            "n": 9,
+            "col": "expires_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "(now() + '24:00:00'::interval)"
+        },
+        {
             "t": "conversation_events",
             "n": 1,
             "col": "id",
@@ -1009,6 +1149,26 @@
             "len": null,
             "nullable": "NO",
             "def": "now()"
+        },
+        {
+            "t": "dispositions",
+            "n": 5,
+            "col": "status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'active'::text"
+        },
+        {
+            "t": "dispositions",
+            "n": 6,
+            "col": "retired_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
         },
         {
             "t": "internal_conversations",
@@ -1691,6 +1851,56 @@
             "def": null
         },
         {
+            "t": "site_service_windows",
+            "n": 1,
+            "col": "site_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "site_service_windows",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "site_service_windows",
+            "n": 3,
+            "col": "weekday",
+            "typ": "smallint",
+            "udt": "int2",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "site_service_windows",
+            "n": 4,
+            "col": "start_minute",
+            "typ": "smallint",
+            "udt": "int2",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "site_service_windows",
+            "n": 5,
+            "col": "end_minute",
+            "typ": "smallint",
+            "udt": "int2",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
             "t": "sites",
             "n": 1,
             "col": "id",
@@ -1799,6 +2009,146 @@
             "len": null,
             "nullable": "NO",
             "def": "true"
+        },
+        {
+            "t": "sites",
+            "n": 12,
+            "col": "acceptance",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'accepting'::text"
+        },
+        {
+            "t": "sites",
+            "n": 13,
+            "col": "pause_reason",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 1,
+            "col": "id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": "gen_random_uuid()"
+        },
+        {
+            "t": "sla_policies",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 3,
+            "col": "queue_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 4,
+            "col": "status",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 5,
+            "col": "effective_from",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 6,
+            "col": "retired_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "YES",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 7,
+            "col": "created_by",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policies",
+            "n": 8,
+            "col": "created_at",
+            "typ": "timestamp with time zone",
+            "udt": "timestamptz",
+            "len": null,
+            "nullable": "NO",
+            "def": "now()"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "n": 1,
+            "col": "policy_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policy_clocks",
+            "n": 2,
+            "col": "tenant_id",
+            "typ": "uuid",
+            "udt": "uuid",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policy_clocks",
+            "n": 3,
+            "col": "metric",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": null
+        },
+        {
+            "t": "sla_policy_clocks",
+            "n": 4,
+            "col": "threshold_seconds",
+            "typ": "integer",
+            "udt": "int4",
+            "len": null,
+            "nullable": "NO",
+            "def": null
         },
         {
             "t": "survey_definitions",
@@ -1999,6 +2349,16 @@
             "len": null,
             "nullable": "NO",
             "def": "'retain_until_removed'::text"
+        },
+        {
+            "t": "tenants",
+            "n": 7,
+            "col": "time_zone",
+            "typ": "text",
+            "udt": "text",
+            "len": null,
+            "nullable": "NO",
+            "def": "'America/Sao_Paulo'::text"
         },
         {
             "t": "visitor_sessions",
@@ -2256,6 +2616,12 @@
         },
         {
             "t": "agents",
+            "name": "agents_auth_epoch_check",
+            "kind": "c",
+            "def": "CHECK ((auth_epoch >= 1))"
+        },
+        {
+            "t": "agents",
             "name": "agents_email_check",
             "kind": "c",
             "def": "CHECK ((email = lower(email)))"
@@ -2265,6 +2631,30 @@
             "name": "agents_email_key",
             "kind": "u",
             "def": "UNIQUE (email)"
+        },
+        {
+            "t": "agents",
+            "name": "agents_email_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(email) >= 3) AND (char_length(email) <= 200)))"
+        },
+        {
+            "t": "agents",
+            "name": "agents_membership_pair",
+            "kind": "c",
+            "def": "CHECK ((((membership_status = 'active'::text) AND (suspended_at IS NULL) AND (suspension_reason IS NULL)) OR ((membership_status = 'suspended'::text) AND (suspended_at IS NOT NULL) AND (suspension_reason IS NOT NULL) AND ((char_length(suspension_reason) >= 1) AND (char_length(suspension_reason) <= 200)))))"
+        },
+        {
+            "t": "agents",
+            "name": "agents_membership_status_check",
+            "kind": "c",
+            "def": "CHECK ((membership_status = ANY (ARRAY['active'::text, 'suspended'::text])))"
+        },
+        {
+            "t": "agents",
+            "name": "agents_name_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
         },
         {
             "t": "agents",
@@ -2430,6 +2820,12 @@
         },
         {
             "t": "auth_sessions",
+            "name": "auth_sessions_auth_epoch_check",
+            "kind": "c",
+            "def": "CHECK ((auth_epoch >= 1))"
+        },
+        {
+            "t": "auth_sessions",
             "name": "auth_sessions_pkey",
             "kind": "p",
             "def": "PRIMARY KEY (id)"
@@ -2451,6 +2847,54 @@
             "name": "auth_sessions_token_hash_key",
             "kind": "u",
             "def": "UNIQUE (token_hash)"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_actor_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (actor_id) REFERENCES agents(id)"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_check",
+            "kind": "c",
+            "def": "CHECK ((((status = 'in_flight'::text) AND (applied_at IS NULL)) OR ((status = 'applied'::text) AND (applied_at IS NOT NULL))))"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_command_kind_check",
+            "kind": "c",
+            "def": "CHECK (((char_length(command_kind) >= 1) AND (char_length(command_kind) <= 80)))"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_expiry",
+            "kind": "c",
+            "def": "CHECK ((expires_at >= created_at))"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_payload_hash_check",
+            "kind": "c",
+            "def": "CHECK ((payload_hash ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (tenant_id, actor_id, request_id)"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_status_check",
+            "kind": "c",
+            "def": "CHECK ((status = ANY (ARRAY['in_flight'::text, 'applied'::text])))"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
         },
         {
             "t": "conversation_events",
@@ -2550,9 +2994,27 @@
         },
         {
             "t": "dispositions",
+            "name": "dispositions_name_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
+        },
+        {
+            "t": "dispositions",
             "name": "dispositions_pkey",
             "kind": "p",
             "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "dispositions",
+            "name": "dispositions_status_check",
+            "kind": "c",
+            "def": "CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text])))"
+        },
+        {
+            "t": "dispositions",
+            "name": "dispositions_status_pair",
+            "kind": "c",
+            "def": "CHECK ((((status = 'active'::text) AND (retired_at IS NULL)) OR ((status = 'retired'::text) AND (retired_at IS NOT NULL))))"
         },
         {
             "t": "dispositions",
@@ -2772,6 +3234,12 @@
         },
         {
             "t": "queues",
+            "name": "queues_name_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
+        },
+        {
+            "t": "queues",
             "name": "queues_pkey",
             "kind": "p",
             "def": "PRIMARY KEY (id)"
@@ -2921,10 +3389,70 @@
             "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
         },
         {
+            "t": "site_service_windows",
+            "name": "site_service_windows_check",
+            "kind": "c",
+            "def": "CHECK ((end_minute > start_minute))"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_end_minute_check",
+            "kind": "c",
+            "def": "CHECK (((end_minute >= 1) AND (end_minute <= 1440)))"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (site_id, weekday, start_minute)"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_site_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (site_id) REFERENCES sites(id)"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_start_minute_check",
+            "kind": "c",
+            "def": "CHECK (((start_minute >= 0) AND (start_minute <= 1439)))"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_weekday_check",
+            "kind": "c",
+            "def": "CHECK (((weekday >= 1) AND (weekday <= 7)))"
+        },
+        {
+            "t": "sites",
+            "name": "sites_acceptance_check",
+            "kind": "c",
+            "def": "CHECK ((acceptance = ANY (ARRAY['accepting'::text, 'paused'::text])))"
+        },
+        {
             "t": "sites",
             "name": "sites_logo_url_https",
             "kind": "c",
             "def": "CHECK (((logo_url IS NULL) OR (logo_url ~ '^https://'::text)))"
+        },
+        {
+            "t": "sites",
+            "name": "sites_name_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
+        },
+        {
+            "t": "sites",
+            "name": "sites_pause_reason_pair",
+            "kind": "c",
+            "def": "CHECK ((((acceptance = 'accepting'::text) AND (pause_reason IS NULL)) OR ((acceptance = 'paused'::text) AND (pause_reason IS NOT NULL) AND ((char_length(pause_reason) >= 1) AND (char_length(pause_reason) <= 200)))))"
         },
         {
             "t": "sites",
@@ -2961,6 +3489,84 @@
             "name": "sites_welcome_message_len",
             "kind": "c",
             "def": "CHECK (((char_length(welcome_message) >= 1) AND (char_length(welcome_message) <= 300)))"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_check",
+            "kind": "c",
+            "def": "CHECK ((((status = 'active'::text) AND (retired_at IS NULL)) OR ((status = 'retired'::text) AND (retired_at IS NOT NULL) AND (retired_at >= effective_from))))"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_clocks_complete",
+            "kind": "t",
+            "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_created_by_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (created_by) REFERENCES agents(id)"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_no_overlap",
+            "kind": "x",
+            "def": "EXCLUDE USING gist (queue_id WITH =, tstzrange(effective_from, retired_at, '[)'::text) WITH &&)"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (id)"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_queue_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (queue_id) REFERENCES queues(id)"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_status_check",
+            "kind": "c",
+            "def": "CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text])))"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "name": "sla_policy_clocks_metric_check",
+            "kind": "c",
+            "def": "CHECK ((metric = ANY (ARRAY['queue_wait'::text, 'first_response'::text])))"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "name": "sla_policy_clocks_pkey",
+            "kind": "p",
+            "def": "PRIMARY KEY (policy_id, metric)"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "name": "sla_policy_clocks_policy_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (policy_id) REFERENCES sla_policies(id)"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "name": "sla_policy_clocks_tenant_id_fkey",
+            "kind": "f",
+            "def": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "name": "sla_policy_clocks_threshold_seconds_check",
+            "kind": "c",
+            "def": "CHECK (((threshold_seconds >= 1) AND (threshold_seconds <= 86400)))"
         },
         {
             "t": "survey_definitions",
@@ -3030,6 +3636,12 @@
         },
         {
             "t": "tenants",
+            "name": "tenants_name_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))"
+        },
+        {
+            "t": "tenants",
             "name": "tenants_pkey",
             "kind": "p",
             "def": "PRIMARY KEY (id)"
@@ -3045,6 +3657,12 @@
             "name": "tenants_slug_key",
             "kind": "u",
             "def": "UNIQUE (slug)"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_time_zone_len",
+            "kind": "c",
+            "def": "CHECK (((char_length(time_zone) >= 1) AND (char_length(time_zone) <= 64)))"
         },
         {
             "t": "visitor_sessions",
@@ -3189,6 +3807,11 @@
         },
         {
             "tablename": "audit_events",
+            "indexname": "audit_events_tenant_action_time",
+            "indexdef": "CREATE INDEX audit_events_tenant_action_time ON public.audit_events USING btree (tenant_id, action, created_at DESC)"
+        },
+        {
+            "tablename": "audit_events",
             "indexname": "audit_events_tenant_time",
             "indexdef": "CREATE INDEX audit_events_tenant_time ON public.audit_events USING btree (tenant_id, created_at DESC)"
         },
@@ -3203,9 +3826,29 @@
             "indexdef": "CREATE UNIQUE INDEX auth_sessions_token_hash_key ON public.auth_sessions USING btree (token_hash)"
         },
         {
+            "tablename": "company_command_receipts",
+            "indexname": "company_command_receipts_expiry",
+            "indexdef": "CREATE INDEX company_command_receipts_expiry ON public.company_command_receipts USING btree (tenant_id, actor_id, expires_at)"
+        },
+        {
+            "tablename": "company_command_receipts",
+            "indexname": "company_command_receipts_pkey",
+            "indexdef": "CREATE UNIQUE INDEX company_command_receipts_pkey ON public.company_command_receipts USING btree (tenant_id, actor_id, request_id)"
+        },
+        {
+            "tablename": "conversation_events",
+            "indexname": "conversation_events_conversation_time",
+            "indexdef": "CREATE INDEX conversation_events_conversation_time ON public.conversation_events USING btree (conversation_id, created_at)"
+        },
+        {
             "tablename": "conversation_events",
             "indexname": "conversation_events_pkey",
             "indexdef": "CREATE UNIQUE INDEX conversation_events_pkey ON public.conversation_events USING btree (id)"
+        },
+        {
+            "tablename": "conversation_events",
+            "indexname": "conversation_events_tenant_time",
+            "indexdef": "CREATE INDEX conversation_events_tenant_time ON public.conversation_events USING btree (tenant_id, created_at)"
         },
         {
             "tablename": "conversation_reads",
@@ -3388,6 +4031,16 @@
             "indexdef": "CREATE UNIQUE INDEX site_queues_pkey ON public.site_queues USING btree (site_id, queue_id)"
         },
         {
+            "tablename": "site_service_windows",
+            "indexname": "site_service_windows_pkey",
+            "indexdef": "CREATE UNIQUE INDEX site_service_windows_pkey ON public.site_service_windows USING btree (site_id, weekday, start_minute)"
+        },
+        {
+            "tablename": "site_service_windows",
+            "indexname": "site_service_windows_tenant",
+            "indexdef": "CREATE INDEX site_service_windows_tenant ON public.site_service_windows USING btree (tenant_id, site_id)"
+        },
+        {
             "tablename": "sites",
             "indexname": "sites_pkey",
             "indexdef": "CREATE UNIQUE INDEX sites_pkey ON public.sites USING btree (id)"
@@ -3396,6 +4049,36 @@
             "tablename": "sites",
             "indexname": "sites_public_id_key",
             "indexdef": "CREATE UNIQUE INDEX sites_public_id_key ON public.sites USING btree (public_id)"
+        },
+        {
+            "tablename": "sla_policies",
+            "indexname": "sla_policies_no_overlap",
+            "indexdef": "CREATE INDEX sla_policies_no_overlap ON public.sla_policies USING gist (queue_id, tstzrange(effective_from, retired_at, '[)'::text))"
+        },
+        {
+            "tablename": "sla_policies",
+            "indexname": "sla_policies_one_active",
+            "indexdef": "CREATE UNIQUE INDEX sla_policies_one_active ON public.sla_policies USING btree (queue_id) WHERE (status = 'active'::text)"
+        },
+        {
+            "tablename": "sla_policies",
+            "indexname": "sla_policies_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sla_policies_pkey ON public.sla_policies USING btree (id)"
+        },
+        {
+            "tablename": "sla_policies",
+            "indexname": "sla_policies_queue_effective",
+            "indexdef": "CREATE INDEX sla_policies_queue_effective ON public.sla_policies USING btree (tenant_id, queue_id, effective_from DESC)"
+        },
+        {
+            "tablename": "sla_policy_clocks",
+            "indexname": "sla_policy_clocks_pkey",
+            "indexdef": "CREATE UNIQUE INDEX sla_policy_clocks_pkey ON public.sla_policy_clocks USING btree (policy_id, metric)"
+        },
+        {
+            "tablename": "survey_definitions",
+            "indexname": "survey_definitions_one_active",
+            "indexdef": "CREATE UNIQUE INDEX survey_definitions_one_active ON public.survey_definitions USING btree (tenant_id) WHERE (active = true)"
         },
         {
             "tablename": "survey_definitions",
@@ -3411,6 +4094,11 @@
             "tablename": "survey_responses",
             "indexname": "survey_responses_pkey",
             "indexdef": "CREATE UNIQUE INDEX survey_responses_pkey ON public.survey_responses USING btree (id)"
+        },
+        {
+            "tablename": "survey_responses",
+            "indexname": "survey_responses_tenant_time",
+            "indexdef": "CREATE INDEX survey_responses_tenant_time ON public.survey_responses USING btree (tenant_id, created_at DESC)"
         },
         {
             "tablename": "tenants",
@@ -3490,6 +4178,16 @@
             "def": "CREATE TRIGGER audit_events_scope BEFORE INSERT OR UPDATE ON public.audit_events FOR EACH ROW EXECUTE FUNCTION enforce_audit_actor()"
         },
         {
+            "t": "auth_sessions",
+            "name": "auth_sessions_revoke_notify",
+            "def": "CREATE TRIGGER auth_sessions_revoke_notify AFTER DELETE ON public.auth_sessions FOR EACH ROW EXECUTE FUNCTION notify_auth_session_revoked()"
+        },
+        {
+            "t": "company_command_receipts",
+            "name": "company_command_receipts_scope",
+            "def": "CREATE TRIGGER company_command_receipts_scope BEFORE INSERT OR UPDATE ON public.company_command_receipts FOR EACH ROW EXECUTE FUNCTION enforce_company_command_actor()"
+        },
+        {
             "t": "conversation_reads",
             "name": "conversation_reads_scope",
             "def": "CREATE TRIGGER conversation_reads_scope BEFORE INSERT OR UPDATE ON public.conversation_reads FOR EACH ROW EXECUTE FUNCTION enforce_conversation_read()"
@@ -3538,6 +4236,46 @@
             "t": "site_queues",
             "name": "site_queues_tenant",
             "def": "CREATE TRIGGER site_queues_tenant BEFORE INSERT OR UPDATE ON public.site_queues FOR EACH ROW EXECUTE FUNCTION enforce_site_queue_tenant()"
+        },
+        {
+            "t": "site_service_windows",
+            "name": "site_service_windows_scope",
+            "def": "CREATE TRIGGER site_service_windows_scope BEFORE INSERT OR UPDATE ON public.site_service_windows FOR EACH ROW EXECUTE FUNCTION enforce_site_service_window()"
+        },
+        {
+            "t": "sites",
+            "name": "sites_acceptance_sync",
+            "def": "CREATE TRIGGER sites_acceptance_sync BEFORE INSERT OR UPDATE ON public.sites FOR EACH ROW EXECUTE FUNCTION sync_site_acceptance()"
+        },
+        {
+            "t": "sites",
+            "name": "sites_origins_when_accepting",
+            "def": "CREATE TRIGGER sites_origins_when_accepting BEFORE INSERT OR UPDATE ON public.sites FOR EACH ROW EXECUTE FUNCTION enforce_site_origins_when_accepting()"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_clocks_complete",
+            "def": "CREATE CONSTRAINT TRIGGER sla_policies_clocks_complete AFTER INSERT OR UPDATE ON public.sla_policies DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION enforce_sla_clocks_complete()"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_publication",
+            "def": "CREATE TRIGGER sla_policies_publication BEFORE INSERT ON public.sla_policies FOR EACH ROW EXECUTE FUNCTION enforce_sla_publication()"
+        },
+        {
+            "t": "sla_policies",
+            "name": "sla_policies_scope",
+            "def": "CREATE TRIGGER sla_policies_scope BEFORE INSERT OR UPDATE ON public.sla_policies FOR EACH ROW EXECUTE FUNCTION enforce_sla_policy()"
+        },
+        {
+            "t": "sla_policy_clocks",
+            "name": "sla_policy_clocks_scope",
+            "def": "CREATE TRIGGER sla_policy_clocks_scope BEFORE INSERT OR UPDATE ON public.sla_policy_clocks FOR EACH ROW EXECUTE FUNCTION enforce_sla_clock()"
+        },
+        {
+            "t": "tenants",
+            "name": "tenants_time_zone",
+            "def": "CREATE TRIGGER tenants_time_zone BEFORE INSERT OR UPDATE OF time_zone ON public.tenants FOR EACH ROW EXECUTE FUNCTION enforce_tenant_time_zone()"
         }
     ],
     "policies": [
@@ -3620,6 +4358,13 @@
         },
         {
             "tablename": "auth_sessions",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "company_command_receipts",
             "policyname": "tenant_isolation",
             "cmd": "ALL",
             "qual": "(tenant_id = app_tenant_id())",
@@ -3738,7 +4483,28 @@
             "with_check": "(tenant_id = app_tenant_id())"
         },
         {
+            "tablename": "site_service_windows",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
             "tablename": "sites",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sla_policies",
+            "policyname": "tenant_isolation",
+            "cmd": "ALL",
+            "qual": "(tenant_id = app_tenant_id())",
+            "with_check": "(tenant_id = app_tenant_id())"
+        },
+        {
+            "tablename": "sla_policy_clocks",
             "policyname": "tenant_isolation",
             "cmd": "ALL",
             "qual": "(tenant_id = app_tenant_id())",
@@ -3842,6 +4608,11 @@
             "forced": true
         },
         {
+            "t": "company_command_receipts",
+            "enabled": true,
+            "forced": true
+        },
+        {
             "t": "conversation_events",
             "enabled": true,
             "forced": true
@@ -3932,7 +4703,22 @@
             "forced": true
         },
         {
+            "t": "site_service_windows",
+            "enabled": true,
+            "forced": true
+        },
+        {
             "t": "sites",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "sla_policies",
+            "enabled": true,
+            "forced": true
+        },
+        {
+            "t": "sla_policy_clocks",
             "enabled": true,
             "forced": true
         },
@@ -3996,6 +4782,10 @@
             "secdef": false
         },
         {
+            "name": "enforce_company_command_actor",
+            "secdef": false
+        },
+        {
             "name": "enforce_conversation_read",
             "secdef": false
         },
@@ -4024,7 +4814,35 @@
             "secdef": false
         },
         {
+            "name": "enforce_site_origins_when_accepting",
+            "secdef": false
+        },
+        {
             "name": "enforce_site_queue_tenant",
+            "secdef": false
+        },
+        {
+            "name": "enforce_site_service_window",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sla_clock",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sla_clocks_complete",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sla_policy",
+            "secdef": false
+        },
+        {
+            "name": "enforce_sla_publication",
+            "secdef": false
+        },
+        {
+            "name": "enforce_tenant_time_zone",
             "secdef": false
         },
         {
@@ -4044,8 +4862,20 @@
             "secdef": true
         },
         {
+            "name": "notify_auth_session_revoked",
+            "secdef": false
+        },
+        {
+            "name": "staff_sessions_alive",
+            "secdef": true
+        },
+        {
             "name": "sweep_stale_agent_connections",
             "secdef": true
+        },
+        {
+            "name": "sync_site_acceptance",
+            "secdef": false
         }
     ]
 }

@@ -9,8 +9,8 @@ import {
   type CompanyCommandEnvelope,
   type CompanyCommandResult,
   type CompanyDesk,
-  type QualityQuery,
   type QualityReport,
+  type QualityScope,
 } from '@viavoip/protocol';
 
 type Parser<T> = {
@@ -70,13 +70,16 @@ export async function retrySameRequest<T>(
   throw lastError instanceof Error ? lastError : new Error('Falha na gestão da empresa');
 }
 
-function isRetryable(error: unknown): boolean {
+export function isRetryable(error: unknown): boolean {
   if (!error || typeof error !== 'object' || !('name' in error)) return false;
   const name = String(error.name);
   return name === 'AbortError' || name === 'TimeoutError' || name === 'TypeError';
 }
 
-export async function loadQualityReport(session: CompanySession, query: QualityQuery): Promise<QualityReport> {
+/** Consulta de qualidade com o escopo já resolvido (o schema do protocolo aceita uma união estreita). */
+export type QualityRequest = { scope: QualityScope; from: string; to: string };
+
+export async function loadQualityReport(session: CompanySession, query: QualityRequest): Promise<QualityReport> {
   return readJson(`/quality/report?${qualitySearch(query)}`, qualityReportSchema, session.token);
 }
 
@@ -90,7 +93,7 @@ export async function loadAuditPage(session: CompanySession, query: AuditQuery):
   return readJson(`/audit/events${suffix}`, auditPageSchema, session.token);
 }
 
-export function qualitySearch(query: QualityQuery): string {
+export function qualitySearch(query: QualityRequest): string {
   const params = new URLSearchParams({ scopeKind: query.scope.kind, from: query.from, to: query.to });
   if (query.scope.kind === 'sector') params.set('sectorId', query.scope.sectorId);
   if (query.scope.kind === 'queue') params.set('queueId', query.scope.queueId);

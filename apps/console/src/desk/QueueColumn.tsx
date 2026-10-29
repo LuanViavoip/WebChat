@@ -1,7 +1,12 @@
-import type { ConversationSummary, QueueSummary } from '@viavoip/protocol';
+import type { ConversationStatus, ConversationSummary, QueueSummary } from '@viavoip/protocol';
+import { Inbox } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
-import { formatDuration, statusLabel, visitorLabel } from './format.js';
-import { unreadVisitorCount, type MessageBuckets, type ReadCursors } from './state.js';
+import { Avatar } from '../ui/Avatar.js';
+import type { Tone } from '../ui/Card.js';
+import { EmptyState, LoadingState } from '../ui/states.js';
+import { StatusBadge } from '../ui/StatusBadge.js';
+import { formatClock, formatDuration, statusLabel, visitorLabel } from './format.js';
+import { lastMessagePreview, unreadVisitorCount, type MessageBuckets, type ReadCursors } from './state.js';
 
 type Props = {
   queues: QueueSummary[];
@@ -12,9 +17,27 @@ type Props = {
   selfId: string;
   supervisory: boolean;
   now: number;
-  active: boolean;
+  hidden: boolean;
+  loading: boolean;
   onSelect: (conversationId: string) => void;
 };
+
+export function statusTone(status: ConversationStatus): Tone {
+  switch (status) {
+    case 'queued':
+      return 'warning';
+    case 'assigned':
+      return 'success';
+    case 'awaiting_survey':
+      return 'info';
+    case 'closed':
+      return 'neutral';
+    default: {
+      const unexpected: never = status;
+      return unexpected;
+    }
+  }
+}
 
 export function QueueColumn({
   queues,
@@ -25,7 +48,8 @@ export function QueueColumn({
   selfId,
   supervisory,
   now,
-  active,
+  hidden,
+  loading,
   onSelect,
 }: Props) {
   const ordered = orderedContacts(queues, conversations, selfId, supervisory);
@@ -40,10 +64,13 @@ export function QueueColumn({
   }
 
   return (
-    <div className={active ? 'pane queue-pane active' : 'pane queue-pane'} data-pane="queues" onKeyDown={onKeyDown}>
-      <h2>Filas</h2>
-      {queues.length === 0 ? <p className="muted">Nenhuma fila autorizada.</p> : null}
-      <div role="listbox" aria-label="Contatos" tabIndex={0}>
+    <section className="desk-card desk-queues" data-pane="queues" aria-label="Filas" hidden={hidden} onKeyDown={onKeyDown}>
+      <header className="desk-card__head">
+        <h2>Filas</h2>
+      </header>
+      {loading ? <LoadingState label="Conectando à central…" /> : null}
+      {!loading && queues.length === 0 ? <EmptyState icon={Inbox} title="Nenhuma fila autorizada" description="Peça a um administrador para vincular você a uma fila." /> : null}
+      <div className="desk-queues__list" role="listbox" aria-label="Contatos" tabIndex={0}>
         {queues.map((queue) => {
           const waiting = conversations
             .filter((item) => item.queueId === queue.id && item.status === 'queued')
@@ -52,10 +79,10 @@ export function QueueColumn({
             .filter((item) => (supervisory || item.agentId === selfId) && item.queueId === queue.id && item.status !== 'queued')
             .sort((left, right) => (left.assignedAt ?? left.queuedAt).localeCompare(right.assignedAt ?? right.queuedAt));
           return (
-            <section key={queue.id} aria-label={queue.name}>
-              <header className="queue-head">
+            <section key={queue.id} className="queue-card" aria-label={queue.name}>
+              <header className="queue-card__head">
                 <strong>{queue.name}</strong>
-                <span>{waiting.length} aguardando</span>
+                <StatusBadge tone={waiting.length > 0 ? 'warning' : 'neutral'}>{waiting.length} aguardando</StatusBadge>
               </header>
               <ContactGroup
                 title="Aguardando"
@@ -81,8 +108,8 @@ export function QueueColumn({
           );
         })}
       </div>
-      {ordered.length === 0 ? <p className="muted">Nenhum contato na fila.</p> : null}
-    </div>
+      {!loading && queues.length > 0 && ordered.length === 0 ? <p className="desk-queues__empty">Nenhum contato na fila.</p> : null}
+    </section>
   );
 }
 
@@ -108,32 +135,53 @@ function ContactGroup({
   if (contacts.length === 0) return null;
   return (
     <div className="contact-group">
-      <p className="group-label">{title}</p>
+      <p className="contact-group__label">{title}</p>
       {contacts.map((conversation) => {
         const unread = unreadVisitorCount(messages[conversation.id], cursors[conversation.id]);
-        const waiting = conversation.status === 'queued';
+        const preview = lastMessagePreview(messages[conversation.id]);
+        const name = visitorLabel(conversation.visitorDisplayName);
+        const selected = conversation.id === selectedId;
+        const waited = formatDuration(
+          conversation.queuedAt,
+          conversation.assignedAt ? Date.parse(conversation.assignedAt) : conversation.endedAt ? Date.parse(conversation.endedAt) : now,
+        );
+        const meta = supervisory
+          ? `${conversation.agentName ?? 'Sem agente'} · Espera ${waited}`
+          : conversation.status === 'queued' ? `Espera ${formatDuration(conversation.queuedAt, now)}` : conversation.queueName;
         return (
           <button
             key={conversation.id}
             type="button"
             role="option"
-            aria-selected={conversation.id === selectedId}
+            aria-selected={selected}
             data-testid="conversation"
-            className={conversation.id === selectedId ? 'selected' : ''}
+            className={selected ? 'contact is-selected' : 'contact'}
             onClick={() => onSelect(conversation.id)}
           >
-            <strong>{visitorLabel(conversation.visitorDisplayName)}</strong>
-            <span>
-              {supervisory
-                ? `${statusLabel(conversation.status)} · ${conversation.agentName ?? 'Sem agente'} · Espera ${formatDuration(conversation.queuedAt, conversation.assignedAt ? Date.parse(conversation.assignedAt) : conversation.endedAt ? Date.parse(conversation.endedAt) : now)}`
-                : waiting ? `Espera ${formatDuration(conversation.queuedAt, now)}` : conversation.queueName}
-              {unread > 0 ? <em data-testid="unread">{unread}</em> : null}
+            <Avatar name={visitorLabel(conversation.visitorDisplayName)} size={40} />
+            <span className="contact__body">
+              <span className="contact__row">
+                <strong>{name}</strong>
+                <time dateTime={preview?.createdAt ?? conversation.queuedAt}>{formatClock(preview?.createdAt ?? conversation.queuedAt)}</time>
+              </span>
+              <span className="contact__preview">{previewText(preview, supervisory)}</span>
+              <span className="contact__meta">
+                <StatusBadge tone={statusTone(conversation.status)}>{statusLabel(conversation.status)}</StatusBadge>
+                <span className="contact__wait">{meta}</span>
+                {unread > 0 ? <em className="contact__unread" data-testid="unread">{unread}</em> : null}
+              </span>
             </span>
           </button>
         );
       })}
     </div>
   );
+}
+
+function previewText(preview: ReturnType<typeof lastMessagePreview>, supervisory: boolean): string {
+  if (!preview) return 'Sem mensagens ainda';
+  if (preview.senderType === 'agent') return `${supervisory ? 'Agente' : 'Você'}: ${preview.text}`;
+  return preview.text;
 }
 
 function orderedContacts(

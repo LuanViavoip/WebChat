@@ -7,8 +7,7 @@
 <body>
 <article>
 <h1 id="documenta%C3%A7%C3%A3o-t%C3%A9cnica-%E2%80%94-viavoip-webchat" tabindex="-1">Documentação técnica — ViaVoip Webchat</h1>
-<p><strong>Versão documentada:</strong> estado de trabalho de 27 de outubro de 2026, incluindo as correções da Fase 4. O hash final deve ser registrado após a integração.</p>
-<p>O fluxo integrado foi executado em ambiente descartável: 62 testes passaram. A entrega durável após falha de publicação continua pendente; ver <a href="status.html">STATUS.md</a>.</p>
+<p><strong>Versão documentada:</strong> Fase 5.5, commit <code>3d9e2cf</code>: console redesenhado sobre o design system ViaVoip, widget corrigido pela causa raiz e demo no site institucional, sobre a Fase 5 (<code>02f5373</code>, PR #2: gestão administrativa, configuração por empresa, qualidade operacional, auditoria e revogação de sessão) e a base da Fase 4. A entrega durável após falha de publicação continua pendente; ver <a href="status.html">STATUS.md</a>.</p>
 <h2 id="como-ler" tabindex="-1">Como ler</h2>
 <table>
 <thead>
@@ -32,11 +31,23 @@
 </tr>
 <tr>
 <td>Instalar o widget</td>
-<td><a href="../widget-chatweb/widget.html">modules/widget.md</a></td>
+<td><a href="../widget-chatweb/widget.html">modules/widget.md</a> e <a href="../widget-chatweb/geometria.html">geometria e correção do recorte</a></td>
+</tr>
+<tr>
+<td>Entender a interface do console</td>
+<td><a href="../interface-do-console/navegacao-e-papeis.html">navegação por papel, conectividade e presença</a>, <a href="../interface-do-console/design-system.html">design system</a></td>
 </tr>
 <tr>
 <td>Operar a central</td>
 <td><a href="../central-do-agente/agente.html">agent</a>, <a href="../chat-interno/chat-interno.html">internal-chat</a>, <a href="../setores/setores.html">sectors</a>, <a href="../anuncios/anuncios.html">announcements</a>, <a href="../presenca-e-atividades/presenca.html">presence</a>, <a href="../presenca-e-atividades/atividades.html">activities</a>, <a href="../central-do-supervisor/supervisor.html">supervisor</a></td>
+</tr>
+<tr>
+<td>Administrar a empresa (admin)</td>
+<td><a href="../gestao-administrativa/papeis-e-permissoes.html">papéis</a>, <a href="../gestao-administrativa/painel-de-administracao.html">painel de administração</a>, <a href="../gestao-administrativa/configuracao-por-empresa.html">configuração</a>, <a href="../gestao-administrativa/comandos-idempotentes.html">comandos idempotentes</a>, <a href="../gestao-administrativa/auditoria.html">auditoria</a>, <a href="../gestao-administrativa/revogacao-de-sessao.html">revogação de sessão</a></td>
+</tr>
+<tr>
+<td>Medir a qualidade</td>
+<td><a href="../qualidade-operacional/politica-de-sla.html">política de SLA</a>, <a href="../qualidade-operacional/relatorio-de-qualidade.html">relatório</a></td>
 </tr>
 <tr>
 <td>Consultar o banco</td>
@@ -47,8 +58,12 @@
 <td><a href="../arquitetura/diagramas.html">diagrams/README.md</a></td>
 </tr>
 <tr>
+<td>Ver o webchat no site institucional e testar a interface</td>
+<td><a href="../demonstracao-e-testes/demo-site-local.html">demo local</a>, <a href="../demonstracao-e-testes/testes-visuais.html">testes visuais</a>, <a href="fase-5-5.html">relatório da Fase 5.5</a></td>
+</tr>
+<tr>
 <td>Subir o ambiente</td>
-<td><a href="../implantacao-e-operacao/setup-local.html">deployment/local-setup.md</a>, <a href="../implantacao-e-operacao/ambientes.html">environments.md</a></td>
+<td><a href="../implantacao-e-operacao/setup-local.html">deployment/local-setup.md</a>, <a href="../implantacao-e-operacao/ambientes.html">environments.md</a>, <a href="../implantacao-e-operacao/migrations-009-011.html">migrations 009–011</a></td>
 </tr>
 <tr>
 <td>Atualizar esta documentação</td>
@@ -100,7 +115,15 @@
 </tr>
 <tr>
 <td>Conectividade</td>
-<td>Existência de conexão WebSocket com heartbeat recente; sem ela a presença efetiva é <code>offline</code></td>
+<td>Existência de conexão WebSocket com heartbeat recente; sem ela a presença efetiva é <code>offline</code>. No console aparece no chip do topo, separada do controle de presença</td>
+</tr>
+<tr>
+<td>Loader</td>
+<td>Script <code>widget.js</code> do site cliente; cria o iframe do widget, calcula sua geometria pelo viewport do site e expõe <code>window.ViaVoipWebchat.open()/close()</code></td>
+</tr>
+<tr>
+<td><code>canChangeOwnActivity</code></td>
+<td>Campo de <code>GET /auth/me</code>: se a pessoa pode registrar a própria atividade (sempre verdadeiro para supervisão e administração)</td>
 </tr>
 <tr>
 <td>Atividade</td>
@@ -113,6 +136,22 @@
 <tr>
 <td>SM</td>
 <td>Sistema externo futuro; sem contrato definido</td>
+</tr>
+<tr>
+<td>Admin / Supervisor / Agente / Visitante</td>
+<td>Papéis: admin gere a empresa e vê tudo; supervisor acompanha setores e filas sob seu escopo e consulta qualidade desse escopo; agente atende as filas atribuídas; visitante conversa pelo widget</td>
+</tr>
+<tr>
+<td><code>requestId</code></td>
+<td>UUID de idempotência de um comando de gestão; o recibo vale 24 h</td>
+</tr>
+<tr>
+<td>SLA</td>
+<td>Limites de espera na fila e de primeira resposta, por fila e com vigência</td>
+</tr>
+<tr>
+<td><code>auth_epoch</code></td>
+<td>Contador da pessoa; sessão com época antiga deixa de valer</td>
 </tr>
 </tbody>
 </table>

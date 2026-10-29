@@ -37,6 +37,7 @@ Q "select json_build_object(
     where n.nspname='public' and c.relkind='r') r),
  'functions', (select json_agg(f order by f.name) from (
     select p.proname name, p.prosecdef secdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public') f)
+    where n.nspname='public'
+      and not exists (select 1 from pg_depend d where d.objid=p.oid and d.deptype='e')) f)
 )" | python3 -m json.tool > "$OUT"
 echo "schema extraído em $OUT"

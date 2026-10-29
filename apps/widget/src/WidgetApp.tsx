@@ -29,7 +29,8 @@ type Phase = 'loading' | 'error' | 'queues' | 'chat' | 'survey' | 'closed';
 export function WidgetApp() {
   const sitePublicId = new URLSearchParams(window.location.search).get('site') ?? '';
   const embedded = window.parent !== window;
-  const [panelOpen, setPanelOpen] = useState(true);
+  // Embutido, o widget nasce como botão: o iframe só cresce depois que a origem do site é validada.
+  const [panelOpen, setPanelOpen] = useState(!embedded);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState('');
   const [queues, setQueues] = useState<QueueSummary[]>([]);
@@ -65,14 +66,17 @@ export function WidgetApp() {
     }
   }, [settings]);
 
+  // Com origem validada, avisa o site. Sem ela, nada é enviado e o iframe fica do tamanho do botão.
+  useEffect(() => {
+    if (!embedded || !parentOrigin) return;
+    window.parent.postMessage({ source: WIDGET_SOURCE, type: 'ready' }, parentOrigin);
+  }, [embedded, parentOrigin]);
+
   useEffect(() => {
     if (!embedded || !parentOrigin) return;
     const frame = panelSize(panelOpen);
-    window.parent.postMessage({ source: WIDGET_SOURCE, type: 'ready' }, parentOrigin);
-    window.parent.postMessage(
-      { source: WIDGET_SOURCE, type: panelOpen ? 'open' : 'close' },
-      parentOrigin,
-    );
+    window.parent.postMessage({ source: WIDGET_SOURCE, type: panelOpen ? 'open' : 'close' }, parentOrigin);
+    // Tamanho nominal, só para loaders antigos: o loader atual calcula a geometria pelo viewport do site.
     window.parent.postMessage({ source: WIDGET_SOURCE, type: 'resize', width: frame.width, height: frame.height }, parentOrigin);
   }, [embedded, panelOpen, parentOrigin]);
 
@@ -85,12 +89,15 @@ export function WidgetApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [embedded, panelOpen]);
 
+  // O foco só volta ao botão depois de o painel ter sido aberto: ao carregar, o widget não rouba o foco do site.
+  const openedOnce = useRef(false);
   useEffect(() => {
     if (!embedded) return;
     if (!panelOpen) {
-      launcherRef.current?.focus();
+      if (openedOnce.current) launcherRef.current?.focus();
       return;
     }
+    openedOnce.current = true;
     (firstControlRef.current ?? closeRef.current)?.focus();
   }, [embedded, panelOpen, phase]);
 
@@ -173,6 +180,9 @@ export function WidgetApp() {
         if (disposed) return;
         const parent = authorizedParent(config.allowedOrigins, embedded);
         if (!parent) throw new Error('Este site não está autorizado a usar o webchat.');
+        // A origem validada vale antes de qualquer chamada de rede seguinte: um erro de sessão
+        // ainda pode ser mostrado no painel, e é a única origem para a qual postamos.
+        setParentOrigin(parent);
         let token = sessionStorage.getItem(tokenKey) ?? '';
         let nextQueues = config.queues;
         let nextSettings: WidgetSettings = config;
@@ -196,7 +206,6 @@ export function WidgetApp() {
         setQueues(nextQueues);
         setSettings(nextSettings);
         setAllowedOrigins(nextSettings.allowedOrigins);
-        setParentOrigin(parent);
         const storedConversation = sessionStorage.getItem(conversationKey);
         if (storedConversation) conversationRef.current = storedConversation;
         else setPhase('queues');
@@ -218,10 +227,9 @@ export function WidgetApp() {
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (!allowedOrigins.includes(event.origin)) return;
+      if (!embedded || event.source !== window.parent || event.origin !== parentOrigin) return;
       const parsed = parentToWidgetSchema.safeParse(event.data);
       if (!parsed.success) return;
-      setParentOrigin(event.origin);
       switch (parsed.data.type) {
         case 'open':
           setPanelOpen(true);
@@ -237,7 +245,7 @@ export function WidgetApp() {
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [allowedOrigins]);
+  }, [embedded, parentOrigin]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -334,19 +342,30 @@ export function WidgetApp() {
   const closedForNew = settings?.acceptingChats === false && phase === 'queues';
 
   if (embedded && !panelOpen) {
+    // Sem origem validada o iframe não pode crescer: o botão fica inerte em vez de abrir o painel dentro dele.
+    const available = parentOrigin !== null;
     return (
-      <button
-        ref={launcherRef}
-        className="launcher"
-        type="button"
-        data-testid="launcher"
-        aria-label="Abrir atendimento"
-        aria-expanded={false}
-        aria-controls="webchat-panel"
-        onClick={() => setPanelOpen(true)}
-      >
-        Chat
-      </button>
+      <div className="launcher-frame">
+        <button
+          ref={launcherRef}
+          className="launcher"
+          type="button"
+          data-testid="launcher"
+          aria-label={available ? 'Abrir atendimento' : 'Atendimento indisponível neste site'}
+          aria-expanded={false}
+          aria-controls="webchat-panel"
+          disabled={!available}
+          onClick={() => setPanelOpen(true)}
+        >
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+            <path
+              fill="currentColor"
+              d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4.3 3.6A.8.8 0 0 1 3.4 20V17.4A2 2 0 0 1 2 15.5V6a2 2 0 0 1 2-2Z"
+            />
+          </svg>
+          <span className="sr-only">Chat</span>
+        </button>
+      </div>
     );
   }
 
@@ -358,7 +377,7 @@ export function WidgetApp() {
       aria-modal={embedded ? true : undefined}
       aria-labelledby="webchat-title"
     >
-      <header>
+      <header className="panel__head">
         <div>
           {settings?.logoUrl?.startsWith('https://') ? (
             <img className="logo" src={settings.logoUrl} alt="" />
@@ -373,121 +392,123 @@ export function WidgetApp() {
           </button>
         ) : null}
       </header>
-      {error ? <p className="error">{error}</p> : null}
-      {phase === 'loading' ? <p className="muted">Conectando…</p> : null}
-      {closedForNew ? (
-        <p data-testid="unavailable">{settings?.welcomeMessage} O atendimento está fechado no momento.</p>
-      ) : null}
-      {phase === 'queues' && !closedForNew ? (
-        <section data-testid="queue-list">
-          <p>{settings?.welcomeMessage ?? 'Escolha uma fila para começar.'}</p>
-          {nameRequired ? (
-            <label>
-              Seu nome
-              <input
-                ref={(node) => {
-                  firstControlRef.current = node;
-                }}
-                data-testid="visitor-name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                maxLength={80}
-                required
-              />
-            </label>
-          ) : null}
-          <div className="stack">
-            {queues.map((queue, index) => (
-              <button
-                key={queue.id}
-                ref={
-                  nameRequired || index > 0
-                    ? undefined
-                    : (node) => {
-                        firstControlRef.current = node;
-                      }
-                }
-                type="button"
-                data-testid="queue-option"
-                disabled={nameMissing}
-                onClick={() => void startQueue(queue.id)}
-              >
-                {queue.name}
+      <div className="panel__body">
+        {error ? <p className="error" role="alert">{error}</p> : null}
+        {phase === 'loading' ? <p className="muted">Conectando…</p> : null}
+        {closedForNew ? (
+          <p data-testid="unavailable">{settings?.welcomeMessage} O atendimento está fechado no momento.</p>
+        ) : null}
+        {phase === 'queues' && !closedForNew ? (
+          <section data-testid="queue-list">
+            <p>{settings?.welcomeMessage ?? 'Escolha uma fila para começar.'}</p>
+            {nameRequired ? (
+              <label>
+                Seu nome
+                <input
+                  ref={(node) => {
+                    firstControlRef.current = node;
+                  }}
+                  data-testid="visitor-name"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  maxLength={80}
+                  required
+                />
+              </label>
+            ) : null}
+            <div className="stack">
+              {queues.map((queue, index) => (
+                <button
+                  key={queue.id}
+                  ref={
+                    nameRequired || index > 0
+                      ? undefined
+                      : (node) => {
+                          firstControlRef.current = node;
+                        }
+                  }
+                  type="button"
+                  data-testid="queue-option"
+                  disabled={nameMissing}
+                  onClick={() => void startQueue(queue.id)}
+                >
+                  {queue.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        {phase === 'chat' && conversation ? (
+          <section className="chat">
+            <p className="muted">
+              {conversation.queueName} · {label(conversation.status)}
+              {conversation.status === 'queued' && position ? ` · Posição ${position}` : ''}
+            </p>
+            {conversation.status === 'queued' ? (
+              <button data-testid="leave" type="button" onClick={() => void leaveQueue()}>
+                Sair da fila
               </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {phase === 'chat' && conversation ? (
-        <section className="chat">
-          <p className="muted">
-            {conversation.queueName} · {label(conversation.status)}
-            {conversation.status === 'queued' && position ? ` · Posição ${position}` : ''}
-          </p>
-          {conversation.status === 'queued' ? (
-            <button data-testid="leave" type="button" onClick={() => void leaveQueue()}>
-              Sair da fila
-            </button>
-          ) : null}
-          <div className="messages" ref={listRef}>
-            {messages.map((message) => (
-              <article key={message.id} data-testid="message" className={message.senderType}>
-                <p>{message.body}</p>
-              </article>
-            ))}
-          </div>
+            ) : null}
+            <div className="messages" ref={listRef}>
+              {messages.map((message) => (
+                <article key={message.id} data-testid="message" className={message.senderType}>
+                  <p>{message.body}</p>
+                </article>
+              ))}
+            </div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendMessage();
+              }}
+            >
+              <input
+                data-testid="composer"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Escreva sua mensagem"
+                maxLength={4000}
+              />
+              <button data-testid="send" type="submit">
+                Enviar
+              </button>
+            </form>
+          </section>
+        ) : null}
+        {phase === 'survey' && survey ? (
           <form
+            className="stack"
+            data-testid="survey"
             onSubmit={(event) => {
               event.preventDefault();
-              void sendMessage();
+              void submitSurvey();
             }}
           >
-            <input
-              data-testid="composer"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Escreva sua mensagem"
-              maxLength={4000}
-            />
-            <button data-testid="send" type="submit">
-              Enviar
-            </button>
+            <p>{survey.prompt}</p>
+            <div className="scores">
+              {Array.from({ length: survey.scale }, (_, index) => index + 1).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={value === score ? 'selected' : ''}
+                  onClick={() => setScore(value)}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+            {survey.commentEnabled ? (
+              <textarea
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                placeholder="Comentário opcional"
+              />
+            ) : null}
+            <button type="submit">Enviar avaliação</button>
           </form>
-        </section>
-      ) : null}
-      {phase === 'survey' && survey ? (
-        <form
-          className="stack"
-          data-testid="survey"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submitSurvey();
-          }}
-        >
-          <p>{survey.prompt}</p>
-          <div className="scores">
-            {Array.from({ length: survey.scale }, (_, index) => index + 1).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={value === score ? 'selected' : ''}
-                onClick={() => setScore(value)}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-          {survey.commentEnabled ? (
-            <textarea
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-              placeholder="Comentário opcional"
-            />
-          ) : null}
-          <button type="submit">Enviar avaliação</button>
-        </form>
-      ) : null}
-      {phase === 'closed' ? <p data-testid="closed">Atendimento encerrado. Obrigado pela avaliação.</p> : null}
+        ) : null}
+        {phase === 'closed' ? <p data-testid="closed" className="notice">Atendimento encerrado. Obrigado pela avaliação.</p> : null}
+      </div>
     </main>
   );
 }

@@ -7,15 +7,31 @@
 <body>
 <article>
 <h1 id="central-do-supervisor" tabindex="-1">Central do Supervisor</h1>
-<p>Namespace <code>/supervisor</code> (papéis <code>supervisor</code> e <code>admin</code>). Seções do console: Visão geral, Agentes, Setores, Atendimentos, Atividades, Anúncios, Chat interno.</p>
+<p>Namespace <code>/supervisor</code> (papéis <code>supervisor</code> e <code>admin</code>). Seções do console: Visão geral, Agentes, <strong>Qualidade</strong>, Setores, Atendimentos, Atividades, Anúncios, Chat interno. O administrador tem ainda <strong>Administração</strong> (<a href="../gestao-administrativa/papeis-e-permissoes.html">gestão administrativa</a>).</p>
 <h2 id="indicadores-(supervisor.snapshot-%7B-from%3F%2C-to%3F-%7D-e-supervisor.metrics)" tabindex="-1">Indicadores (<code>supervisor.snapshot { from?, to? }</code> e <code>supervisor.metrics</code>)</h2>
 <p>conectados, disponíveis, ocupados, ausentes, offline, em espera, em atendimento, aguardando pesquisa, atividades, maior espera (<code>longestWaitSeconds</code>) e encerrados no período (<code>closedInPeriod</code>). O servidor empurra <code>supervisor.metrics</code> a cada mudança.</p>
 <h2 id="escopo-de-acesso" tabindex="-1">Escopo de acesso</h2>
 <p>Supervisores acessam agentes de seus setores e atendimentos das filas vinculadas por <code>sector_queues</code>. Listas, histórico, métricas, transferências e eventos respeitam esse escopo; administradores têm escopo do tenant.</p>
 <h2 id="opera%C3%A7%C3%B5es" tabindex="-1">Operações</h2>
 <p>Monitorar: <code>conversation.list</code>, <code>conversation.watch</code> (grava auditoria), <code>history.sync</code>. Atuar: <code>conversation.transfer</code> para fila autorizada. Não envia mensagens nem encerra atendimentos. Gestão de setores, atividades e anúncios segue as permissões de cada módulo.</p>
+<h2 id="painel-ao-vivo-%C3%97-qualidade" tabindex="-1">Painel ao vivo × Qualidade</h2>
+<p>O painel ao vivo (<code>supervisor.snapshot</code>/<code>supervisor.metrics</code>, atendimentos supervisionados e escopo por setor/fila) é da <strong>Fase 4</strong> e não mudou na Fase 5. A seção <strong>Qualidade</strong> é da Fase 5: relatório histórico (<code>GET /quality/report</code>) com percentis, abandonos e cobertura de primeira resposta. O supervisor consulta só setor ou fila sob sua supervisão; o escopo da empresa é do administrador. Ver <a href="../qualidade-operacional/relatorio-de-qualidade.html">Relatório de qualidade</a>.</p>
 <h2 id="auditoria" tabindex="-1">Auditoria</h2>
-<p><code>audit_events</code> registra <code>conversation.watch</code>, <code>sector.*</code>, <code>announcement.*</code> e <code>activity.*</code> (ator, ação, recurso, metadados). O código não oferece consulta/tela de auditoria identificada.</p>
+<p><code>audit_events</code> registra <code>conversation.watch</code>, <code>sector.*</code>, <code>announcement.*</code> e <code>activity.*</code> (ator, ação, recurso, metadados). A consulta (<code>GET /audit/events</code>) existe desde a Fase 5, mas é <strong>exclusiva do administrador</strong>; o supervisor não a acessa. Ver <a href="../gestao-administrativa/auditoria.html">Auditoria</a>.</p>
+<h2 id="interface-(fase-5.5)" tabindex="-1">Interface (Fase 5.5)</h2>
+<p>Fontes: <code>apps/console/src/supervisor/</code> (<code>OverviewPanel.tsx</code>, <code>agents.ts</code>) e <code>apps/console/src/quality/</code>.</p>
+<ul>
+<li><strong>Visão geral</strong>: cartões agrupados em <em>Presença</em>, <em>Fila</em> e <em>Operação</em>, com ícone, cor semântica e dica (<code>title</code>). &quot;Maior espera&quot; mostra &quot;—&quot; quando o servidor devolve <code>null</code> (ninguém na fila) e &quot;0 s&quot; quando é zero. &quot;Atualizado às&quot; usa o <code>generatedAt</code> do servidor.</li>
+<li><strong>Agentes</strong>: tabela com badges separados de <strong>Presença</strong> e <strong>Conectividade</strong>.</li>
+<li><strong>Qualidade</strong>: tela do relatório histórico, descrita abaixo e em <a href="../qualidade-operacional/relatorio-de-qualidade.html">Relatório de qualidade</a>.</li>
+</ul>
+<h3 id="tela-de-qualidade" tabindex="-1">Tela de Qualidade</h3>
+<ul>
+<li><strong>Escopo</strong>: seletor com as opções permitidas ao papel. O administrador vê <em>Toda a empresa</em>, os setores ativos e as filas. O supervisor vê apenas os setores ativos em que é responsável e as filas disponíveis para ele; <strong>nunca</strong> a empresa. O espelho do servidor é <code>assertSupervisorQualityScope</code>; o servidor continua sendo a autoridade.</li>
+<li><strong>Período</strong>: campos <em>De</em> e <em>Até</em> (fuso local) com atalhos de 24 h, 7 dias (padrão) e 31 dias. O limite é de <strong>31 dias</strong>: períodos maiores, invertidos ou vazios desabilitam &quot;Gerar relatório&quot; e mostram o motivo. O servidor rejeita períodos acima de 31 dias; o cliente repete o valor porque <code>MAX_QUALITY_WINDOW_MS</code> não é exportado pelo pacote de protocolo.</li>
+<li><strong>Conteúdo</strong>: cartões de tempo (espera na fila, primeira resposta e TMA, com amostras, p50 e p90), abandonos, cobertura de primeira resposta, atendimentos classificados, pesquisa de satisfação, cumprimento de SLA e presença dos agentes no período.</li>
+<li>Usa somente <code>GET /quality/report</code>; sem escopo disponível, mostra &quot;Nenhum escopo disponível&quot;.</li>
+</ul>
 </article>
 </body>
 </html>

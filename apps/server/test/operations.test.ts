@@ -1,4 +1,4 @@
-import { activityAssignmentAckSchema, activityHistoryAckSchema, presenceAckSchema } from '@viavoip/protocol';
+import { activityAssignmentAckSchema, activityHistoryAckSchema, authMeSchema, presenceAckSchema } from '@viavoip/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { withTenant } from '../src/db/tenant.js';
 import { demoAccounts, demoIds, demoPassword } from '../src/demo/ids.js';
@@ -94,6 +94,21 @@ describe('presença e atividades', () => {
     sofia.disconnect();
     ana.disconnect();
     diana.disconnect();
+  });
+
+  it('informa no perfil quem pode registrar a própria atividade', async () => {
+    const expected = [
+      [demoAccounts.ana, false],
+      [demoAccounts.diana, true],
+      [demoAccounts.sofia, true],
+      [demoAccounts.otavio, true],
+    ] as const;
+    for (const [email, allowed] of expected) {
+      const session = await login(app.baseUrl, email, demoPassword);
+      const response = await fetch(`${app.baseUrl}/auth/me`, { headers: { authorization: `Bearer ${session.token}` } });
+      expect(response.status).toBe(200);
+      expect(authMeSchema.parse(await response.json()).canChangeOwnActivity).toBe(allowed);
+    }
   });
 
   it('não deixa duas alocações ativas para o mesmo agente', async () => {

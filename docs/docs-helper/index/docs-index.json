@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "ViaVoip Webchat",
-    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 4."
+    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 5.5 (commit 3d9e2cf): console redesenhado, widget corrigido, administração e qualidade."
   },
   "documents": [
     {
@@ -20,6 +20,12 @@
           "slug": "status",
           "type": "page",
           "file": "html/visao-geral/status.html"
+        },
+        {
+          "title": "Fase 5.5: relatório de entrega",
+          "slug": "fase-5-5",
+          "type": "page",
+          "file": "html/visao-geral/fase-5-5.html"
         }
       ]
     },
@@ -101,6 +107,31 @@
           "slug": "widget",
           "type": "page",
           "file": "html/widget-chatweb/widget.html"
+        },
+        {
+          "title": "Geometria e correção do recorte",
+          "slug": "geometria",
+          "type": "page",
+          "file": "html/widget-chatweb/geometria.html"
+        }
+      ]
+    },
+    {
+      "title": "Interface do Console",
+      "slug": "interface-do-console",
+      "type": "module",
+      "children": [
+        {
+          "title": "Navegação por papel, conectividade e presença",
+          "slug": "navegacao-e-papeis",
+          "type": "page",
+          "file": "html/interface-do-console/navegacao-e-papeis.html"
+        },
+        {
+          "title": "Design system ViaVoip",
+          "slug": "design-system",
+          "type": "page",
+          "file": "html/interface-do-console/design-system.html"
         }
       ]
     },
@@ -176,6 +207,68 @@
       ]
     },
     {
+      "title": "Gestão Administrativa",
+      "slug": "gestao-administrativa",
+      "type": "module",
+      "children": [
+        {
+          "title": "Papéis e permissões",
+          "slug": "papeis-e-permissoes",
+          "type": "page",
+          "file": "html/gestao-administrativa/papeis-e-permissoes.html"
+        },
+        {
+          "title": "Configuração por empresa",
+          "slug": "configuracao-por-empresa",
+          "type": "page",
+          "file": "html/gestao-administrativa/configuracao-por-empresa.html"
+        },
+        {
+          "title": "Painel de administração",
+          "slug": "painel-de-administracao",
+          "type": "page",
+          "file": "html/gestao-administrativa/painel-de-administracao.html"
+        },
+        {
+          "title": "Comandos idempotentes",
+          "slug": "comandos-idempotentes",
+          "type": "page",
+          "file": "html/gestao-administrativa/comandos-idempotentes.html"
+        },
+        {
+          "title": "Auditoria",
+          "slug": "auditoria",
+          "type": "page",
+          "file": "html/gestao-administrativa/auditoria.html"
+        },
+        {
+          "title": "Revogação de sessão",
+          "slug": "revogacao-de-sessao",
+          "type": "page",
+          "file": "html/gestao-administrativa/revogacao-de-sessao.html"
+        }
+      ]
+    },
+    {
+      "title": "Qualidade Operacional",
+      "slug": "qualidade-operacional",
+      "type": "module",
+      "children": [
+        {
+          "title": "Política de SLA",
+          "slug": "politica-de-sla",
+          "type": "page",
+          "file": "html/qualidade-operacional/politica-de-sla.html"
+        },
+        {
+          "title": "Relatório de qualidade",
+          "slug": "relatorio-de-qualidade",
+          "type": "page",
+          "file": "html/qualidade-operacional/relatorio-de-qualidade.html"
+        }
+      ]
+    },
+    {
       "title": "Central do Supervisor",
       "slug": "central-do-supervisor",
       "type": "module",
@@ -202,6 +295,25 @@
       ]
     },
     {
+      "title": "Demonstração e Testes",
+      "slug": "demonstracao-e-testes",
+      "type": "module",
+      "children": [
+        {
+          "title": "Demo local no site institucional",
+          "slug": "demo-site-local",
+          "type": "page",
+          "file": "html/demonstracao-e-testes/demo-site-local.html"
+        },
+        {
+          "title": "Testes visuais",
+          "slug": "testes-visuais",
+          "type": "page",
+          "file": "html/demonstracao-e-testes/testes-visuais.html"
+        }
+      ]
+    },
+    {
       "title": "Implantação e Operação",
       "slug": "implantacao-e-operacao",
       "type": "module",
@@ -211,6 +323,12 @@
           "slug": "ambientes",
           "type": "page",
           "file": "html/implantacao-e-operacao/ambientes.html"
+        },
+        {
+          "title": "Migrations 009 a 011",
+          "slug": "migrations-009-011",
+          "type": "page",
+          "file": "html/implantacao-e-operacao/migrations-009-011.html"
         },
         {
           "title": "Setup local",

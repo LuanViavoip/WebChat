@@ -7,6 +7,7 @@
 <body>
 <article>
 <h1 id="valida%C3%A7%C3%A3o" tabindex="-1">Validação</h1>
+<p><strong>Atualização de 29 de outubro de 2026 (Fase 5.5, commit <code>3d9e2cf</code>).</strong> <code>pnpm test</code> na raiz passou com <strong>192 testes</strong>: protocol 11, adaptador SM 2, widget 18, console 61 e servidor 100 (25 arquivos, com PostgreSQL de Testcontainers). <code>pnpm build</code> terminou sem erros. Em containers descartáveis, <code>scripts/verify-browser.mjs</code> terminou com saída 0 e <code>scripts/verify-visual.mjs</code> registrou 155 verificações, 0 falhas e 0 erros de console, em cinco viewports (<a href="../demonstracao-e-testes/testes-visuais.html">Testes visuais</a>). Ainda não há suíte de componentes React nem E2E no CI; os scripts de navegador são executados manualmente. A tabela abaixo é o registro histórico da Fase 4.</p>
 <p>Estado de trabalho verificado em 27 de outubro de 2026. O responsável executou <code>pnpm test</code> em terminal com Docker, usando PostgreSQL e Redis descartáveis. O comando terminou com saída 0.</p>
 <table>
 <thead>
@@ -39,7 +40,7 @@
 </tbody>
 </table>
 <p>Os testes incluem comunicação interna e logout entre réplicas via Redis. O teste de falha após commit confirma que o retry idempotente não reenvia o evento: não existe garantia de entrega durável. Não há suíte E2E de navegador. Build e checagem de tipos também passaram na sessão de revisão.</p>
-<p>O dicionário foi regenerado após aplicar as oito migrations em PostgreSQL descartável. Ver <a href="manutencao.html">MAINTENANCE.md</a>.</p>
+<p>O dicionário foi regenerado após aplicar as onze migrations em PostgreSQL descartável. Ver <a href="manutencao.html">MAINTENANCE.md</a>.</p>
 </article>
 </body>
 </html>

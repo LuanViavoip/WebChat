@@ -16,6 +16,10 @@
 
 O pacote com as correções e os 62 testes foi reimportado no sistema existente. A prévia indicou 36 documentos, 15 imagens, nenhum erro e nenhum documento removido. A página de status publicada foi conferida e registra a limitação de entrega pós-commit. SHA-256 do pacote: `10d0d2d02443f581c24990eec53b27129d0512902007372b5c83fe5cb58e5d13`. A integração com a main do Git ainda estava pendente quando o pacote foi publicado.
 
+## Pendente — reimportação da Fase 5.5 (2026-10-29)
+
+O site de teste ainda mostra o conteúdo até a Fase 4. O pacote com Fase 5 e Fase 5.5 (código documentado: `3d9e2cf`) é gerado por `node scripts/docs/build.mjs`, que escreve `docs/docs-helper/dist/viavoip-webchat-docs.zip`, e **não foi importado**. O repositório da plataforma (`LuanViavoip/viavoip_docs`) não guarda as páginas do WebChat; o conteúdo vive no banco do site e entra só por `/admin/import`, com sessão administrativa. Passos: [MAINTENANCE.md](../MAINTENANCE.md), itens 8 e 9. A reimportação substitui a árvore inteira do sistema "ViaVoip Webchat". O risco de leitura anônima descrito abaixo continua valendo.
+
 ## Divergência histórica da publicação anterior
 
 O commit `02a446c` (WIP de terceiros) alterou `docs/deployment/environments.md` e `docs/local-development.md`. O `html/` e o ZIP gerados a partir de `HEAD` já refletem essa mudança em `ambientes.html`, **mas a versão publicada não**: a página "Ambientes" no Docs Helper é a do commit `72e7d08`. O sha256 acima é o do ZIP publicado; o ZIP regenerado de `HEAD` é diferente. Reimporte quando o WIP for validado e integrado.

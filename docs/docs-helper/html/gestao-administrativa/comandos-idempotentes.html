@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Comandos idempotentes — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="comandos-idempotentes" tabindex="-1">Comandos idempotentes</h1>
+<p>Código de referência: <code>02f5373</code>. Fontes: <code>apps/server/src/modules/company-receipt.ts</code>, <code>packages/protocol/src/company.ts</code>, migrations <code>009</code> e <code>010</code>.</p>
+<h2 id="envelope" tabindex="-1">Envelope</h2>
+<p><code>POST /company/commands</code> recebe <code>{ requestId, command }</code>, onde <code>requestId</code> é um UUID gerado pelo cliente e <code>command</code> é um dos comandos discriminados por <code>kind</code> (por exemplo <code>agent.suspend</code>, <code>site.origins_replace</code>, <code>sla.publish</code>). O corpo é estrito: campos extras são recusados. A resposta traz o painel atualizado (<code>desk</code>) e o recibo <code>{ requestId, replayed, appliedAt }</code>.</p>
+<h2 id="como-funciona" tabindex="-1">Como funciona</h2>
+<p>Cada comando roda em uma transação do tenant (<code>withTenant</code>) e passa por <code>withCommandReceipt</code>:</p>
+<ol>
+<li>Adquire um lock consultivo de transação por <code>tenantId:actorId:requestId</code>. Se outro processo já o detém, a resposta é <code>conflict</code> (&quot;Comando em andamento&quot;).</li>
+<li>Apaga os recibos expirados do mesmo ator.</li>
+<li>Procura um recibo para <code>(tenant, ator, requestId)</code>.
+<ul>
+<li><strong>Existe e o conteúdo é o mesmo</strong> (hash SHA-256 do JSON canônico do comando): devolve <code>replayed: true</code> com o <code>appliedAt</code> original, sem reaplicar.</li>
+<li><strong>Existe com outro conteúdo</strong>: <code>conflict</code> (&quot;Comando já usado com outro conteúdo&quot;).</li>
+<li><strong>Existe sem ter sido aplicado</strong>: <code>conflict</code> (&quot;Comando em andamento&quot;).</li>
+</ul>
+</li>
+<li>Não existe: grava o recibo <code>in_flight</code>, executa o comando, marca <code>applied</code> e devolve <code>replayed: false</code>.</li>
+</ol>
+<p>Como recibo e efeito estão na mesma transação, uma falha desfaz os dois e o cliente pode repetir o mesmo <code>requestId</code>.</p>
+<h2 id="reten%C3%A7%C3%A3o" tabindex="-1">Retenção</h2>
+<p>O recibo vive <strong>24 horas</strong> (<code>expires_at</code>, coluna da migration 010, padrão <code>now() + 24 h</code>). Depois disso o mesmo <code>requestId</code> é tratado como comando novo. A limpeza é feita na própria chamada do mesmo ator, não por rotina agendada. A migration 010 concede <code>DELETE</code> na tabela ao papel <code>webchat_app</code> e cria o índice <code>company_command_receipts_expiry</code>.</p>
+<h2 id="tabela-company_command_receipts" tabindex="-1">Tabela <code>company_command_receipts</code></h2>
+<p>Chave primária <code>(tenant_id, actor_id, request_id)</code>, <code>command_kind</code>, <code>payload_hash</code> (64 hexadecimais), <code>status</code> (<code>in_flight</code> ou <code>applied</code>), <code>applied_at</code>, <code>created_at</code>, <code>expires_at</code>. RLS forçada por tenant e trigger que recusa ator de outra empresa.</p>
+<h2 id="revoga%C3%A7%C3%A3o-junto-do-comando" tabindex="-1">Revogação junto do comando</h2>
+<p>Comandos que mudam o acesso de uma pessoa devolvem à rota a lista de sessões removidas, e a rota desconecta os sockets correspondentes depois do commit (<a href="revogacao-de-sessao.html">Revogação de sessão</a>). O <code>replayed: true</code> não repete esse efeito.</p>
+<h2 id="reaproveitamento-do-requestid-no-console-(fase-5.5)" tabindex="-1">Reaproveitamento do <code>requestId</code> no console (Fase 5.5)</h2>
+<p>O console guarda o <code>requestId</code> da tentativa lógica: ao reenviar o <strong>mesmo conteúdo</strong> depois de falha de rede ou timeout, reaproveita o id e o servidor devolve <code>replayed: true</code>. O id muda após sucesso, recusa definitiva, alteração do conteúdo ou fechamento do formulário. Ver <a href="painel-de-administracao.html">Painel de administração</a>.</p>
+</article>
+</body>
+</html>

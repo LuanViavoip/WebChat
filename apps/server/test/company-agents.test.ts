@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { authMeSchema } from '@viavoip/protocol';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SessionService } from '../src/auth/sessions.js';
@@ -98,6 +99,19 @@ describe('pessoas e revogação', () => {
     const session = await login(app.baseUrl, 'nova@tenant-a.local', 'senha-inicial-12');
     expect(session.role).toBe('agent');
     const agentId = people[0]?.agentId ?? '';
+    const profileOf = async (token: string) => {
+      const response = await fetch(`${app.baseUrl}/auth/me`, { headers: { authorization: `Bearer ${token}` } });
+      expect(response.status).toBe(200);
+      return authMeSchema.parse(await response.json());
+    };
+    expect((await profileOf(session.token)).canChangeOwnActivity).toBe(false);
+    const granted = await service().apply(otavio, {
+      requestId: randomUUID(),
+      command: { kind: 'agent.activity_authority', agentId, activityAuthority: { kind: 'self_service' } },
+    });
+    expect(granted.revokedSessionIds.length).toBeGreaterThan(0);
+    const regranted = await login(app.baseUrl, 'nova@tenant-a.local', 'senha-inicial-12');
+    expect((await profileOf(regranted.token)).canChangeOwnActivity).toBe(true);
     await service().apply(otavio, {
       requestId: randomUUID(),
       command: { kind: 'agent.suspend', agentId, reason: 'afastamento' },

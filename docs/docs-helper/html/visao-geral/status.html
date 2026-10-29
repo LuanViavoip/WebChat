@@ -6,8 +6,8 @@
 </head>
 <body>
 <article>
-<h1 id="status-de-implementa%C3%A7%C3%A3o-%E2%80%94-fase-4" tabindex="-1">Status de implementação — Fase 4</h1>
-<p>Estado verificado em 27 de outubro de 2026. O teste integrado fornecido pelo responsável terminou com 62 testes passando, incluindo PostgreSQL e Redis descartáveis. Isso não comprova entrega durável após falhas nem constitui aprovação irrestrita para produção.</p>
+<h1 id="status-de-implementa%C3%A7%C3%A3o-%E2%80%94-fase-5.5" tabindex="-1">Status de implementação — Fase 5.5</h1>
+<p>Código de referência: commit <code>3d9e2cf</code> (Fase 5.5: redesign do console, correção do widget e demo no site), sobre a Fase 5 (<code>02f5373</code>, PR #2 na <code>main</code>). Última execução completa em 29 de outubro de 2026, com PostgreSQL e Redis descartáveis: <code>pnpm test</code> com <strong>192 testes aprovados</strong> (protocol 11, adaptador SM 2, widget 18, console 61, servidor 100), <code>pnpm build</code> sem erros, <code>scripts/verify-browser.mjs</code> com saída 0 e <code>scripts/verify-visual.mjs</code> com 155 verificações e 0 falhas (<a href="../demonstracao-e-testes/testes-visuais.html">Testes visuais</a>). Nada disso comprova entrega durável após falhas nem aprova o uso em produção.</p>
 <table>
 <thead>
 <tr>
@@ -30,7 +30,12 @@
 <tr>
 <td>Widget e central do agente</td>
 <td>Implementados e testados</td>
-<td>Filas, claim, transferência, encerramento, pesquisa e reconexão cobertos por testes existentes.</td>
+<td>Filas, claim, transferência, encerramento, pesquisa e reconexão cobertos por testes existentes. Fase 5.5: painel nasce fechado, geometria calculada pelo loader a partir do viewport do site, tela cheia até 640 px, <code>window.ViaVoipWebchat.open()/close()</code> e origem validada antes de criar sessão (<a href="../widget-chatweb/geometria.html">geometria e correção do recorte</a>).</td>
+</tr>
+<tr>
+<td>Interface do console</td>
+<td>Redesenhada na Fase 5.5</td>
+<td>Design system ViaVoip, menu lateral por papel, rotas por hash, conectividade separada da presença. Validada por testes de unidade e pelos scripts de navegador; sem suíte de componentes. Ver <a href="../interface-do-console/navegacao-e-papeis.html">Interface do console</a> e <a href="../interface-do-console/design-system.html">Design system</a>.</td>
 </tr>
 <tr>
 <td>Chat interno</td>
@@ -55,7 +60,32 @@
 <tr>
 <td>Redis</td>
 <td>Implementado e testado</td>
-<td>Testes de entrega interna e logout entre duas instâncias com Redis descartável.</td>
+<td>Entrega interna e logout entre duas instâncias com Redis descartável. Obrigatório com mais de uma réplica (<code>REPLICAS</code> &gt; 1).</td>
+</tr>
+<tr>
+<td>Gestão administrativa</td>
+<td>Implementado e testado</td>
+<td>Painel da empresa com oito seções, comandos idempotentes com recibo de 24 h (o console reaproveita o <code>requestId</code> ao reenviar o mesmo conteúdo), fuso, sites que nascem pausados e janelas de atendimento; exclusivo do administrador. <code>GET /auth/me</code> expõe <code>canChangeOwnActivity</code>. Ver <a href="../gestao-administrativa/painel-de-administracao.html">Painel de administração</a> e <a href="../gestao-administrativa/papeis-e-permissoes.html">Papéis e permissões</a>.</td>
+</tr>
+<tr>
+<td>Qualidade operacional</td>
+<td>Implementado e testado</td>
+<td>Políticas de SLA por fila (com histórico de versões no console) e relatório histórico (p50/p90, abandonos, cobertura de primeira resposta, pesquisa, presença), com período de até 31 dias e escopo por papel. Ver <a href="../qualidade-operacional/politica-de-sla.html">Política de SLA</a>.</td>
+</tr>
+<tr>
+<td>Demo no site institucional</td>
+<td>Local, não publicada</td>
+<td>O widget roda em <code>Site_ViaVoip</code> (porta 3100) com <code>scripts/demo/populate.mjs</code> para dados de demonstração. Não há hospedagem nem HTTPS; ver <a href="../demonstracao-e-testes/demo-site-local.html">Demo local</a>.</td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td>Implementado e testado</td>
+<td>Consulta paginada por cursor, só para administrador; escrita e consulta cobrem as ações de gestão.</td>
+</tr>
+<tr>
+<td>Revogação de sessão</td>
+<td>Implementado e testado</td>
+<td>Disconnect direto, Redis, <code>NOTIFY</code> e varredura em lote (padrão 10 s, teto 15 s). Ver <a href="../gestao-administrativa/revogacao-de-sessao.html">Revogação de sessão</a>.</td>
 </tr>
 <tr>
 <td>Entrega durável de eventos / SM</td>
@@ -70,7 +100,9 @@
 </tbody>
 </table>
 <h2 id="auditoria-e-limita%C3%A7%C3%B5es" tabindex="-1">Auditoria e limitações</h2>
-<p>Os achados originais são históricos; as correções e seus limites estão em FASE4_REVIEW_POS_CORRECOES.md. A suíte passou, porém não substitui testes E2E em navegador nem validação de falha de infraestrutura em produção. A entrega pós-commit continua sem garantia durável (F4-07). Revogação entre réplicas exige Redis; a coordenação de mensagens de grupo requer PostgreSQL compartilhado. Eventos autorizados antes da remoção podem chegar posteriormente por atraso de transporte.</p>
+<p>As migrations 009 a 011 (<a href="../implantacao-e-operacao/migrations-009-011.html">resumo</a>) acrescentam tabelas, colunas e a função de varredura de sessões. Os achados originais da Fase 4 são históricos; as correções e seus limites estão em FASE4_REVIEW_POS_CORRECOES.md. A suíte passou, porém não substitui testes E2E em navegador nem validação de falha de infraestrutura em produção. A entrega pós-commit continua sem garantia durável (F4-07). Revogação entre réplicas exige Redis; a coordenação de mensagens de grupo requer PostgreSQL compartilhado. Eventos autorizados antes da remoção podem chegar posteriormente por atraso de transporte.</p>
+<h2 id="pend%C3%AAncias-conhecidas-da-fase-5.5" tabindex="-1">Pendências conhecidas da Fase 5.5</h2>
+<p><code>MAX_QUALITY_WINDOW_MS</code> não é exportado pelo pacote de protocolo (o console repete 31 dias); o schema de <code>resize</code> do protocolo não tem campo de modo; a seleção de responsáveis de setor parte de pessoas já listadas, pois não há endpoint que liste todas; <code>verify-browser.mjs</code> exige containers recém-criados. Lista completa no <a href="fase-5-5.html">relatório da Fase 5.5</a>.</p>
 </article>
 </body>
 </html>
