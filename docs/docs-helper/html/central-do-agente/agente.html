@@ -7,9 +7,9 @@
 <body>
 <article>
 <h1 id="central-do-agente" tabindex="-1">Central do Agente</h1>
-<p>Console em <code>/console/</code> (<code>apps/console</code>), namespace WebSocket <code>/agent</code>.</p>
+<p>Console em <code>/console/</code> (<code>apps/console</code>), namespace WebSocket <code>/agent</code>. A interface foi redesenhada na Fase 5.5 sobre o <a href="../interface-do-console/design-system.html">design system ViaVoip</a>; a navegação por papel e a diferença entre conectividade e presença estão em <a href="../interface-do-console/navegacao-e-papeis.html">Interface do console</a>.</p>
 <h2 id="autentica%C3%A7%C3%A3o" tabindex="-1">Autenticação</h2>
-<p><code>POST /auth/login { email, password }</code> → <code>{ token, role, name }</code>; <code>GET /auth/me</code> devolve <code>selfId</code>, filas, classificações e <code>maxConcurrentAssignments</code>; <code>POST /auth/logout</code> apaga a sessão. Login usa limite por IP e conta compartilhado no PostgreSQL. Logout e expiração encerram sockets; revogação entre réplicas exige Redis.</p>
+<p><code>POST /auth/login { email, password }</code> → <code>{ token, role, name }</code>; <code>GET /auth/me</code> devolve <code>selfId</code>, nome, papel, filas, classificações, <code>maxConcurrentAssignments</code> e <code>canChangeOwnActivity</code> (Fase 5.5: se a pessoa pode registrar a própria atividade; ver <a href="../gestao-administrativa/painel-de-administracao.html">Painel de administração</a>); <code>POST /auth/logout</code> apaga a sessão. Login usa limite por IP e conta compartilhado no PostgreSQL. Logout e expiração encerram sockets; revogação entre réplicas exige Redis.</p>
 <h2 id="filas-autorizadas" tabindex="-1">Filas autorizadas</h2>
 <p><code>agent_queues</code> define as filas do agente. <code>queue.subscribe</code> entra nas salas dessas filas. Ler um atendimento <code>queued</code> exige estar na fila; um atendimento <code>assigned</code> só é visível ao agente dono.</p>
 <h2 id="atendimentos-simult%C3%A2neos" tabindex="-1">Atendimentos simultâneos</h2>
@@ -50,6 +50,18 @@
 <p><code>queued → assigned → awaiting_survey → closed</code>; <code>release</code> e <code>transfer</code> voltam a <code>queued</code>; <code>leave</code> (visitante) leva <code>queued</code> a <code>closed</code>. Diagrama: attendance-states.</p>
 <h2 id="permiss%C3%B5es" tabindex="-1">Permissões</h2>
 <p>Agentes não publicam anúncios, não gerem setores/tipos de atividade e não enviam mensagens como supervisor. Ver <a href="../visao-geral/status.html">STATUS.md</a>.</p>
+<h2 id="interface-da-central-(fase-5.5)" tabindex="-1">Interface da Central (Fase 5.5)</h2>
+<p>Seção <strong>Atendimentos</strong> do menu lateral. Fontes: <code>apps/console/src/desk/</code> (<code>Desk.tsx</code>, <code>QueueColumn.tsx</code>, <code>ConversationPane.tsx</code>, <code>DetailColumn.tsx</code>).</p>
+<ul>
+<li><strong>Fila</strong>: cartões de fila com contagem; cada atendimento mostra avatar, prévia da última mensagem (das mensagens já carregadas, sem endpoint novo), horário, contador de não lidas e estado.</li>
+<li><strong>Conversa</strong>: balões diferenciados para visitante e agente, separador de dia, quebras de linha preservadas, compositor com Enter para enviar e Shift+Enter para quebrar a linha.</li>
+<li><strong>Confirmações</strong>: encerrar e devolver à fila passam por diálogo de confirmação. Encerrar continua exigindo classificação.</li>
+<li><strong>Detalhes</strong>: seções <em>Visitante</em>, <em>Atendimento</em>, <em>Transferências</em> e <em>Ações</em> (fila de destino, classificação) em coluna própria, que vira gaveta em telas médias.</li>
+<li><strong>Responsivo</strong>: três colunas, detalhes em gaveta ou telas separadas, conforme a largura da área de conteúdo (<a href="../interface-do-console/navegacao-e-papeis.html">Interface do console</a>). Em tela estreita, a conversa que sai da lista (encerrada ou devolvida) devolve o agente à lista. <code>100dvh</code> mantém o compositor visível com o teclado virtual.</li>
+<li><strong>Presença</strong>: o seletor do topo (Disponível, Ocupado, Ausente) é independente do chip de conexão.</li>
+<li><strong>Minha atividade</strong>: o formulário para registrar a própria atividade só aparece quando <code>canChangeOwnActivity</code> é verdadeiro (<a href="../presenca-e-atividades/atividades.html">Atividades</a>).</li>
+</ul>
+<p>As regras de negócio (claim, transferência, limites) não mudaram; o redesenho não alterou rotas do servidor nem o protocolo de atendimento.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
 <figure><img src="../../assets/attendance-states.png" alt="Estados do atendimento"><figcaption>Estados do atendimento</figcaption></figure>
 </section>

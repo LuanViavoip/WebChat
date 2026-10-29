@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "ViaVoip Webchat",
-    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 5 (commit 02f5373)."
+    "description": "Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código até a Fase 5.5 (commit 3d9e2cf): console redesenhado, widget corrigido, administração e qualidade."
   },
   "documents": [
     {
@@ -20,6 +20,12 @@
           "slug": "status",
           "type": "page",
           "file": "html/visao-geral/status.html"
+        },
+        {
+          "title": "Fase 5.5: relatório de entrega",
+          "slug": "fase-5-5",
+          "type": "page",
+          "file": "html/visao-geral/fase-5-5.html"
         }
       ]
     },
@@ -101,6 +107,31 @@
           "slug": "widget",
           "type": "page",
           "file": "html/widget-chatweb/widget.html"
+        },
+        {
+          "title": "Geometria e correção do recorte",
+          "slug": "geometria",
+          "type": "page",
+          "file": "html/widget-chatweb/geometria.html"
+        }
+      ]
+    },
+    {
+      "title": "Interface do Console",
+      "slug": "interface-do-console",
+      "type": "module",
+      "children": [
+        {
+          "title": "Navegação por papel, conectividade e presença",
+          "slug": "navegacao-e-papeis",
+          "type": "page",
+          "file": "html/interface-do-console/navegacao-e-papeis.html"
+        },
+        {
+          "title": "Design system ViaVoip",
+          "slug": "design-system",
+          "type": "page",
+          "file": "html/interface-do-console/design-system.html"
         }
       ]
     },
@@ -193,6 +224,12 @@
           "file": "html/gestao-administrativa/configuracao-por-empresa.html"
         },
         {
+          "title": "Painel de administração",
+          "slug": "painel-de-administracao",
+          "type": "page",
+          "file": "html/gestao-administrativa/painel-de-administracao.html"
+        },
+        {
           "title": "Comandos idempotentes",
           "slug": "comandos-idempotentes",
           "type": "page",
@@ -254,6 +291,25 @@
           "slug": "sm",
           "type": "page",
           "file": "html/integracoes/sm.html"
+        }
+      ]
+    },
+    {
+      "title": "Demonstração e Testes",
+      "slug": "demonstracao-e-testes",
+      "type": "module",
+      "children": [
+        {
+          "title": "Demo local no site institucional",
+          "slug": "demo-site-local",
+          "type": "page",
+          "file": "html/demonstracao-e-testes/demo-site-local.html"
+        },
+        {
+          "title": "Testes visuais",
+          "slug": "testes-visuais",
+          "type": "page",
+          "file": "html/demonstracao-e-testes/testes-visuais.html"
         }
       ]
     },

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Fase 5.5: relatório de entrega — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="relat%C3%B3rio-final-%E2%80%94-fase-5.5" tabindex="-1">Relatório final — Fase 5.5</h1>
+<p>Redesign do console, correção do widget pela causa raiz e demo do webchat dentro do site institucional. Fora do front-end, a única mudança de contrato é pequena: <code>GET /auth/me</code> passou a devolver <code>canChangeOwnActivity</code> (<code>apps/server/src/auth/sessions.ts</code> e <code>authMeSchema</code> em <code>packages/protocol/src/http.ts</code>, com testes). Não há migrations nem alterações no seed. O código está no commit <code>3d9e2cf</code>; em <code>Site_ViaVoip</code> existe só o commit baseline local, sem remote.</p>
+<p>Data da validação: 2026-10-29. Ambiente: containers descartáveis (Postgres 16, Redis 7, nginx 1.27) e servidor local em <code>127.0.0.1:3000</code>, conforme <code>.cursor/skills/verify/SKILL.md</code>.</p>
+<h2 id="1.-escopo-entregue" tabindex="-1">1. Escopo entregue</h2>
+<table>
+<thead>
+<tr>
+<th>Etapa</th>
+<th>Entrega</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B</td>
+<td>Design system (<code>apps/console/src/ui/</code>), AppShell com sidebar e topbar, login, rotas por hash, separação entre conectividade e presença</td>
+</tr>
+<tr>
+<td>C</td>
+<td>Central do Agente: filas, conversa, detalhes, layout responsivo, compositor <code>&lt;textarea&gt;</code></td>
+</tr>
+<tr>
+<td>D</td>
+<td>Supervisor (cartões agrupados, tabela de agentes) e Qualidade (relatório por escopo e período)</td>
+</tr>
+<tr>
+<td>E</td>
+<td>Administração com oito seções, <code>useCompanyCommand</code>, Chat interno, Setores, Anúncios e Atividades</td>
+</tr>
+<tr>
+<td>F</td>
+<td>Widget: painel nasce fechado, geometria pelo viewport do site, API <code>open()/close()</code>, novo visual</td>
+</tr>
+<tr>
+<td>G</td>
+<td>Site institucional com o widget no lugar do &quot;Fale agora&quot; e demo local</td>
+</tr>
+<tr>
+<td>H</td>
+<td><code>verify-visual.mjs</code>, validação completa e documentação</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2.-estado-antes" tabindex="-1">2. Estado antes</h2>
+<ul>
+<li>Console com navegação horizontal por <code>useState</code>, CSS global sem tokens (paleta bege e verde-azulado que não é da ViaVoip), uma única tela de comando de empresa (<code>queue.create</code>) e Qualidade e Administração como stubs.</li>
+<li>O backend já expunha <code>companyDeskSchema</code> e cerca de 25 comandos, usados só em parte.</li>
+<li>O widget aparecia cortado no canto inferior direito; não havia demo dentro do site.</li>
+<li>Capturas do estado anterior: <code>artifacts/visual/antes/</code> (login, central, supervisão, administração e widget em 1366x768 e 390x844).</li>
+</ul>
+<h2 id="3.-design-system-e-shell" tabindex="-1">3. Design system e shell</h2>
+<p>Tokens da ViaVoip (índigo <code>#3740b0</code>, navy <code>#112349</code>, ciano <code>#08e4e7</code> só sobre navy, sombras do site), Montserrat e Open Sans servidas localmente, cores semânticas derivadas com contraste AA. A sidebar é montada a partir de <code>sectionsFor()</code>, que continua sendo a única matriz de permissões. Detalhes em <code>DESIGN_SYSTEM.md</code>.</p>
+<p>Correção da confusão entre conectividade e presença: o chip do topo mostra só o socket; a presença do agente tem controle próprio, <code>presenceLabel('offline')</code> virou &quot;Offline&quot;, a desconexão não sobrescreve a presença e o select não converte <code>offline</code> em <code>available</code>.</p>
+<h2 id="4.-central-do-agente" tabindex="-1">4. Central do Agente</h2>
+<p>Cartões de fila com contagem, itens com avatar, prévia da última mensagem (das mensagens já carregadas, sem endpoint novo), horário, não lidas e estado; balões diferenciados, separador de dia, <code>white-space: pre-wrap</code>, compositor com Enter e Shift+Enter, confirmações para encerrar e devolver à fila. Três layouts (três colunas, detalhes em gaveta, telas separadas) medidos pela largura da área de conteúdo. Em tela estreita, a conversa que sai da lista (encerrada ou devolvida) devolve o agente à lista.</p>
+<h2 id="5.-supervisor-e-qualidade" tabindex="-1">5. Supervisor e Qualidade</h2>
+<p>Cartões em grupos (Presença, Fila, Operação) com ícone, cor semântica e tooltip; &quot;Maior espera&quot; mostra &quot;—&quot; quando o servidor devolve <code>null</code> (sem ninguém na fila) e &quot;0 s&quot; quando é zero. &quot;Atualizado às&quot; usa <code>generatedAt</code>. A tabela de agentes separa Presença e Conectividade em badges.</p>
+<p>A tela de Qualidade usa só <code>GET /quality/report</code> e os campos do schema. O servidor permite ao supervisor consultar setores em que é responsável e filas sob sua supervisão (nunca a empresa); o administrador consulta qualquer escopo. O seletor de escopo reflete essa regra e o período é limitado a 31 dias no cliente.</p>
+<h2 id="6.-administra%C3%A7%C3%A3o-e-m%C3%B3dulos-internos" tabindex="-1">6. Administração e módulos internos</h2>
+<p>Oito seções (Empresa, Usuários e Permissões, Filas, Classificações, Sites e Widgets, SLA, Pesquisa, Auditoria). Todos os formulários enviam exatamente o <code>companyCommandSchema</code> e são validados no cliente antes do envio. <code>useCompanyCommand</code> mantém o <code>requestId</code> da tentativa lógica: reaproveita ao reenviar o mesmo conteúdo após falha de rede ou timeout, descarta após sucesso, recusa do servidor, mudança do conteúdo ou fechamento do formulário, e desabilita o botão durante o envio. Ações destrutivas usam diálogo de confirmação. O agente registra a própria atividade quando o administrador concedeu a permissão: <code>GET /auth/me</code> expõe <code>canChangeOwnActivity</code> e o histórico de versões de SLA aparece na seção SLA.</p>
+<p>&quot;Copiar script&quot; monta o snippet com a origem do console e o <code>publicId</code> real, sem tokens. Chat interno com selo de não lidas em tempo real na sidebar; Setores com seleção de pessoas por nome (mesmos payloads); Anúncios com cartões, fixados em destaque e formulário em modal; Atividades com atividade atual, histórico e catálogo.</p>
+<h2 id="7.-widget%3A-causa-raiz-e-corre%C3%A7%C3%A3o" tabindex="-1">7. Widget: causa raiz e correção</h2>
+<p><strong>Causa raiz.</strong> <code>WidgetApp</code> iniciava com <code>panelOpen = true</code>. O aviso de tamanho (<code>resize</code>) para o site só saía depois de <code>setParentOrigin</code>, que acontecia no fim de <code>boot()</code>, depois de criar a sessão. Até lá, e para sempre se o boot falhasse (origem não autorizada, referrer vazio, erro de rede), o painel inteiro era desenhado dentro do iframe de 72x72 do loader, o que produzia o recorte no canto. Agravantes: o widget medindo o próprio iframe (origem do bug já corrigido em <code>2cdc8a5</code>), nenhum recálculo ao redimensionar ou girar a tela, <code>.panel</code> sem <code>overflow</code>, nenhuma área segura e anel de foco cortado pelo iframe justo.</p>
+<p><strong>Correção.</strong></p>
+<ol>
+<li>O painel nasce fechado quando embutido; a origem validada (<code>authorizedParent</code>) vira <code>parentOrigin</code> logo depois de buscar a configuração, antes de qualquer sessão, e é a única origem para a qual o widget posta. Sem origem válida, nada é enviado, o iframe fica do tamanho do botão e o botão fica inerte.</li>
+<li>O loader calcula a geometria pelo viewport do site, com a função pura <code>frameGeometry</code> (<code>apps/widget/src/frame-geometry.ts</code>): botão em iframe de 88x88 (folga de 8px para sombra e foco); painel <code>min(400, largura-32) x min(640, altura-32)</code> com margem de 16px; até 640px, tela cheia (<code>100vw x 100dvh</code>, com área segura dentro do widget).</li>
+<li>O widget informa só se está aberto ou fechado, pelos eventos <code>open</code> e <code>close</code> que já existem no protocolo. O schema de <code>resize</code> do protocolo é estrito (<code>width</code> e <code>height</code>), então não foi acrescentado um campo <code>mode</code>: o loader usa <code>open</code> e <code>close</code> como fonte do modo e trata <code>resize</code> apenas como compatibilidade com versões antigas.</li>
+<li>Recalcula em <code>resize</code>, <code>orientationchange</code> e <code>visualViewport.resize</code>, e quando o site muda variáveis CSS ou classes. Deslocamentos por <code>data-offset-bottom</code>, <code>data-offset-right</code>, <code>data-offset-bottom-var</code>, <code>data-offset-right-var</code> e <code>--viavoip-webchat-bottom</code>.</li>
+<li><code>window.ViaVoipWebchat.open()</code> e <code>close()</code> enviam <code>postMessage</code> só para a origem do iframe, no formato de <code>parentToWidgetSchema</code>. Estilos inline com <code>setProperty(..., 'important')</code>. Mantidos o guard de instância única e a validação de <code>event.origin</code> e <code>event.source</code>.</li>
+<li>Visual ViaVoip: cabeçalho navy, botões índigo, <code>--brand</code> vindo da configuração do site, painel com <code>overflow: hidden</code>, lista de mensagens com rolagem, compositor fixo, pesquisa com rolagem, <code>100dvh</code>, sem requisições de fontes externas.</li>
+<li>Ao carregar, o widget não rouba o foco do site: o foco só volta ao botão depois de o painel ter sido aberto.</li>
+</ol>
+<p>Cobertura: <code>frame-geometry.test.ts</code> (geometria, estilos, deslocamentos, modo) e <code>panel-size.test.ts</code>; e, no navegador, <code>verify-visual.mjs</code> confere o botão de 88x88, o painel dentro do viewport nos cinco tamanhos e o caso de origem não autorizada (iframe continua 88x88 e botão inerte).</p>
+<h2 id="8.-site-institucional-e-demo" tabindex="-1">8. Site institucional e demo</h2>
+<p><code>Site_ViaVoip</code> ganhou um repositório git local (sem remote) com o commit <code>chore: baseline local antes da demo do webchat</code>. A única alteração fora desse commit é <code>src/app/layout.js</code>: com <code>NEXT_PUBLIC_WEBCHAT_SITE_ID</code> definida, carrega o widget com <code>next/script</code> (<code>afterInteractive</code>) no lugar do <code>ClickToCall</code>; sem a variável, o site fica igual. O widget sobe acima do banner de cookies por <code>data-offset-bottom-var=&quot;--cookie-banner-height&quot;</code>. As variáveis <code>NEXT_PUBLIC_WEBCHAT_URL</code> e <code>NEXT_PUBLIC_WEBCHAT_SITE_ID</code> ficam em <code>.env.local</code> (não versionado). As origens <code>http://localhost:3100</code> e <code>http://127.0.0.1:3100</code> e a cor <code>#3740b0</code> foram configuradas pelo próprio console admin, sem tocar em <code>seed.sql</code>. Passo a passo em <code>DEMO_SITE_LOCAL.md</code>.</p>
+<h2 id="9.-valida%C3%A7%C3%A3o-(resultados-reais)" tabindex="-1">9. Validação (resultados reais)</h2>
+<table>
+<thead>
+<tr>
+<th>Verificação</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pnpm test</code> na raiz (protocol, sm-adapter, widget, console e servidor com Testcontainers)</td>
+<td><strong>192 de 192 testes passaram</strong> (reexecutado em 2026-10-29 sobre o commit <code>3d9e2cf</code>): protocol 11, sm-adapter 2, widget 18 (2 arquivos), console 61 (13 arquivos), servidor 100 (25 arquivos)</td>
+</tr>
+<tr>
+<td><code>pnpm build</code> na raiz</td>
+<td>sem erros nos cinco pacotes (<code>tsc</code> estrito e <code>vite build</code>; loader com esbuild)</td>
+</tr>
+<tr>
+<td><code>scripts/verify-browser.mjs</code> em containers recém-criados</td>
+<td><strong>saída 0</strong> (isolamento de empresa e setor, supervisão ao vivo, revogação, idempotência do retry do console, fluxo completo do widget)</td>
+</tr>
+<tr>
+<td><code>scripts/verify-visual.mjs</code> (1920x1080, 1366x768, 768x1024, 390x844 e 375x667; console e widget em :8090 e :3100)</td>
+<td><strong>155 verificações, 0 falhas, 0 erros de console</strong>, saída 0</td>
+</tr>
+<tr>
+<td>Fluxo manual da demo em :3100 (botão, departamento, fila, agente Ana assume, mensagens nos dois sentidos, encerramento com classificação, pesquisa respondida)</td>
+<td>executado pelo próprio <code>verify-visual.mjs</code> em todos os viewports; capturas <code>demo-3100-*.png</code></td>
+</tr>
+</tbody>
+</table>
+<p>O que <code>verify-visual.mjs</code> confere: ausência de rolagem horizontal; iframe do widget e compositores (agente e visitante) dentro do viewport; botão do widget com 88x88 e acima do banner de cookies quando houver; painel em tela cheia até 640px; origem não autorizada deixando o iframe com 88x88 e o botão inerte; foco visível ao navegar com Tab no menu lateral e dentro de um modal; nenhuma mensagem de erro no console.</p>
+<p><code>scripts/verify-browser.mjs</code> precisou de ajustes mínimos nos seletores, porque a interface mudou de forma intencional: clique no botão do widget antes de usá-lo (o painel agora nasce fechado), confirmação no diálogo de &quot;Encerrar&quot;, e aba <strong>Filas</strong> mais botão <strong>Nova fila</strong> antes do formulário de fila. Os <code>data-testid</code> e os rótulos do menu foram preservados.</p>
+<h2 id="10.-capturas-de-tela" tabindex="-1">10. Capturas de tela</h2>
+<p>Todas em <code>artifacts/visual/</code> (ignorado pelo git):</p>
+<ul>
+<li><strong>Antes:</strong> <code>artifacts/visual/antes/</code> (16 arquivos, 1366x768 e 390x844).</li>
+<li><strong>Depois, console:</strong> <code>artifacts/visual/depois/</code> (<code>01</code> a <code>30</code>: login, central, supervisão, qualidade, cada seção de administração, chat interno, setores, anúncios, atividades e modais).</li>
+<li><strong>Depois, verificação visual (cinco viewports):</strong> <code>artifacts/visual/depois/visual-&lt;porta&gt;-&lt;viewport&gt;-&lt;tela&gt;.png</code> e <code>visual-console-&lt;viewport&gt;-&lt;tela&gt;.png</code>; origem não autorizada em <code>visual-nao-autorizado-&lt;viewport&gt;.png</code>.</li>
+<li><strong>Demo no site (:3100), 1366x768:</strong> <code>artifacts/visual/depois/demo-3100-01-site-botao.png</code> a <code>demo-3100-07-encerrado.png</code> (botão, departamentos, fila, agente assume, troca de mensagens, pesquisa e encerramento).</li>
+</ul>
+<h2 id="11.-pend%C3%AAncias-e-recomenda%C3%A7%C3%B5es-para-a-pr%C3%B3xima-rodada" tabindex="-1">11. Pendências e recomendações para a próxima rodada</h2>
+<p>Pendências e riscos:</p>
+<ol>
+<li><code>MAX_QUALITY_WINDOW_MS</code> não é exportado pelo pacote de protocolo; <code>quality/period.ts</code> repete o valor (31 dias). Exportar a constante evitaria divergência.</li>
+<li>O schema de <code>resize</code> do protocolo não permite um campo de modo; hoje o loader usa <code>open</code> e <code>close</code>. Se o time quiser o campo <code>mode</code>, é uma mudança de protocolo (fora desta fase).</li>
+<li>O campo de cor da aparência combina seletor e texto hexadecimal; o rótulo do <code>Field</code> envolve dois controles, o que deixa a leitura por tecnologia assistiva menos limpa. Vale refatorar <code>Field</code> para associar o rótulo por <code>id</code>.</li>
+<li>Em tabelas largas (Usuários, SLA) a rolagem horizontal fica dentro do cartão quando os nomes são longos.</li>
+<li>A seleção de responsáveis do setor parte das pessoas já listadas nos setores; não há endpoint que liste todas as pessoas.</li>
+<li><code>verify-browser.mjs</code> suspende uma conta (Sofia): exige containers recém-criados a cada execução.</li>
+<li>O <code>next dev</code> do site mostra o selo &quot;Insight&quot; no canto inferior esquerdo e avisa de uma vulnerabilidade na versão instalada do Next (16.4.0). Atualizar o Next é decisão do time do site.</li>
+<li>Nenhum bug de backend foi encontrado durante a validação.</li>
+<li>A migration <code>009_company_admin.sql</code> ainda traz no cabeçalho o comentário &quot;NÃO é aplicado pelo migrate.ts&quot;, embora seja aplicada; corrigir o comentário é mudança de arquivo de migration e ficou de fora desta documentação.</li>
+</ol>
+<p>Recomendações:</p>
+<ul>
+<li>Integrar <code>verify-visual.mjs</code> à rotina de CI (já roda sobre os mesmos containers descartáveis).</li>
+<li>Medir contraste das cores semânticas derivadas com a identidade e promovê-las ao <code>DESIGN_SYSTEM.md</code> do site se forem aprovadas.</li>
+<li>Planejar o caminho de produção do widget: <code>widget.js</code> com cache e versão, e hospedagem do site com HTTPS (hoje a demo usa <code>localhost</code>).</li>
+<li>Acrescentar testes de componente (React Testing Library) para <code>useCompanyCommand</code> e os formulários de administração; hoje a lógica pura está coberta e o fluxo, pelos scripts de navegador.</li>
+<li>Avaliar paginação e busca na lista de usuários quando a empresa passar de algumas dezenas de pessoas.</li>
+</ul>
+</article>
+</body>
+</html>

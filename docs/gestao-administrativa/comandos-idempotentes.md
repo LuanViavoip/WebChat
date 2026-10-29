@@ -31,3 +31,7 @@ Chave primária `(tenant_id, actor_id, request_id)`, `command_kind`, `payload_ha
 ## Revogação junto do comando
 
 Comandos que mudam o acesso de uma pessoa devolvem à rota a lista de sessões removidas, e a rota desconecta os sockets correspondentes depois do commit ([Revogação de sessão](revogacao-de-sessao.md)). O `replayed: true` não repete esse efeito.
+
+## Reaproveitamento do `requestId` no console (Fase 5.5)
+
+O console guarda o `requestId` da tentativa lógica: ao reenviar o **mesmo conteúdo** depois de falha de rede ou timeout, reaproveita o id e o servidor devolve `replayed: true`. O id muda após sucesso, recusa definitiva, alteração do conteúdo ou fechamento do formulário. Ver [Painel de administração](painel-de-administracao.md).

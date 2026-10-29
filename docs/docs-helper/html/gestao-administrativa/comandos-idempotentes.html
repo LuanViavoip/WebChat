@@ -31,6 +31,8 @@
 <p>Chave primária <code>(tenant_id, actor_id, request_id)</code>, <code>command_kind</code>, <code>payload_hash</code> (64 hexadecimais), <code>status</code> (<code>in_flight</code> ou <code>applied</code>), <code>applied_at</code>, <code>created_at</code>, <code>expires_at</code>. RLS forçada por tenant e trigger que recusa ator de outra empresa.</p>
 <h2 id="revoga%C3%A7%C3%A3o-junto-do-comando" tabindex="-1">Revogação junto do comando</h2>
 <p>Comandos que mudam o acesso de uma pessoa devolvem à rota a lista de sessões removidas, e a rota desconecta os sockets correspondentes depois do commit (<a href="revogacao-de-sessao.html">Revogação de sessão</a>). O <code>replayed: true</code> não repete esse efeito.</p>
+<h2 id="reaproveitamento-do-requestid-no-console-(fase-5.5)" tabindex="-1">Reaproveitamento do <code>requestId</code> no console (Fase 5.5)</h2>
+<p>O console guarda o <code>requestId</code> da tentativa lógica: ao reenviar o <strong>mesmo conteúdo</strong> depois de falha de rede ou timeout, reaproveita o id e o servidor devolve <code>replayed: true</code>. O id muda após sucesso, recusa definitiva, alteração do conteúdo ou fechamento do formulário. Ver <a href="painel-de-administracao.html">Painel de administração</a>.</p>
 </article>
 </body>
 </html>

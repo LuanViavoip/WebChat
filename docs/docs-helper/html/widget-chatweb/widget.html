@@ -14,11 +14,42 @@
 <ul>
 <li><code>data-widget-id</code> (ou o alias <code>data-site</code>) é o <code>public_id</code> do site. Não é credencial.</li>
 <li>A origem do <code>src</code> é a origem do servidor Webchat; o loader abre <code>{origem}/widget/?site=&lt;id&gt;</code> em um iframe.</li>
-<li>Não há outras opções de inicialização nem API JavaScript: toda a configuração vem do servidor (colunas de <code>sites</code>).</li>
+<li>A aparência e o comportamento vêm do servidor (colunas de <code>sites</code>). No <code>&lt;script&gt;</code>, só o posicionamento é configurável (atributos <code>data-offset-*</code>, abaixo).</li>
+<li>O site pode abrir e fechar o painel pela API <code>window.ViaVoipWebchat.open()</code> e <code>.close()</code> (Fase 5.5).</li>
 <li>Não publique tokens: o token do visitante é emitido em runtime e nunca vai no HTML.</li>
 </ul>
+<h3 id="atributos-opcionais-do-%3Cscript%3E-(fase-5.5)" tabindex="-1">Atributos opcionais do <code>&lt;script&gt;</code> (Fase 5.5)</h3>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data-offset-bottom</code>, <code>data-offset-right</code></td>
+<td>Distância do botão às bordas, em px (padrão 16). Aceita <code>80</code>, <code>80px</code> e <code>5rem</code>; valor inválido ou negativo volta ao padrão.</td>
+</tr>
+<tr>
+<td><code>data-offset-bottom-var</code>, <code>data-offset-right-var</code></td>
+<td>Nome de uma variável CSS do site (<code>--nome</code>) cujo valor em px é <strong>somado</strong> ao deslocamento. Serve para subir o botão acima de um banner de cookies, por exemplo <code>data-offset-bottom-var=&quot;--cookie-banner-height&quot;</code>.</td>
+</tr>
+<tr>
+<td><code>--viavoip-webchat-bottom</code>, <code>--viavoip-webchat-right</code></td>
+<td>Variáveis que o site pode definir no <code>:root</code> com o mesmo efeito, sem atributo.</td>
+</tr>
+</tbody>
+</table>
+<p>O loader recalcula a posição quando a janela é redimensionada ou girada, quando o teclado virtual altera o <code>visualViewport</code> e quando o site muda <code>style</code> ou <code>class</code> do <code>&lt;html&gt;</code>.</p>
+<h3 id="api-javascript-do-site" tabindex="-1">API JavaScript do site</h3>
+<pre><code class="language-js">window.ViaVoipWebchat.open();   // abre o painel
+window.ViaVoipWebchat.close();  // volta ao botão
+</code></pre>
+<p>Os comandos vão ao iframe por <code>postMessage</code>, com <code>targetOrigin</code> igual à origem do <code>src</code> do script, no formato <code>{ source: 'viavoip-webchat-parent', type: 'open' | 'close' }</code>. Se o iframe ainda não avisou que está pronto (<code>ready</code>), o último comando fica pendente e é enviado quando o aviso chega.</p>
 <h2 id="loader-(apps%2Fwidget%2Fsrc%2Floader.ts)" tabindex="-1">Loader (<code>apps/widget/src/loader.ts</code>)</h2>
-<p>Sem o atributo, não faz nada. Uma flag global (<code>__viavoipWebchat</code>) ignora segunda carga. Cria o iframe fixo no canto inferior direito (72×72 px, z-index alto). Só aceita <code>postMessage</code> cuja origem é a do script <strong>e</strong> cuja <code>source</code> é a janela do iframe; trata apenas <code>resize</code> (limites 64–480 × 64–720). O widget implementa <code>open</code>/<code>close</code> recebidos, mas o loader não os envia.</p>
+<p>Sem o atributo, não faz nada. Uma flag global (<code>__viavoipWebchat</code>) ignora segunda carga. Cria um iframe <code>position: fixed</code> no canto inferior direito, com <code>z-index</code> alto, e aplica todos os estilos como inline <code>!important</code> para o CSS do site não sobrescrevê-los. Só aceita <code>postMessage</code> cuja origem é a do script <strong>e</strong> cuja <code>source</code> é a janela do iframe, com <code>source: 'viavoip-webchat'</code> na mensagem.</p>
+<p>O widget informa apenas se está <strong>fechado ou aberto</strong>, pelos eventos <code>close</code> e <code>open</code>; o loader calcula a geometria do iframe a partir do viewport do <strong>site</strong> (<a href="geometria.html">geometria e correção do recorte</a>). O evento <code>resize</code> do protocolo é mantido por compatibilidade com loaders antigos e só vale enquanto nenhum <code>open</code>/<code>close</code> foi recebido.</p>
 <h2 id="configura%C3%A7%C3%B5es-do-site-(servidor)" tabindex="-1">Configurações do site (servidor)</h2>
 <table>
 <thead>
@@ -57,7 +88,7 @@
 <h2 id="identifica%C3%A7%C3%A3o-do-tenant-e-conex%C3%A3o" tabindex="-1">Identificação do tenant e conexão</h2>
 <ol>
 <li>O widget consulta <code>GET /public/widgets/:publicId</code> (sem criar sessão).</li>
-<li>Define <code>parentOrigin</code> por <code>document.referrer</code> (ou <code>window.location.origin</code> se não estiver embutido). Se não estiver em <code>allowed_origins</code>: &quot;Este site não está autorizado&quot;.</li>
+<li>Define <code>parentOrigin</code> por <code>document.referrer</code> (ou <code>window.location.origin</code> se não estiver embutido). Se não estiver em <code>allowed_origins</code>: &quot;Este site não está autorizado&quot;. Desde a Fase 5.5 isso acontece <strong>logo depois de buscar a configuração e antes de criar qualquer sessão</strong>, e a origem validada é a única para a qual o widget envia <code>postMessage</code>. Sem origem válida, nada é enviado, o iframe fica do tamanho do botão e o botão fica inerte.</li>
 <li><code>POST /visitor/sessions { sitePublicId, parentOrigin }</code> valida a origem, cria visitante e sessão e devolve o token. O tenant é resolvido <strong>no servidor</strong> a partir do site.</li>
 <li>Conecta em <code>/visitor</code> com <code>auth: { token }</code>.</li>
 </ol>
@@ -65,6 +96,8 @@
 <p><code>allowed_origins</code> reduz uso casual do identificador público; <strong>não autentica</strong> o site hospedeiro (declarado em <a href="../arquitetura/contratos.html">contracts.md</a>).</p>
 </blockquote>
 <p>Token e id da conversa ficam em <code>sessionStorage</code> (<code>viavoip.visitorToken</code>, <code>viavoip.conversationId</code>). Na abertura tenta <code>GET /visitor/me</code>; se falhar, cria nova sessão.</p>
+<h2 id="apar%C3%AAncia-(fase-5.5)" tabindex="-1">Aparência (Fase 5.5)</h2>
+<p>Cabeçalho navy, botões índigo e <code>--brand</code> vindo da configuração do site (cor principal definida no console). O painel tem <code>overflow: hidden</code>, lista de mensagens com rolagem e compositor fixo no rodapé; a pesquisa de satisfação rola dentro do painel. Usa <code>100dvh</code> e <code>env(safe-area-inset-*)</code> e <strong>não</strong> faz requisições a fontes externas: Montserrat e Open Sans só entram se já estiverem instaladas no visitante. Ao carregar, o widget não rouba o foco do site: o foco só volta ao botão depois de o painel ter sido aberto.</p>
 <h2 id="fases-e-sele%C3%A7%C3%A3o-de-fila" tabindex="-1">Fases e seleção de fila</h2>
 <p><code>loading → queues → chat → survey → closed</code> (e <code>error</code>). O visitante escolhe a fila (e informa nome, se exigido) e o widget envia <code>conversation.start</code>, idempotente: havendo conversa aberta, retorna a existente (<code>created: false</code>). O banco garante uma conversa aberta por visitante (<code>conversations_one_open_per_visitor</code>). &quot;Sair da fila&quot; só aparece em <code>queued</code>.</p>
 <h2 id="mensagens-e-recupera%C3%A7%C3%A3o" tabindex="-1">Mensagens e recuperação</h2>

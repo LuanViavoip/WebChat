@@ -47,6 +47,12 @@ O Postgres de teste é um container efêmero. O papel `webchat_app` não contorn
 - `SESSION_CREATE_LIMIT`, `MESSAGE_LIMIT` — limites em memória por processo; várias instâncias não compartilham esses contadores.
 - `PRESENCE_STALE_MS` — janela do heartbeat do agente. O padrão é 45000. O console envia `presence.heartbeat` a cada 15 segundos.
 
+## Site institucional e dados de demonstração (Fase 5.5)
+
+O site `Site_ViaVoip` usa a porta 3100 (`npx next dev -p 3100`), porque a 3000 é do Webchat. Com `NEXT_PUBLIC_WEBCHAT_URL` e `NEXT_PUBLIC_WEBCHAT_SITE_ID` em `Site_ViaVoip/.env.local`, o site carrega o widget no lugar do botão "Fale agora". É preciso autorizar `http://localhost:3100` e `http://127.0.0.1:3100` em Administração, Sites e Widgets. Roteiro completo: [fase-5.5/DEMO_SITE_LOCAL.md](fase-5.5/DEMO_SITE_LOCAL.md).
+
+`node scripts/demo/populate.mjs` popula o servidor em execução usando só as interfaces públicas (opções `--base-url`, `--site`, `--origin`, `--no-keep-alive`, `--only-keep-alive`, `--fast`). Os scripts de navegador `scripts/verify-browser.mjs` e `scripts/verify-visual.mjs` exigem os containers descartáveis descritos em `.cursor/skills/verify/SKILL.md`; ver [fase-5.5/testes-visuais.md](fase-5.5/testes-visuais.md).
+
 ## Demonstração da central
 
 Com o Compose no ar e o build publicado em `http://localhost:3000`:
@@ -58,6 +64,6 @@ Com o Compose no ar e o build publicado em `http://localhost:3000`:
 5. Ana encerra com uma classificação. O widget mostra a pesquisa. A devolução à fila e a transferência não mostram pesquisa.
 6. Carla (`carla@tenant-b.local`) não vê a conversa do tenant A. Dois agentes que tentam assumir o mesmo visitante: só um recebe o atendimento.
 
-O tenant B também tem Suporte e Vendas. O limite padrão é 3 atendimentos por agente. Transferência direta para outro agente continua fora desta fase.
+O widget agora nasce fechado: clique no botão redondo antes de escolher a fila. O tenant B também tem Suporte e Vendas. O limite padrão é 3 atendimentos por agente. Transferência direta para outro agente continua fora desta fase.
 
 As senhas de banco do `.env.example` são exclusivas do ambiente local.

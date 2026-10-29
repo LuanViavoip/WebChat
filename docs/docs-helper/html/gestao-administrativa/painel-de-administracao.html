@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Painel de administração — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="painel-de-administra%C3%A7%C3%A3o" tabindex="-1">Painel de administração</h1>
+<p>Código de referência: Fase 5.5. Fontes: <code>apps/console/src/admin/</code> (<code>AdminPanel.tsx</code>, <code>useCompanyCommand.ts</code>, <code>command-runner.ts</code>, <code>sla-history.ts</code>, <code>origins.ts</code>, <code>widget-script.ts</code>, <code>sections/</code>), <code>apps/server/src/auth/sessions.ts</code> e <code>packages/protocol/src/http.ts</code>. Seção <strong>Administração</strong> do console, exclusiva do papel administrador (<a href="papeis-e-permissoes.html">Papéis e permissões</a>).</p>
+<p>O painel carrega a empresa por <code>GET /company/desk</code> e envia cada alteração por <code>POST /company/commands</code> (<a href="comandos-idempotentes.html">Comandos idempotentes</a>). Todos os formulários enviam exatamente o schema do comando e são validados no cliente antes do envio.</p>
+<h2 id="se%C3%A7%C3%B5es" tabindex="-1">Seções</h2>
+<table>
+<thead>
+<tr>
+<th>Seção</th>
+<th>O que permite</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Empresa</td>
+<td>Nome, fuso horário e limite de atendimentos simultâneos por agente</td>
+</tr>
+<tr>
+<td>Usuários e Permissões</td>
+<td>Criar pessoas, papel, filas do agente, suspender e reativar, revogar sessões, redefinir senha, e quem registra a atividade do agente</td>
+</tr>
+<tr>
+<td>Filas</td>
+<td>Criar, renomear e arquivar filas</td>
+</tr>
+<tr>
+<td>Classificações</td>
+<td>Catálogo de classificações de encerramento</td>
+</tr>
+<tr>
+<td>Sites e Widgets</td>
+<td>Identidade e aparência do site, origens autorizadas, janelas de funcionamento, pausa e retomada, e o script de instalação</td>
+</tr>
+<tr>
+<td>SLA</td>
+<td>Política por fila e histórico de versões</td>
+</tr>
+<tr>
+<td>Pesquisa</td>
+<td>Definição da pesquisa de satisfação</td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td>Consulta dos eventos de auditoria (<a href="auditoria.html">Auditoria</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>As seções são abas laterais (<code>Tabs</code>) com navegação por teclado.</p>
+<h2 id="comandos-idempotentes-no-console" tabindex="-1">Comandos idempotentes no console</h2>
+<p><code>useCompanyCommand</code> envolve cada envio em um <code>CommandRunner</code>, que guarda o <code>requestId</code> da <strong>tentativa lógica</strong>:</p>
+<ul>
+<li>O id nasce no primeiro envio.</li>
+<li>Ao reenviar o <strong>mesmo conteúdo</strong> depois de uma falha de rede ou timeout (erro &quot;retentável&quot;), o <strong>mesmo <code>requestId</code></strong> é reaproveitado. O servidor reconhece o recibo e devolve <code>replayed: true</code>, sem repetir o efeito.</li>
+<li>O id é descartado após sucesso, após recusa definitiva do servidor, quando o conteúdo do comando muda e quando o formulário é fechado (<code>reset()</code>).</li>
+<li>Enquanto há um envio pendente, novos envios são ignorados e o botão fica desabilitado.</li>
+</ul>
+<p>Depois de cada comando, o painel mostra uma linha de resultado (<code>data-testid=&quot;command-result&quot;</code>) com o <code>requestId</code> e se o resultado foi &quot;Efeito único&quot; ou &quot;Repetido&quot;. O servidor guarda o recibo por 24 horas.</p>
+<p>Ações destrutivas (suspender, revogar sessões, retirar classificação ou SLA, pausar site, arquivar fila) passam por diálogo de confirmação ou por formulário com motivo.</p>
+<h2 id="sites-e-widgets" tabindex="-1">Sites e Widgets</h2>
+<ul>
+<li><strong>Origens</strong>: uma por linha. O console normaliza para <code>esquema://host[:porta]</code> (sem caminho nem barra final), remove repetidas, aceita só <code>http://</code> e <code>https://</code> e limita a 20 origens, como o schema do protocolo.</li>
+<li><strong>Aparência</strong>: nome exibido, cor principal (seletor mais campo hexadecimal), mensagem de boas-vindas, exigência de nome do visitante e logotipo <code>https://</code>.</li>
+<li><strong>Copiar script</strong>: monta <code>&lt;script async src=&quot;&lt;origem do console&gt;/widget.js&quot; data-widget-id=&quot;&lt;publicId&gt;&quot;&gt;&lt;/script&gt;</code>. Usa a origem do console e o identificador público real; não inclui tokens. O <code>publicId</code> não muda depois de criado.</li>
+<li>Um site novo nasce pausado e sem origens (<a href="configuracao-por-empresa.html">Configuração por empresa</a>).</li>
+</ul>
+<p>Para a demonstração local, a autorização de origens é feita nesta seção (<a href="../demonstracao-e-testes/demo-site-local.html">Demo local no site institucional</a>).</p>
+<h2 id="sla%3A-hist%C3%B3rico-de-vers%C3%B5es" tabindex="-1">SLA: histórico de versões</h2>
+<p>A seção SLA mostra a política vigente por fila e, para a fila escolhida, o <strong>histórico de versões</strong>, da mais recente para a mais antiga. As versões vêm do próprio <code>GET /company/desk</code> (vigentes e retiradas); o console numera da mais antiga (1) para a mais recente e classifica cada uma em relação ao instante atual:</p>
+<table>
+<thead>
+<tr>
+<th>Estado</th>
+<th>Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vigente</td>
+<td>Ativa e já em vigor</td>
+</tr>
+<tr>
+<td>Agendada</td>
+<td>Ativa, com início no futuro</td>
+</tr>
+<tr>
+<td>Vigente até a troca</td>
+<td>Retirada, mas com fim ainda no futuro</td>
+</tr>
+<tr>
+<td>Encerrada</td>
+<td>Retirada, com fim no passado</td>
+</tr>
+</tbody>
+</table>
+<p>Cada linha mostra espera na fila, primeira resposta e datas de início e fim. Publicar e retirar seguem as regras de <a href="../qualidade-operacional/politica-de-sla.html">Política de SLA</a>: nunca retroativo, sem lacuna e sem sobreposição.</p>
+<h2 id="permiss%C3%A3o-de-atividade-pr%C3%B3pria-(canchangeownactivity)" tabindex="-1">Permissão de atividade própria (<code>canChangeOwnActivity</code>)</h2>
+<p>Em <strong>Usuários e Permissões</strong>, o campo <em>Atividades</em> de um agente define quem registra as pausas e outras atividades dele:</p>
+<table>
+<thead>
+<tr>
+<th>Valor (<code>activityAuthority</code>)</th>
+<th>Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>assigned_only</code></td>
+<td>Só supervisão e administração alocam atividades ao agente</td>
+</tr>
+<tr>
+<td><code>self_service</code></td>
+<td>O agente registra a própria atividade</td>
+</tr>
+</tbody>
+</table>
+<p>Ao mudar, a pessoa precisa entrar de novo. <code>GET /auth/me</code> passou a devolver <code>canChangeOwnActivity</code> (booleano obrigatório):</p>
+<ul>
+<li>Para o <strong>agente</strong>, é <code>true</code> somente quando <code>agents.can_change_own_activity</code> está concedido.</li>
+<li>Para <strong>supervisor</strong> e <strong>administrador</strong>, é sempre <code>true</code>.</li>
+<li>A regra é a mesma de <code>assertCanAllocate</code> no servidor; o console usa o campo só para mostrar ou esconder o formulário de registro. Um agente sem permissão que tente alocar a si mesmo continua sendo recusado pelo servidor.</li>
+</ul>
+<p>Na seção &quot;Minha atividade&quot; (agente) o formulário de registro aparece apenas quando <code>canChangeOwnActivity</code> é verdadeiro. Ver <a href="../presenca-e-atividades/atividades.html">Atividades</a>.</p>
+</article>
+</body>
+</html>

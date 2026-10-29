@@ -38,7 +38,7 @@
 </table>
 <p>Escopo <code>tenant</code> é só do administrador; supervisor consulta setor ou fila sob sua supervisão (<a href="../gestao-administrativa/papeis-e-permissoes.html">Papéis e permissões</a>). Combinação inválida resulta em <code>invalid_payload</code>.</p>
 <h2 id="origem-dos-n%C3%BAmeros" tabindex="-1">Origem dos números</h2>
-<p>Os números são <strong>reconstruídos das tabelas</strong> (<code>conversation_events</code>, mensagens do agente, <code>survey_responses</code>, <code>presence_intervals</code>), não de contadores gravados. É o retrato histórico; os indicadores do instante continuam em <code>supervisor.metrics</code> (Central do Supervisor). Se a publicação de um evento em tempo real falhar depois do commit, o relatório ainda enxerga a linha.</p>
+<p>Os números são <strong>reconstruídos das tabelas</strong> (<code>conversation_events</code>, mensagens do agente, <code>survey_responses</code>, <code>presence_intervals</code>), não de contadores gravados. É o retrato histórico; os indicadores do instante continuam em <code>supervisor.metrics</code> (<a href="../central-do-supervisor/supervisor.html">Central do Supervisor</a>). Se a publicação de um evento em tempo real falhar depois do commit, o relatório ainda enxerga a linha.</p>
 <h2 id="conte%C3%BAdo" tabindex="-1">Conteúdo</h2>
 <table>
 <thead>
@@ -93,6 +93,8 @@
 <p><code>queueWaits.abandoned</code> conta visitantes que saíram da fila antes de ser atribuídos (evento <code>left</code>). Não entram no julgamento de SLA da espera.</p>
 <h2 id="limites" tabindex="-1">Limites</h2>
 <p>Sem pré-agregação: cada consulta lê os eventos do período. Não há exportação nem filtro por agente, e a janela máxima é de 31 dias.</p>
+<h2 id="tela-no-console-(fase-5.5)" tabindex="-1">Tela no console (Fase 5.5)</h2>
+<p>A seção <strong>Qualidade</strong> usa só esta rota. O seletor de escopo reflete a regra do servidor (administrador: empresa, setores e filas; supervisor: setores em que é responsável e filas sob sua supervisão, nunca a empresa) e o período é validado no cliente antes do envio: período positivo de até <strong>31 dias</strong>, com atalhos de 24 h, 7 dias e 31 dias. Ver <a href="../central-do-supervisor/supervisor.html">Central do Supervisor</a>.</p>
 </article>
 </body>
 </html>

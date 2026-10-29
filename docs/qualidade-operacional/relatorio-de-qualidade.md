@@ -17,7 +17,7 @@ Escopo `tenant` é só do administrador; supervisor consulta setor ou fila sob s
 
 ## Origem dos números
 
-Os números são **reconstruídos das tabelas** (`conversation_events`, mensagens do agente, `survey_responses`, `presence_intervals`), não de contadores gravados. É o retrato histórico; os indicadores do instante continuam em `supervisor.metrics` ([Central do Supervisor](../central-do-supervisor/supervisor.md)). Se a publicação de um evento em tempo real falhar depois do commit, o relatório ainda enxerga a linha.
+Os números são **reconstruídos das tabelas** (`conversation_events`, mensagens do agente, `survey_responses`, `presence_intervals`), não de contadores gravados. É o retrato histórico; os indicadores do instante continuam em `supervisor.metrics` ([Central do Supervisor](../modules/supervisor.md)). Se a publicação de um evento em tempo real falhar depois do commit, o relatório ainda enxerga a linha.
 
 ## Conteúdo
 
@@ -52,3 +52,7 @@ p50 e p90 usam o método do posto mais próximo sobre as amostras ordenadas: `am
 ## Limites
 
 Sem pré-agregação: cada consulta lê os eventos do período. Não há exportação nem filtro por agente, e a janela máxima é de 31 dias.
+
+## Tela no console (Fase 5.5)
+
+A seção **Qualidade** usa só esta rota. O seletor de escopo reflete a regra do servidor (administrador: empresa, setores e filas; supervisor: setores em que é responsável e filas sob sua supervisão, nunca a empresa) e o período é validado no cliente antes do envio: período positivo de até **31 dias**, com atalhos de 24 h, 7 dias e 31 dias. Ver [Central do Supervisor](../modules/supervisor.md).

@@ -6,7 +6,11 @@
 - Console reescrito sobre um design system próprio (identidade ViaVoip, sidebar e topbar, rotas por hash). Conectividade e presença separadas; Central do Agente, Supervisor, Qualidade, Administração (oito seções), Chat interno, Setores, Anúncios e Atividades redesenhados.
 - Widget: o painel nasce fechado quando embutido; o loader calcula a geometria pelo viewport do site (`frame-geometry.ts`), com `window.ViaVoipWebchat.open()/close()`. Causa raiz do recorte no canto documentada em `RELATORIO.md`.
 - Novo `scripts/verify-visual.mjs` (cinco viewports, console e widget em :8090 e :3100). `scripts/verify-browser.mjs` ganhou o clique no botão do widget, a aba Filas, o modal "Nova fila" e a confirmação de encerramento.
-- Sem mudanças em `apps/server`, `packages/protocol`, migrations e seed.
+- Correção da afirmação anterior de "sem mudanças no servidor": `GET /auth/me` passou a devolver `canChangeOwnActivity` (`apps/server/src/auth/sessions.ts` e `packages/protocol/src/http.ts`, com teste em `operations.test.ts`). Não há migrations nem mudança de seed.
+- Docs Helper atualizado para o commit `3d9e2cf`: novos módulos *Interface do Console* e *Demonstração e Testes*; novas páginas *Painel de administração*, *Geometria e correção do recorte do widget*, *Relatório da Fase 5.5*, *Design system*, *Demo local* e *Testes visuais*; Widget, Central do Agente, Supervisor, Qualidade, SLA, Atividades, Status e Visão geral atualizados.
+- `pnpm test` reexecutado: 192 testes passaram (protocol 11, adaptador SM 2, widget 18, console 61, servidor 100). Última rodada de `verify-visual.mjs`: 155 verificações, 0 falhas.
+- Incorporado o conteúdo do PR #3 (Fase 5 no Docs Helper) a esta branch para que o ZIP único contenha as duas fases.
+- Publicação no site de teste: **não realizada**; exige reimportar o ZIP em `/admin/import` (ver `docs-helper/PUBLICATION-BLOCKER.md`).
 
 ## 2026-10-28 — Fase 5 (commit `02f5373`)
 

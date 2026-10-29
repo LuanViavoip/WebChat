@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Demo local no site institucional — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="demo-local-do-webchat-no-site-institucional" tabindex="-1">Demo local do webchat no site institucional</h1>
+<p>Roteiro para ver o widget da ViaVoip funcionando dentro de <code>Site_ViaVoip</code> e atender pelo console, tudo na máquina local. Para a instalação do loader e seus atributos, ver <a href="../widget-chatweb/widget.html">Widget ChatWeb</a>; para a geometria, <a href="../widget-chatweb/geometria.html">Widget: geometria e correção do recorte</a>. Nenhum valor secreto aparece aqui: os nomes das variáveis estão listados, os valores ficam em <code>.env</code> e <code>.env.local</code>, que não vão para o git.</p>
+<h2 id="servi%C3%A7os-e-portas" tabindex="-1">Serviços e portas</h2>
+<table>
+<thead>
+<tr>
+<th>Serviço</th>
+<th>Porta</th>
+<th>Origem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Postgres (WebChat)</td>
+<td>5434 no host (5432 na rede do Compose)</td>
+<td><code>docker compose</code>, serviço <code>postgres</code></td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>6379</td>
+<td><code>docker compose</code>, serviço <code>redis</code></td>
+</tr>
+<tr>
+<td>WebChat (API, console em <code>/console/</code>, widget em <code>/widget.js</code>)</td>
+<td>3000</td>
+<td><code>docker compose</code>, serviço <code>server</code></td>
+</tr>
+<tr>
+<td>Página demo estática</td>
+<td>8090</td>
+<td><code>docker compose</code>, serviço <code>demo</code> (nginx)</td>
+</tr>
+<tr>
+<td>Site institucional (Next.js)</td>
+<td>3100</td>
+<td><code>npx next dev -p 3100</code> em <code>Site_ViaVoip</code></td>
+</tr>
+</tbody>
+</table>
+<p>A 3000 é do WebChat; por isso o site usa a 3100. Para verificações descartáveis (skill <code>verify</code>), os containers usam 55439 (Postgres) e 56379 (Redis), sem volumes.</p>
+<h2 id="vari%C3%A1veis-de-ambiente-(s%C3%B3-os-nomes)" tabindex="-1">Variáveis de ambiente (só os nomes)</h2>
+<p>WebChat (<code>.env</code>, ver <code>.env.example</code>):</p>
+<ul>
+<li><code>DATABASE_URL</code>, <code>MIGRATE_DATABASE_URL</code>, <code>REDIS_URL</code></li>
+<li><code>SM_ADAPTER</code>, <code>LOGIN_RATE_LIMIT_SECRET</code></li>
+<li><code>PORT</code>, <code>HOST</code>, <code>SEED</code>, <code>CORS_ORIGINS</code>, <code>SESSION_TTL_HOURS</code></li>
+</ul>
+<p>Site (<code>Site_ViaVoip/.env.local</code>, não versionado):</p>
+<ul>
+<li><code>NEXT_PUBLIC_WEBCHAT_URL</code> — endereço do WebChat (<code>http://localhost:3000</code>)</li>
+<li><code>NEXT_PUBLIC_WEBCHAT_SITE_ID</code> — identificador público do site no WebChat (<code>site_a</code>)</li>
+</ul>
+<p>Sem <code>NEXT_PUBLIC_WEBCHAT_SITE_ID</code>, o site fica idêntico ao original, com o botão &quot;Fale agora&quot; (<code>ClickToCall</code>). Com ela, o <code>layout.js</code> carrega <code>&lt;WEBCHAT_URL&gt;/widget.js</code> com <code>next/script</code> (<code>afterInteractive</code>) e não monta o <code>ClickToCall</code>.</p>
+<p>O script ainda recebe <code>data-offset-bottom-var=&quot;--cookie-banner-height&quot;</code>: o widget lê essa variável CSS (publicada pelo <code>CookieConsent</code> do site) e sobe acima do banner de cookies.</p>
+<h2 id="subir-tudo" tabindex="-1">Subir tudo</h2>
+<pre><code class="language-bash"># 1. WebChat: Postgres, Redis, servidor e página demo
+cd &lt;raiz do WebChat&gt;
+docker compose up --build postgres redis server demo
+
+# 2. Site institucional (outro terminal)
+cd &lt;raiz do Site_ViaVoip&gt;
+npx next dev -p 3100
+</code></pre>
+<p>O seed do WebChat (<code>SEED=true</code> no Compose) cria o tenant A, os agentes e o site <code>site_a</code>, com as origens <code>http://localhost:8090</code> e <code>http://127.0.0.1:8090</code>.</p>
+<h2 id="autorizar-o-site-3100-pelo-console-admin" tabindex="-1">Autorizar o site 3100 pelo console admin</h2>
+<p>O widget só abre em origens autorizadas. O <code>seed.sql</code> não é alterado: a configuração é feita no console.</p>
+<ol>
+<li>Abra <code>http://localhost:3000/console/</code> e entre como <code>otavio@tenant-a.local</code> (senha da demo informada na tela de login).</li>
+<li>Menu lateral, <strong>Administração</strong>, aba <strong>Sites e Widgets</strong> (<a href="../gestao-administrativa/painel-de-administracao.html">Painel de administração</a>).</li>
+<li>No cartão <strong>Site A</strong>, clique em <strong>Origens</strong> e deixe uma por linha:
+<ul>
+<li><code>http://localhost:8090</code></li>
+<li><code>http://127.0.0.1:8090</code></li>
+<li><code>http://localhost:3100</code></li>
+<li><code>http://127.0.0.1:3100</code></li>
+</ul>
+</li>
+<li><strong>Salvar origens</strong>.</li>
+<li>Em <strong>Aparência</strong>, defina a cor principal <code>#3740b0</code> e salve.</li>
+</ol>
+<p>Se o banco for recriado, repita este passo. O botão <strong>Copiar script</strong> gera o snippet de instalação com a origem do console e o identificador público.</p>
+<h2 id="passo-a-passo-do-teste" tabindex="-1">Passo a passo do teste</h2>
+<ol>
+<li>Abra <code>http://localhost:3100/</code>. O botão redondo do chat aparece no canto inferior direito, acima do banner de cookies quando ele existir.</li>
+<li>Em outro navegador (ou janela anônima), abra <code>http://localhost:3000/console/</code> e entre como <code>ana@tenant-a.local</code>. Deixe a presença em <strong>Disponível</strong>.</li>
+<li>No site, clique no botão do chat. O painel abre (400x640 no desktop; tela cheia em telas de até 640px).</li>
+<li>Escolha o departamento <strong>Suporte</strong>. O visitante entra na fila (&quot;Aguardando atendente&quot;).</li>
+<li>No console, <strong>Atendimentos</strong>: a conversa aparece em &quot;Aguardando&quot;. Selecione e clique em <strong>Assumir</strong>.</li>
+<li>Troquem mensagens: Enter envia, Shift+Enter quebra a linha. As mensagens aparecem dos dois lados em tempo real.</li>
+<li>No console, escolha a classificação (por exemplo <strong>Resolvido</strong>), clique em <strong>Encerrar</strong> e confirme no diálogo.</li>
+<li>No site, o widget mostra a pesquisa de satisfação. Escolha uma nota e <strong>Enviar avaliação</strong>.</li>
+<li>O painel mostra &quot;Atendimento encerrado&quot;. No console, a conversa aparece como <strong>Encerrada</strong> para a supervisão.</li>
+</ol>
+<p>Também dá para testar em <code>http://localhost:8090/</code> (página demo estática) com o mesmo roteiro.</p>
+<h2 id="controle-do-widget-pelo-site" tabindex="-1">Controle do widget pelo site</h2>
+<p>O loader expõe <code>window.ViaVoipWebchat.open()</code> e <code>window.ViaVoipWebchat.close()</code>. Os comandos vão por <code>postMessage</code> somente para a origem do iframe. Atributos opcionais no <code>&lt;script&gt;</code>:</p>
+<ul>
+<li><code>data-offset-bottom</code> e <code>data-offset-right</code>: distância das bordas em px (padrão 16).</li>
+<li><code>data-offset-bottom-var</code> e <code>data-offset-right-var</code>: nome de uma variável CSS do site cujo valor é somado ao deslocamento.</li>
+<li><code>--viavoip-webchat-bottom</code> e <code>--viavoip-webchat-right</code>: variáveis que o site pode definir no <code>:root</code> para o mesmo fim.</li>
+</ul>
+<h2 id="verifica%C3%A7%C3%B5es-autom%C3%A1ticas" tabindex="-1">Verificações automáticas</h2>
+<p>Com o ambiente descartável da skill <code>verify</code> no ar (ver <code>.cursor/skills/verify/SKILL.md</code> e <a href="testes-visuais.html">Testes visuais</a>):</p>
+<pre><code class="language-bash">export PLAYWRIGHT_PACKAGE_JSON=/tmp/webchat-verify-pw/package.json
+export VERIFY_POSTGRES_CONTAINER=webchat-verify-pg VERIFY_INSPECT_ROOMS=true
+node scripts/verify-browser.mjs      # fluxo completo, isolamento, idempotência (use containers recém-criados)
+node scripts/verify-visual.mjs       # 5 viewports, console e widget em :8090 e :3100
+</code></pre>
+<p><code>verify-visual.mjs</code> grava capturas em <code>artifacts/visual/depois/</code> (ignorado pelo git). Para só um host: <code>VERIFY_VISUAL_HOSTS=8090</code>.</p>
+<h2 id="problemas-conhecidos" tabindex="-1">Problemas conhecidos</h2>
+<ul>
+<li>O <code>next dev</code> mostra um selo &quot;Insight&quot; no canto inferior esquerdo; ele é do modo de desenvolvimento do Next e não faz parte do site.</li>
+<li>O <code>next dev</code> avisa de uma vulnerabilidade da versão do Next instalada (16.4.0). Atualizar é uma decisão do time do site e não foi feita aqui.</li>
+</ul>
+<h2 id="popular-o-sistema-com-dados-de-demonstra%C3%A7%C3%A3o" tabindex="-1">Popular o sistema com dados de demonstração</h2>
+<p><code>scripts/demo/populate.mjs</code> enche um WebChat já em execução com conversas realistas (em português, assuntos de telefonia e VoIP). Ele usa só as interfaces públicas, do mesmo jeito que o widget e o console: <code>POST /visitor/sessions</code>, <code>POST /auth/login</code>, <code>POST /company/commands</code> e socket.io nos namespaces <code>/visitor</code>, <code>/agent</code> e <code>/supervisor</code>. Nada é inserido direto no banco; por isso a supervisão, a qualidade e a auditoria mostram valores calculados pelo servidor.</p>
+<pre><code class="language-bash">cd &lt;raiz do WebChat&gt;
+node scripts/demo/populate.mjs                  # popula e fica conectado (padrão)
+node scripts/demo/populate.mjs --no-keep-alive  # popula e encerra (agentes ficam offline)
+</code></pre>
+<p>Opções: <code>--base-url=http://localhost:3000</code>, <code>--site=site_a</code>, <code>--origin=http://localhost:8090</code> (origem autorizada do site), <code>--password=...</code> (ou <code>DEMO_PASSWORD</code>), <code>--fast</code> (pausas curtas, só para teste) e <code>--only-keep-alive</code> (só reconecta os agentes, sem criar conversas; útil depois de reiniciar o servidor ou revogar sessões). Precisa do servidor no ar com o seed padrão (tenant A) e com a origem informada autorizada no site.</p>
+<p>O que cria, em cerca de 1 minuto:</p>
+<ul>
+<li>6 atendimentos encerrados em Suporte e Vendas (um transferido de Suporte para Vendas), com classificação e pesquisa respondida (notas de 2 a 5, com comentário), mais 1 visitante que desiste da fila.</li>
+<li>3 atendimentos em andamento (Ana, Bruno e Diana, um deles com mensagens não lidas de Ricardo Nogueira para a Ana) e 3 visitantes aguardando na fila.</li>
+<li>Chat interno: conversa direta Ana e Sofia e mensagens no grupo do setor Suporte Técnico.</li>
+<li>3 comunicados (um da empresa fixado, sobre a manutenção da URA no sábado às 22h).</li>
+<li>Catálogos reaproveitados se já existirem: classificações &quot;Dúvida comercial&quot; e &quot;Encaminhado ao técnico&quot;, políticas de SLA para Suporte (espera 30 s, primeira resposta 90 s) e Vendas (45 s e 120 s), tipo de atividade &quot;Pausa café&quot; atribuído ao Eduardo.</li>
+<li>Presença: Ana, Bruno e Diana disponíveis; Eduardo ausente.</li>
+</ul>
+<h3 id="keep-alive" tabindex="-1">Keep-alive</h3>
+<p>A presença do agente depende do socket aberto. Com <code>--keep-alive</code> (padrão), o script termina de popular e continua rodando: mantém os sockets dos agentes com <code>presence.heartbeat</code> a cada 15 s (o servidor considera morta a conexão sem batimento por 45 s) e os dos visitantes, para a Visão geral mostrar conectados, disponíveis e visitantes na fila. Para encerrar, use Ctrl+C no terminal ou <code>kill $(cat /tmp/webchat-demo-populate.pid)</code>; os agentes voltam a offline e as conversas continuam no banco.</p>
+<p>Seu login no navegador funciona em paralelo, com a mesma conta. O script deixa a Ana com no máximo 1 atendimento ativo (o limite da empresa é lido de <code>/company/desk</code>; hoje 3), então ela ainda assume visitantes da fila.</p>
+<h3 id="rodar-de-novo" tabindex="-1">Rodar de novo</h3>
+<p>Pode repetir a qualquer momento: cada execução acrescenta novos atendimentos encerrados (com outros nomes de visitantes), mas não duplica os que já estão em andamento ou na fila, os comunicados, o setor, os tipos de atividade, as classificações nem o chat interno. Só deixe um keep-alive por vez (o script avisa quando já existe outro, pelo PID em <code>/tmp/webchat-demo-populate.pid</code>). Não há como apagar dados pelas interfaces públicas; para recomeçar do zero, recrie o banco descartável.</p>
+</article>
+</body>
+</html>

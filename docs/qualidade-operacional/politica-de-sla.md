@@ -40,3 +40,7 @@ A política vigente é escolhida pelo **instante em que o fato começou** (entra
 | qualquer | dado ilegível (fila ausente) | `not_applicable` (`unreadable`) |
 
 Transferir ou devolver sem responder não conta como violação: o atendimento muda de dono e o relógio do primeiro agente deixa de valer. Esses casos aparecem no relatório em `firstResponseCoverage.transferredUnanswered` ([Relatório de qualidade](relatorio-de-qualidade.md)).
+
+## Histórico de versões no console (Fase 5.5)
+
+A seção SLA da Administração lista as versões de uma fila (vigente, agendada, vigente até a troca e encerrada). Ver [Painel de administração](../gestao-administrativa/painel-de-administracao.md).

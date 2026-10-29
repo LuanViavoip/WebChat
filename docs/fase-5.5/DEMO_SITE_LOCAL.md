@@ -1,6 +1,6 @@
 # Demo local do webchat no site institucional
 
-Roteiro para ver o widget da ViaVoip funcionando dentro de `Site_ViaVoip` e atender pelo console, tudo na máquina local. Nenhum valor secreto aparece aqui: os nomes das variáveis estão listados, os valores ficam em `.env` e `.env.local`, que não vão para o git.
+Roteiro para ver o widget da ViaVoip funcionando dentro de `Site_ViaVoip` e atender pelo console, tudo na máquina local. Para a instalação do loader e seus atributos, ver [Widget ChatWeb](../modules/widget.md); para a geometria, [Widget: geometria e correção do recorte](../modules/widget-geometria.md). Nenhum valor secreto aparece aqui: os nomes das variáveis estão listados, os valores ficam em `.env` e `.env.local`, que não vão para o git.
 
 ## Serviços e portas
 
@@ -35,11 +35,11 @@ O script ainda recebe `data-offset-bottom-var="--cookie-banner-height"`: o widge
 
 ```bash
 # 1. WebChat: Postgres, Redis, servidor e página demo
-cd /home/luan/ViaVoip/WebChat
+cd <raiz do WebChat>
 docker compose up --build postgres redis server demo
 
 # 2. Site institucional (outro terminal)
-cd /home/luan/ViaVoip/Site_ViaVoip
+cd <raiz do Site_ViaVoip>
 npx next dev -p 3100
 ```
 
@@ -50,7 +50,7 @@ O seed do WebChat (`SEED=true` no Compose) cria o tenant A, os agentes e o site 
 O widget só abre em origens autorizadas. O `seed.sql` não é alterado: a configuração é feita no console.
 
 1. Abra `http://localhost:3000/console/` e entre como `otavio@tenant-a.local` (senha da demo informada na tela de login).
-2. Menu lateral, **Administração**, aba **Sites e Widgets**.
+2. Menu lateral, **Administração**, aba **Sites e Widgets** ([Painel de administração](../gestao-administrativa/painel-de-administracao.md)).
 3. No cartão **Site A**, clique em **Origens** e deixe uma por linha:
    - `http://localhost:8090`
    - `http://127.0.0.1:8090`
@@ -85,7 +85,7 @@ O loader expõe `window.ViaVoipWebchat.open()` e `window.ViaVoipWebchat.close()`
 
 ## Verificações automáticas
 
-Com o ambiente descartável da skill `verify` no ar (ver `.cursor/skills/verify/SKILL.md`):
+Com o ambiente descartável da skill `verify` no ar (ver `.cursor/skills/verify/SKILL.md` e [Testes visuais](testes-visuais.md)):
 
 ```bash
 export PLAYWRIGHT_PACKAGE_JSON=/tmp/webchat-verify-pw/package.json
@@ -106,12 +106,12 @@ node scripts/verify-visual.mjs       # 5 viewports, console e widget em :8090 e 
 `scripts/demo/populate.mjs` enche um WebChat já em execução com conversas realistas (em português, assuntos de telefonia e VoIP). Ele usa só as interfaces públicas, do mesmo jeito que o widget e o console: `POST /visitor/sessions`, `POST /auth/login`, `POST /company/commands` e socket.io nos namespaces `/visitor`, `/agent` e `/supervisor`. Nada é inserido direto no banco; por isso a supervisão, a qualidade e a auditoria mostram valores calculados pelo servidor.
 
 ```bash
-cd /home/luan/ViaVoip/WebChat
+cd <raiz do WebChat>
 node scripts/demo/populate.mjs                  # popula e fica conectado (padrão)
 node scripts/demo/populate.mjs --no-keep-alive  # popula e encerra (agentes ficam offline)
 ```
 
-Opções: `--base-url=http://localhost:3000`, `--site=site_a`, `--origin=http://localhost:8090` (origem autorizada do site), `--password=...` (ou `DEMO_PASSWORD`), `--fast` (pausas curtas, só para teste). Precisa do servidor no ar com o seed padrão (tenant A) e com a origem informada autorizada no site.
+Opções: `--base-url=http://localhost:3000`, `--site=site_a`, `--origin=http://localhost:8090` (origem autorizada do site), `--password=...` (ou `DEMO_PASSWORD`), `--fast` (pausas curtas, só para teste) e `--only-keep-alive` (só reconecta os agentes, sem criar conversas; útil depois de reiniciar o servidor ou revogar sessões). Precisa do servidor no ar com o seed padrão (tenant A) e com a origem informada autorizada no site.
 
 O que cria, em cerca de 1 minuto:
 

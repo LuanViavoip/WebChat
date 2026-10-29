@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Navegação por papel, conectividade e presença — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="interface-do-console" tabindex="-1">Interface do console</h1>
+<p>Código de referência: Fase 5.5. Fontes: <code>apps/console/src/shell/</code> (<code>nav.ts</code>, <code>roles.ts</code>, <code>Shell.tsx</code>, <code>ConnectionChip.tsx</code>, <code>PresenceControl.tsx</code>), <code>apps/console/src/ui/</code> e <code>apps/console/src/desk/layout.ts</code>. O console é servido em <code>/console/</code> pelo próprio servidor Webchat. O visual segue o <a href="design-system.html">design system ViaVoip</a>.</p>
+<h2 id="estrutura-da-tela" tabindex="-1">Estrutura da tela</h2>
+<ul>
+<li><strong>Menu lateral</strong> (<code>Sidebar</code>): fundo navy, seções agrupadas em <em>Atendimento</em>, <em>Gestão</em>, <em>Equipe</em> e <em>Sistema</em>. Pode ser recolhido para ícones (o estado fica em <code>localStorage</code>, chave <code>viavoip.sidebarCollapsed</code>) e, em telas de até 960 px, vira uma gaveta. A navegação fica em <code>nav[aria-label=&quot;Central&quot;]</code>.</li>
+<li><strong>Barra superior</strong> (<code>Topbar</code>): título da seção, chip de conexão, controle de presença e menu da conta.</li>
+<li><strong>Rotas por hash</strong>: cada seção tem um endereço (<code>#/atendimentos</code>, <code>#/qualidade</code> etc.), o que permite recarregar a página ou compartilhar o endereço de uma tela.</li>
+</ul>
+<h2 id="navega%C3%A7%C3%A3o-por-papel" tabindex="-1">Navegação por papel</h2>
+<p>A lista de seções vem de uma única função, <code>sectionsFor(role)</code> (<code>shell/roles.ts</code>); a sidebar só agrupa o que ela devolve. A interface esconde o que o servidor já recusa, mas a autorização está no servidor.</p>
+<table>
+<thead>
+<tr>
+<th>Papel</th>
+<th>Seções (na ordem do menu)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agente</td>
+<td>Atendimentos, Chat interno, Setores, Anúncios, Minha atividade</td>
+</tr>
+<tr>
+<td>Supervisor</td>
+<td>Visão geral, Agentes, Qualidade, Setores, Atendimentos, Atividades, Anúncios, Chat interno</td>
+</tr>
+<tr>
+<td>Administrador</td>
+<td>Visão geral, Agentes, Administração, Qualidade, Setores, Atendimentos, Atividades, Anúncios, Chat interno</td>
+</tr>
+</tbody>
+</table>
+<p>Agrupamento na sidebar:</p>
+<table>
+<thead>
+<tr>
+<th>Grupo</th>
+<th>Seções</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Atendimento</td>
+<td>Atendimentos, Chat interno</td>
+</tr>
+<tr>
+<td>Gestão</td>
+<td>Visão geral, Agentes, Qualidade</td>
+</tr>
+<tr>
+<td>Equipe</td>
+<td>Setores, Atividades (ou Minha atividade), Anúncios</td>
+</tr>
+<tr>
+<td>Sistema</td>
+<td>Administração</td>
+</tr>
+</tbody>
+</table>
+<p>Slugs de URL: <code>visao-geral</code>, <code>agentes</code>, <code>atendimentos</code>, <code>chat-interno</code>, <code>setores</code>, <code>anuncios</code>, <code>atividades</code>, <code>administracao</code>, <code>qualidade</code>. Um endereço de seção que o papel não possui não abre a tela. O Chat interno mostra na sidebar o selo de mensagens não lidas, atualizado em tempo real.</p>
+<h2 id="conectividade-%C3%97-presen%C3%A7a" tabindex="-1">Conectividade × presença</h2>
+<p>Na Fase 5.5 as duas informações deixaram de se confundir.</p>
+<table>
+<thead>
+<tr>
+<th>Conceito</th>
+<th>Onde aparece</th>
+<th>O que significa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Conectividade</strong></td>
+<td>Chip no topo (<code>ConnectionChip</code>)</td>
+<td>Estado do socket com a central: conectado, reconectando ou desconectado.</td>
+</tr>
+<tr>
+<td><strong>Presença</strong></td>
+<td>Controle próprio ao lado do chip (<code>PresenceControl</code>)</td>
+<td>Disponível, Ocupado, Ausente ou Offline, calculado no servidor.</td>
+</tr>
+</tbody>
+</table>
+<p>Regras:</p>
+<ul>
+<li>O chip mostra <strong>só</strong> o socket. Não diz nada sobre a presença.</li>
+<li>Para o agente, a presença é um seletor (Disponível, Ocupado, Ausente). Sem conexão, o seletor fica desabilitado e mostra &quot;Presença: —&quot;; &quot;Offline&quot; aparece como valor informado pelo servidor e não pode ser escolhido.</li>
+<li>Perder a conexão <strong>não sobrescreve</strong> a presença guardada, e o seletor nunca converte <code>offline</code> em <code>available</code>.</li>
+<li>Supervisor e administrador veem a presença como um selo somente leitura, omitido quando offline.</li>
+<li>Na tabela de agentes da supervisão, Presença e Conectividade são badges separados.</li>
+</ul>
+<p>Ver também <a href="../presenca-e-atividades/presenca.html">Presença</a>.</p>
+<h2 id="layout-da-central-do-agente" tabindex="-1">Layout da Central do Agente</h2>
+<p>O layout da central é escolhido pela largura da <strong>área de conteúdo</strong> (viewport menos a sidebar), em <code>deskLayout()</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Largura da área</th>
+<th>Layout</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>960 px ou mais</td>
+<td>Três colunas: fila, conversa e detalhes</td>
+</tr>
+<tr>
+<td>680 a 959 px</td>
+<td>Fila e conversa; detalhes em gaveta (<code>Drawer</code>)</td>
+</tr>
+<tr>
+<td>Abaixo de 680 px</td>
+<td>Fila e conversa em telas separadas, com botão voltar</td>
+</tr>
+</tbody>
+</table>
+<p>Detalhes da operação em <a href="../central-do-agente/agente.html">Central do Agente</a>.</p>
+<h2 id="acessibilidade-e-teclado" tabindex="-1">Acessibilidade e teclado</h2>
+<p>Foco visível em todos os controles (anel de 3 px índigo), diálogos nativos <code>&lt;dialog&gt;</code> com foco preso e fechamento por Esc, abas com setas, Home e End, e <code>prefers-reduced-motion</code> respeitado. O compositor de mensagens envia com Enter e quebra a linha com Shift+Enter.</p>
+</article>
+</body>
+</html>

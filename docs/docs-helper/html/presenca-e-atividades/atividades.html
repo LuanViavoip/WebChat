@@ -22,6 +22,8 @@
 <p>admin: qualquer agente. Supervisor: agentes que compartilham um setor que ele supervisiona. Agente: apenas a si, e só se <code>agents.can_change_own_activity</code> for verdadeiro.</p>
 <h2 id="concorr%C3%AAncia-e-auditoria" tabindex="-1">Concorrência e auditoria</h2>
 <p>Dois pedidos simultâneos para o mesmo agente são serializados pelo lock e pelo índice único. Gravam auditoria: <code>activity.type_save</code>, <code>activity.assign</code>, <code>activity.finish</code>. Evento: <code>activity.updated</code>.</p>
+<h2 id="interface-(fase-5.5)" tabindex="-1">Interface (Fase 5.5)</h2>
+<p><code>GET /auth/me</code> informa <code>canChangeOwnActivity</code>: <code>true</code> para supervisor e administrador e, para o agente, somente quando <code>agents.can_change_own_activity</code> foi concedido (campo <em>Atividades</em> = <code>self_service</code> na Administração; ver <a href="../gestao-administrativa/painel-de-administracao.html">Painel de administração</a>). Na seção <strong>Minha atividade</strong> (agente) ou <strong>Atividades</strong> (supervisão e administração) o formulário de registro aparece quando a pessoa pode alocar; a tela mostra a atividade atual, o histórico e, para o administrador, o catálogo de tipos. O servidor continua aplicando <code>assertCanAllocate</code>.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
 <figure><img src="../../assets/activity-states.png" alt="Estados de atividade/alocação"><figcaption>Estados de atividade/alocação</figcaption></figure>
 </section>

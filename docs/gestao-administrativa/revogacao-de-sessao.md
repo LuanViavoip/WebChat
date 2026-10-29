@@ -27,4 +27,4 @@ Se o `LISTEN` ou o Redis ficam indisponíveis, o intervalo cai para 2 s (`degrad
 
 - Os caminhos de revogação não se desligam por variável de ambiente; testes usam opções de construção do app.
 - Entre o commit e a varredura, um evento já em trânsito pode ainda chegar ao socket.
-- Com mais de uma réplica, `REDIS_URL` é obrigatório (ver [Ambientes](../implantacao-e-operacao/ambientes.md)).
+- Com mais de uma réplica, `REDIS_URL` é obrigatório (ver [Ambientes](../deployment/environments.md)).

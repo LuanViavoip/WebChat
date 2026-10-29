@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Design system ViaVoip — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="design-system-do-console-e-do-widget" tabindex="-1">Design system do console e do widget</h1>
+<p>Identidade ViaVoip aplicada ao console (<code>apps/console</code>) e ao widget (<code>apps/widget</code>). Os valores da marca vêm de <code>Site_ViaVoip/src/app/globals.css</code> e <code>Site_ViaVoip/docs/DESIGN_SYSTEM.md</code>. CSS puro com custom properties, sem Tailwind e sem fontes externas em tempo de execução.</p>
+<h2 id="tokens-(apps%2Fconsole%2Fsrc%2Fui%2Ftokens.css)" tabindex="-1">Tokens (<code>apps/console/src/ui/tokens.css</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Valor</th>
+<th>Uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--color-primary</code> / <code>--color-primary-hover</code></td>
+<td><code>#3740b0</code> / <code>#2c3490</code></td>
+<td>botões, foco, item ativo</td>
+</tr>
+<tr>
+<td><code>--color-navy</code> / <code>--color-navy-deep</code></td>
+<td><code>#112349</code> / <code>#101f41</code></td>
+<td>sidebar, cabeçalho do widget, login</td>
+</tr>
+<tr>
+<td><code>--color-accent</code></td>
+<td><code>#08e4e7</code></td>
+<td>somente sobre navy (foco e selo na sidebar); nunca como texto em fundo claro</td>
+</tr>
+<tr>
+<td><code>--color-on-navy</code></td>
+<td><code>#c5cfe8</code></td>
+<td>texto sobre navy</td>
+</tr>
+<tr>
+<td><code>--color-text</code> / <code>--color-text-secondary</code></td>
+<td><code>#1f2430</code> / <code>#4b5263</code></td>
+<td>títulos e corpo</td>
+</tr>
+<tr>
+<td><code>--color-bg</code> / <code>--color-surface</code></td>
+<td><code>#f5f5f5</code> / <code>#fff</code></td>
+<td>fundo da página e cartões</td>
+</tr>
+<tr>
+<td><code>--color-tint</code> / <code>--color-tint-strong</code></td>
+<td><code>#eff1fb</code> / <code>#e2e6f6</code></td>
+<td>seleção, ícones, balão do agente</td>
+</tr>
+<tr>
+<td><code>--color-border</code></td>
+<td><code>#e6e6e6</code></td>
+<td>linhas e bordas</td>
+</tr>
+<tr>
+<td><code>--shadow-soft</code>, <code>--shadow-lift</code></td>
+<td>copiadas do site</td>
+<td>cartões e diálogos</td>
+</tr>
+<tr>
+<td><code>--radius-control</code></td>
+<td><code>999px</code></td>
+<td>botões e badges</td>
+</tr>
+<tr>
+<td><code>--radius-box</code></td>
+<td><code>6px</code></td>
+<td>campos</td>
+</tr>
+<tr>
+<td><code>--radius-card</code>, <code>--radius-panel</code></td>
+<td><code>12px</code>, <code>16px</code></td>
+<td>cartões e painéis</td>
+</tr>
+</tbody>
+</table>
+<p>Cores semânticas (success, warning, error, info, neutral) <strong>não existem no site</strong>: são variantes derivadas, em três formas (texto, fundo e borda), com contraste AA, no estilo de pill com tint. Estão marcadas como &quot;derivadas&quot; em <code>tokens.css</code>.</p>
+<p>Outros tokens: espaçamento em escala de 4px (<code>--space-1</code> a <code>--space-10</code>), alturas de controle 36/44/48, camadas (<code>--z-topbar</code>, <code>--z-sidebar</code>, <code>--z-drawer</code>, <code>--z-modal</code>, <code>--z-toast</code>), transição de 150 ms, anel de foco de 3px índigo (<code>--focus-ring</code>). Breakpoints 640, 960 e 1280 ficam documentados em comentário, porque custom properties não valem em <code>@media</code>.</p>
+<p>Tipografia: Montserrat 600/700 nos títulos e Open Sans 400/600 no corpo, servidas localmente por <code>@fontsource/montserrat</code> e <code>@fontsource/open-sans</code> (subconjunto latin). O widget usa as mesmas famílias só se já estiverem instaladas no visitante, com fallback para fontes do sistema, sem requisições externas.</p>
+<h2 id="arquivos-de-estilo" tabindex="-1">Arquivos de estilo</h2>
+<ul>
+<li><code>ui/tokens.css</code>: tokens.</li>
+<li><code>ui/base.css</code>: reset mínimo, tipografia, foco, <code>[hidden]</code>, <code>.sr-only</code>, redução de movimento.</li>
+<li><code>ui/ui.css</code>: componentes e o shell (sidebar, topbar, diálogos, toasts, tabelas).</li>
+<li><code>ui/panels.css</code>: layout das telas de gestão (<code>.page</code>, <code>.stat-grid</code>, <code>.toolbar</code>, <code>.form-grid</code>, <code>.admin</code>, <code>.card-grid</code>, <code>.chat</code>).</li>
+<li><code>desk/desk.css</code>: Central do Agente. <code>auth/login.css</code>: login.</li>
+</ul>
+<h2 id="componentes-(apps%2Fconsole%2Fsrc%2Fui%2F)" tabindex="-1">Componentes (<code>apps/console/src/ui/</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Componente</th>
+<th>Arquivo</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AppShell</code>, <code>Sidebar</code>, <code>Topbar</code>, <code>PageHeader</code></td>
+<td><code>AppShell.tsx</code>, <code>Sidebar.tsx</code>, <code>Topbar.tsx</code>, <code>PageHeader.tsx</code></td>
+<td>A sidebar recebe grupos montados de <code>sectionsFor()</code>; recolhe para ícones (estado em <code>localStorage</code>) e vira gaveta em até 960px. A navegação fica em <code>nav[aria-label=&quot;Central&quot;]</code>.</td>
+</tr>
+<tr>
+<td><code>Button</code></td>
+<td><code>Button.tsx</code></td>
+<td><code>primary</code>, <code>secondary</code>, <code>ghost</code>, <code>danger</code>; tamanhos <code>sm</code>, <code>md</code>, <code>lg</code>; botão só com ícone exige <code>aria-label</code>.</td>
+</tr>
+<tr>
+<td><code>Field</code>, <code>Input</code>, <code>Select</code>, <code>Textarea</code></td>
+<td><code>Field.tsx</code></td>
+<td><code>Field</code> envolve o controle em <code>&lt;label&gt;</code>, com dica e erro.</td>
+</tr>
+<tr>
+<td><code>Card</code>, <code>StatCard</code>, <code>StatusBadge</code>, <code>Avatar</code></td>
+<td><code>Card.tsx</code>, <code>StatusBadge.tsx</code>, <code>Avatar.tsx</code></td>
+<td><code>StatCard</code> renderiza <code>article</code> com <code>strong</code>; a descrição vai só em <code>title</code>.</td>
+</tr>
+<tr>
+<td><code>Modal</code>, <code>Drawer</code>, <code>ConfirmDialog</code></td>
+<td><code>Dialog.tsx</code></td>
+<td><code>&lt;dialog&gt;</code> nativo aberto com <code>showModal()</code>: o navegador prende o foco e fecha com Esc. O conteúdo só existe enquanto aberto.</td>
+</tr>
+<tr>
+<td><code>Tabs</code></td>
+<td><code>Tabs.tsx</code></td>
+<td>Teclas de seta, Home e End; variante lateral em telas largas.</td>
+</tr>
+<tr>
+<td><code>DataTable</code></td>
+<td><code>DataTable.tsx</code></td>
+<td><code>&lt;table&gt;</code> semântica; linhas com <code>role=&quot;row&quot;</code> explícito; rolagem horizontal só dentro do cartão.</td>
+</tr>
+<tr>
+<td><code>EmptyState</code>, <code>LoadingState</code>, <code>ErrorState</code></td>
+<td><code>states.tsx</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ToastProvider</code>, <code>useToast</code></td>
+<td><code>Toast.tsx</code></td>
+<td>Substitui as linhas de aviso; cada toast leva <code>data-testid=&quot;notice&quot;</code>.</td>
+</tr>
+<tr>
+<td><code>Composer</code>, <code>MessageBubble</code></td>
+<td><code>Composer.tsx</code>, <code>MessageBubble.tsx</code></td>
+<td>Compartilhados pela central e pelo chat interno. Enter envia, Shift+Enter quebra a linha.</td>
+</tr>
+<tr>
+<td><code>useNow</code>, <code>useHashRoute</code>, <code>useElementWidth</code>, <code>useStoredFlag</code></td>
+<td><code>hooks.ts</code>, <code>route.ts</code></td>
+<td>Rotas por hash (<code>#/atendimentos</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="padr%C3%B5es-de-uso" tabindex="-1">Padrões de uso</h2>
+<ul>
+<li><strong>Conectividade x presença.</strong> O chip do topo (<code>ConnectionChip</code>) mostra só o estado do socket. A presença do agente é um controle próprio (Disponível, Ocupado, Ausente, Offline); sem conexão ela aparece como &quot;—&quot; e o valor guardado não é sobrescrito.</li>
+<li><strong>Layout responsivo da central.</strong> Medido pela largura da área de conteúdo: 960px ou mais, três colunas; de 680 a 959px, lista e conversa com detalhes em <code>Drawer</code>; abaixo disso, lista e conversa em telas separadas com botão voltar. <code>height: 100dvh</code> mantém o compositor visível com o teclado virtual.</li>
+<li><strong>Comandos da empresa.</strong> <code>useCompanyCommand</code> reaproveita o <code>requestId</code> ao reenviar o mesmo conteúdo depois de falha de rede ou timeout; descarta o id após sucesso, recusa do servidor, mudança do conteúdo ou fechamento do formulário; desabilita o envio enquanto houver pendência.</li>
+<li><strong>Ações destrutivas</strong> (suspender, revogar sessões, retirar classificação ou SLA, pausar site, arquivar, encerrar e devolver à fila) passam por <code>ConfirmDialog</code> ou por um formulário com motivo.</li>
+<li><strong>Seletores de teste.</strong> <code>data-testid</code> (<code>login-*</code>, <code>presence</code>, <code>connection</code>, <code>conversation</code>, <code>message</code>, <code>claim</code>, <code>composer</code>, <code>notice</code>, <code>close</code>, <code>supervisor-metrics</code>, <code>queue-name</code>, <code>queue-create</code>, <code>command-result</code>) e os rótulos do menu são contrato com <code>scripts/verify-browser.mjs</code>.</li>
+</ul>
+<h2 id="widget-(apps%2Fwidget%2Fsrc)" tabindex="-1">Widget (<code>apps/widget/src</code>)</h2>
+<ul>
+<li>Cabeçalho navy, botões índigo, <code>--brand</code> vindo das configurações do site (cor definida no console), foco de 3px.</li>
+<li>Painel com <code>overflow: hidden</code>, lista de mensagens com rolagem, compositor fixo no rodapé, pesquisa com rolagem e <code>env(safe-area-inset-*)</code>.</li>
+<li>Geometria do iframe em <code>frame-geometry.ts</code> (função pura, testada): botão 88x88 com 8px de folga para sombra e foco; painel <code>min(400, largura-32) x min(640, altura-32)</code> com margem de 16px; até 640px, tela cheia (<code>100vw x 100dvh</code>).</li>
+</ul>
+</article>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Relatório final — Fase 5.5
 
-Redesign do console, correção do widget pela causa raiz e demo do webchat dentro do site institucional. Sem alterações em `apps/server`, `packages/protocol`, migrations e seed. Nenhum commit foi feito no WebChat; em `Site_ViaVoip` existe só o commit baseline local, sem remote.
+Redesign do console, correção do widget pela causa raiz e demo do webchat dentro do site institucional. Fora do front-end, a única mudança de contrato é pequena: `GET /auth/me` passou a devolver `canChangeOwnActivity` (`apps/server/src/auth/sessions.ts` e `authMeSchema` em `packages/protocol/src/http.ts`, com testes). Não há migrations nem alterações no seed. O código está no commit `3d9e2cf`; em `Site_ViaVoip` existe só o commit baseline local, sem remote.
 
 Data da validação: 2026-10-29. Ambiente: containers descartáveis (Postgres 16, Redis 7, nginx 1.27) e servidor local em `127.0.0.1:3000`, conforme `.cursor/skills/verify/SKILL.md`.
 
@@ -41,7 +41,7 @@ A tela de Qualidade usa só `GET /quality/report` e os campos do schema. O servi
 
 ## 6. Administração e módulos internos
 
-Oito seções (Empresa, Usuários e Permissões, Filas, Classificações, Sites e Widgets, SLA, Pesquisa, Auditoria). Todos os formulários enviam exatamente o `companyCommandSchema` e são validados no cliente antes do envio. `useCompanyCommand` mantém o `requestId` da tentativa lógica: reaproveita ao reenviar o mesmo conteúdo após falha de rede ou timeout, descarta após sucesso, recusa do servidor, mudança do conteúdo ou fechamento do formulário, e desabilita o botão durante o envio. Ações destrutivas usam diálogo de confirmação.
+Oito seções (Empresa, Usuários e Permissões, Filas, Classificações, Sites e Widgets, SLA, Pesquisa, Auditoria). Todos os formulários enviam exatamente o `companyCommandSchema` e são validados no cliente antes do envio. `useCompanyCommand` mantém o `requestId` da tentativa lógica: reaproveita ao reenviar o mesmo conteúdo após falha de rede ou timeout, descarta após sucesso, recusa do servidor, mudança do conteúdo ou fechamento do formulário, e desabilita o botão durante o envio. Ações destrutivas usam diálogo de confirmação. O agente registra a própria atividade quando o administrador concedeu a permissão: `GET /auth/me` expõe `canChangeOwnActivity` e o histórico de versões de SLA aparece na seção SLA.
 
 "Copiar script" monta o snippet com a origem do console e o `publicId` real, sem tokens. Chat interno com selo de não lidas em tempo real na sidebar; Setores com seleção de pessoas por nome (mesmos payloads); Anúncios com cartões, fixados em destaque e formulário em modal; Atividades com atividade atual, histórico e catálogo.
 
@@ -69,7 +69,7 @@ Cobertura: `frame-geometry.test.ts` (geometria, estilos, deslocamentos, modo) e 
 
 | Verificação | Resultado |
 |---|---|
-| `pnpm test` na raiz (protocol, sm-adapter, widget, console e servidor com Testcontainers) | **188 de 188 testes passaram**: protocol 11, sm-adapter 2, widget 18 (2 arquivos), console 58 (12 arquivos), servidor 99 (25 arquivos) |
+| `pnpm test` na raiz (protocol, sm-adapter, widget, console e servidor com Testcontainers) | **192 de 192 testes passaram** (reexecutado em 2026-10-29 sobre o commit `3d9e2cf`): protocol 11, sm-adapter 2, widget 18 (2 arquivos), console 61 (13 arquivos), servidor 100 (25 arquivos) |
 | `pnpm build` na raiz | sem erros nos cinco pacotes (`tsc` estrito e `vite build`; loader com esbuild) |
 | `scripts/verify-browser.mjs` em containers recém-criados | **saída 0** (isolamento de empresa e setor, supervisão ao vivo, revogação, idempotência do retry do console, fluxo completo do widget) |
 | `scripts/verify-visual.mjs` (1920x1080, 1366x768, 768x1024, 390x844 e 375x667; console e widget em :8090 e :3100) | **155 verificações, 0 falhas, 0 erros de console**, saída 0 |
@@ -100,6 +100,7 @@ Pendências e riscos:
 6. `verify-browser.mjs` suspende uma conta (Sofia): exige containers recém-criados a cada execução.
 7. O `next dev` do site mostra o selo "Insight" no canto inferior esquerdo e avisa de uma vulnerabilidade na versão instalada do Next (16.4.0). Atualizar o Next é decisão do time do site.
 8. Nenhum bug de backend foi encontrado durante a validação.
+9. A migration `009_company_admin.sql` ainda traz no cabeçalho o comentário "NÃO é aplicado pelo migrate.ts", embora seja aplicada; corrigir o comentário é mudança de arquivo de migration e ficou de fora desta documentação.
 
 Recomendações:
 

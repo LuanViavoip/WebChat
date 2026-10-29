@@ -8,7 +8,7 @@ Código de referência: commit `02f5373` (Fase 5, PR #2). Fontes: `apps/server/s
 |---|---|---|---|---|
 | Conversar no widget | sim | não | não | não |
 | Atender conversas das próprias filas | não | sim | sim | sim |
-| Painel ao vivo, histórico e monitoramento ([Central do Supervisor](../central-do-supervisor/supervisor.html)) | não | não | escopo dos setores e filas | escopo da empresa |
+| Painel ao vivo, histórico e monitoramento ([Central do Supervisor](../modules/supervisor.md)) | não | não | escopo dos setores e filas | escopo da empresa |
 | Painel de administração (`GET /company/desk`) | não | não | **não** | sim |
 | Comandos de gestão (`POST /company/commands`) | não | não | **não** | sim |
 | Relatório de qualidade, escopo `queue` ou `sector` | não | não | apenas fila ou setor sob sua supervisão | sim |
