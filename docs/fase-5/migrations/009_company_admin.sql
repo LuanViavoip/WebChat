@@ -1,6 +1,5 @@
--- Proposta da Fase 5. Este arquivo NÃO é aplicado pelo migrate.ts.
--- A unidade 1 do plano move esta cópia para apps/server/migrations/009_company_admin.sql.
--- Até lá, o servidor e os testes continuam no schema da Fase 4.
+-- Cópia histórica da proposta da Fase 5. Não é lida pelo migrate.ts.
+-- A versão aplicada é apps/server/migrations/009_company_admin.sql.
 
 ALTER TABLE tenants
   ADD COLUMN time_zone text NOT NULL DEFAULT 'America/Sao_Paulo';

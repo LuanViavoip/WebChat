@@ -251,7 +251,7 @@ Novos, neste desenho:
 | Arquivo | Responsabilidade |
 |---|---|
 | `docs/fase-5/ARQUITETURA.md` | Este desenho |
-| `docs/fase-5/migrations/009_company_admin.sql` | Migration proposta, ainda não aplicada |
+| `docs/fase-5/migrations/009_company_admin.sql` | Cópia histórica da proposta; a aplicada é `apps/server/migrations/009_company_admin.sql` |
 | `packages/protocol/src/company.ts` | Schemas e tipos do fio |
 | `packages/protocol/test/company.test.ts` | O contrato recusa `tenantId`, pausa sem motivo, janela ruim, período longo e envelope sem `requestId`, e aceita `firstResponseCoverage` com duração vazia |
 | `apps/server/src/domain/company-access.ts` | `assertCompanyAccess` |

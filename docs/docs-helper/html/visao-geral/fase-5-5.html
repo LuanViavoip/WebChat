@@ -133,7 +133,7 @@
 <li><code>verify-browser.mjs</code> suspende uma conta (Sofia): exige containers recém-criados a cada execução.</li>
 <li>O <code>next dev</code> do site mostra o selo &quot;Insight&quot; no canto inferior esquerdo e avisa de uma vulnerabilidade na versão instalada do Next (16.4.0). Atualizar o Next é decisão do time do site.</li>
 <li>Nenhum bug de backend foi encontrado durante a validação.</li>
-<li>A migration <code>009_company_admin.sql</code> ainda traz no cabeçalho o comentário &quot;NÃO é aplicado pelo migrate.ts&quot;, embora seja aplicada; corrigir o comentário é mudança de arquivo de migration e ficou de fora desta documentação.</li>
+<li>Resolvido: o cabeçalho de <code>009_company_admin.sql</code> agora diz que a migration é aplicada pelo <code>migrate.ts</code> (só o comentário mudou; o SQL é o mesmo).</li>
 </ol>
 <p>Recomendações:</p>
 <ul>

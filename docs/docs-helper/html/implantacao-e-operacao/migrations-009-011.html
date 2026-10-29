@@ -75,7 +75,7 @@
 <p>Cria a função <code>staff_sessions_alive(uuid[])</code> (<code>SECURITY DEFINER</code>, <code>search_path = public</code>), usada pela varredura em lote da revogação. Ver <a href="../gestao-administrativa/revogacao-de-sessao.html">Revogação de sessão</a>.</p>
 <h2 id="observa%C3%A7%C3%B5es" tabindex="-1">Observações</h2>
 <ul>
-<li>O servidor aplica as três migrations; o cabeçalho de <code>009_company_admin.sql</code> ainda traz o aviso da fase de desenho (&quot;não é aplicada&quot;), que está desatualizado.</li>
+<li>O servidor aplica as três migrations na inicialização (<code>migrate.ts</code>), controladas pelo nome do arquivo em <code>schema_migrations</code>.</li>
 <li><code>docs/fase-5/migrations/</code> guarda só 009 e 010 como cópia histórica do desenho; a 011 existe apenas em <code>apps/server/migrations/</code>. A fonte de verdade é <code>apps/server/migrations/</code>.</li>
 <li>Regenere o <a href="../banco-de-dados/dicionario-de-dados.html">dicionário de dados</a> após mudar o schema (<a href="manutencao.html">Manutenção</a>).</li>
 </ul>
