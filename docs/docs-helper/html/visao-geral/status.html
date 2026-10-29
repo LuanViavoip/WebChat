@@ -6,8 +6,8 @@
 </head>
 <body>
 <article>
-<h1 id="status-de-implementa%C3%A7%C3%A3o-%E2%80%94-fase-4" tabindex="-1">Status de implementação — Fase 4</h1>
-<p>Estado verificado em 27 de outubro de 2026. O teste integrado fornecido pelo responsável terminou com 62 testes passando, incluindo PostgreSQL e Redis descartáveis. Isso não comprova entrega durável após falhas nem constitui aprovação irrestrita para produção.</p>
+<h1 id="status-de-implementa%C3%A7%C3%A3o-%E2%80%94-fase-5" tabindex="-1">Status de implementação — Fase 5</h1>
+<p>Código de referência: commit <code>02f5373</code> (Fase 5, PR #2 na <code>main</code>). A contagem de testes da Fase 4 (62 passaram em 27 de outubro de 2026, com PostgreSQL e Redis descartáveis) <strong>não foi refeita para esta documentação</strong>; a Fase 5 acrescentou suítes no servidor, no protocolo, no widget e no console. Nada disso comprova entrega durável após falhas nem aprova o uso em produção.</p>
 <table>
 <thead>
 <tr>
@@ -55,7 +55,27 @@
 <tr>
 <td>Redis</td>
 <td>Implementado e testado</td>
-<td>Testes de entrega interna e logout entre duas instâncias com Redis descartável.</td>
+<td>Entrega interna e logout entre duas instâncias com Redis descartável. Obrigatório com mais de uma réplica (<code>REPLICAS</code> &gt; 1).</td>
+</tr>
+<tr>
+<td>Gestão administrativa</td>
+<td>Implementado e testado</td>
+<td>Painel da empresa, comandos idempotentes com recibo de 24 h, fuso, sites que nascem pausados e janelas de atendimento; exclusivo do administrador. Ver <a href="../gestao-administrativa/papeis-e-permissoes.html">Papéis e permissões</a>.</td>
+</tr>
+<tr>
+<td>Qualidade operacional</td>
+<td>Implementado e testado</td>
+<td>Políticas de SLA por fila e relatório histórico (p50/p90, abandonos, cobertura de primeira resposta, pesquisa, presença). Ver <a href="../qualidade-operacional/politica-de-sla.html">Política de SLA</a>.</td>
+</tr>
+<tr>
+<td>Auditoria</td>
+<td>Implementado e testado</td>
+<td>Consulta paginada por cursor, só para administrador; escrita e consulta cobrem as ações de gestão.</td>
+</tr>
+<tr>
+<td>Revogação de sessão</td>
+<td>Implementado e testado</td>
+<td>Disconnect direto, Redis, <code>NOTIFY</code> e varredura em lote (padrão 10 s, teto 15 s). Ver <a href="../gestao-administrativa/revogacao-de-sessao.html">Revogação de sessão</a>.</td>
 </tr>
 <tr>
 <td>Entrega durável de eventos / SM</td>
@@ -70,7 +90,7 @@
 </tbody>
 </table>
 <h2 id="auditoria-e-limita%C3%A7%C3%B5es" tabindex="-1">Auditoria e limitações</h2>
-<p>Os achados originais são históricos; as correções e seus limites estão em FASE4_REVIEW_POS_CORRECOES.md. A suíte passou, porém não substitui testes E2E em navegador nem validação de falha de infraestrutura em produção. A entrega pós-commit continua sem garantia durável (F4-07). Revogação entre réplicas exige Redis; a coordenação de mensagens de grupo requer PostgreSQL compartilhado. Eventos autorizados antes da remoção podem chegar posteriormente por atraso de transporte.</p>
+<p>As migrations 009 a 011 (<a href="../implantacao-e-operacao/migrations-009-011.html">resumo</a>) acrescentam tabelas, colunas e a função de varredura de sessões. Os achados originais da Fase 4 são históricos; as correções e seus limites estão em FASE4_REVIEW_POS_CORRECOES.md. A suíte passou, porém não substitui testes E2E em navegador nem validação de falha de infraestrutura em produção. A entrega pós-commit continua sem garantia durável (F4-07). Revogação entre réplicas exige Redis; a coordenação de mensagens de grupo requer PostgreSQL compartilhado. Eventos autorizados antes da remoção podem chegar posteriormente por atraso de transporte.</p>
 </article>
 </body>
 </html>

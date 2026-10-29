@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Configuração por empresa — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="configura%C3%A7%C3%A3o-por-empresa" tabindex="-1">Configuração por empresa</h1>
+<p>Código de referência: <code>02f5373</code>. Fontes: <code>packages/protocol/src/company.ts</code>, <code>apps/server/src/modules/company-commands.ts</code>, migration <code>009_company_admin.sql</code>. Exclusivo do administrador (ver <a href="papeis-e-permissoes.html">Papéis e permissões</a>).</p>
+<h2 id="leitura" tabindex="-1">Leitura</h2>
+<p><code>GET /company/desk</code> devolve o painel da empresa: perfil (nome, <code>slug</code>, fuso, limite de concorrência), sites, filas, classificações, pesquisa, pessoas e políticas de SLA. Limites do contrato: até 20 sites, 50 filas, 50 classificações, 500 pessoas e 200 políticas.</p>
+<h2 id="fuso-da-empresa" tabindex="-1">Fuso da empresa</h2>
+<ul>
+<li>Coluna <code>tenants.time_zone</code>, padrão <code>America/Sao_Paulo</code>, entre 1 e 64 caracteres.</li>
+<li>Comando <code>company.time_zone</code>: o protocolo valida o nome com <code>Intl.DateTimeFormat</code>; fuso desconhecido é recusado. O banco valida de novo no trigger <code>tenants_time_zone</code>.</li>
+<li>As janelas de atendimento dos sites são interpretadas neste fuso.</li>
+</ul>
+<h2 id="sites-nascem-pausados-e-sem-origens" tabindex="-1">Sites nascem pausados e sem origens</h2>
+<p><code>site.create</code> insere o site com <code>acceptance = 'paused'</code>, <code>allowed_origins = {}</code> e motivo &quot;Aguardando origens permitidas&quot;. Um site só passa a aceitar conversas depois que o administrador:</p>
+<ol>
+<li>define as origens com <code>site.origins_replace</code> (até 20 URLs);</li>
+<li>muda a aceitação com <code>site.acceptance_set</code> para <code>accepting</code>.</li>
+</ol>
+<p>Regras que o servidor e o banco impõem:</p>
+<ul>
+<li>Site <code>accepting</code> sem nenhuma origem é recusado (<code>invalid_state</code>, &quot;Site sem origens permitidas&quot;) e também pelo trigger <code>sites_origins_when_accepting</code>.</li>
+<li>Aceitação <code>paused</code> exige motivo de 1 a 200 caracteres; <code>accepting</code> não tem motivo (<code>sites_pause_reason_pair</code>).</li>
+<li>A coluna antiga <code>accepting_chats</code> continua existindo e é mantida sincronizada com <code>acceptance</code> pelo trigger <code>sites_acceptance_sync</code>.</li>
+<li>Esvaziar as origens de um site que está aceitando é recusado; pause o site antes.</li>
+</ul>
+<h2 id="janelas-de-atendimento" tabindex="-1">Janelas de atendimento</h2>
+<p><code>site.service_windows_replace</code> troca o calendário inteiro do site. O calendário é <code>always_open</code> (sem linhas) ou <code>weekly</code> com 1 a 21 janelas: dia da semana 1–7, minuto inicial 0–1439, minuto final 1–1440 e final maior que inicial. O banco recusa janelas sobrepostas no mesmo dia (<code>site_service_windows</code>, trigger <code>site_service_windows_scope</code>). A aceitação efetiva do painel pode ser <code>accepting</code>, <code>paused</code> ou <code>outside_service_window</code>.</p>
+<h2 id="demais-comandos-de-configura%C3%A7%C3%A3o" tabindex="-1">Demais comandos de configuração</h2>
+<table>
+<thead>
+<tr>
+<th>Comando</th>
+<th>Efeito</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>company.rename</code></td>
+<td>Nome da empresa, 1 a 120 caracteres</td>
+</tr>
+<tr>
+<td><code>company.concurrency_limit</code></td>
+<td>Limite de atendimentos simultâneos por agente, 1 a 100</td>
+</tr>
+<tr>
+<td><code>site.create</code> / <code>site.appearance_replace</code></td>
+<td>Identificador público, nome, cor <code>#RRGGBB</code>, logotipo <code>https</code>, mensagem de boas-vindas (até 300) e exigência de nome do visitante</td>
+</tr>
+<tr>
+<td><code>queue.create</code> / <code>queue.rename</code></td>
+<td>Filas; nome único por empresa</td>
+</tr>
+<tr>
+<td><code>disposition.create</code> / <code>rename</code> / <code>retire</code></td>
+<td>Classificações de encerramento; aposentar não apaga</td>
+</tr>
+<tr>
+<td><code>survey.publish</code></td>
+<td>Publica a pesquisa: pergunta (até 300) e escala 1 a 5; só uma pesquisa ativa por empresa</td>
+</tr>
+<tr>
+<td><code>agent.*</code></td>
+<td>Gestão de pessoas, ver <a href="revogacao-de-sessao.html">Revogação de sessão</a></td>
+</tr>
+<tr>
+<td><code>sla.publish</code> / <code>sla.retire</code></td>
+<td>Ver <a href="../qualidade-operacional/politica-de-sla.html">Política de SLA</a></td>
+</tr>
+</tbody>
+</table>
+<p>Todo comando é idempotente por <code>requestId</code> (<a href="comandos-idempotentes.html">Comandos idempotentes</a>) e grava auditoria (<a href="auditoria.html">Auditoria</a>).</p>
+</article>
+</body>
+</html>

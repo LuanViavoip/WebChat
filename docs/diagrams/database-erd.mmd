@@ -51,6 +51,11 @@ erDiagram
     uuid id PK
     uuid agent_id FK
   }
+  company_command_receipts {
+    uuid tenant_id PK
+    uuid actor_id PK,FK
+    uuid request_id PK
+  }
   conversation_events {
     uuid id PK
     uuid conversation_id FK
@@ -122,8 +127,22 @@ erDiagram
     uuid site_id PK,FK
     uuid queue_id PK,FK
   }
+  site_service_windows {
+    uuid site_id PK,FK
+    smallint weekday PK
+    smallint start_minute PK
+  }
   sites {
     uuid id PK
+  }
+  sla_policies {
+    uuid id PK
+    uuid queue_id FK
+    uuid created_by FK
+  }
+  sla_policy_clocks {
+    uuid policy_id PK,FK
+    text metric PK
   }
   survey_definitions {
     uuid id PK
@@ -161,6 +180,7 @@ erDiagram
   agents ||--o{ announcements : "author_id"
   agents ||--o{ audit_events : "actor_id"
   agents ||--o{ auth_sessions : "agent_id"
+  agents ||--o{ company_command_receipts : "actor_id"
   conversations ||--o{ conversation_events : "conversation_id"
   agents ||--o{ conversation_reads : "agent_id"
   conversations ||--o{ conversation_reads : "conversation_id"
@@ -188,6 +208,10 @@ erDiagram
   sectors ||--o{ sector_supervisors : "sector_id"
   queues ||--o{ site_queues : "queue_id"
   sites ||--o{ site_queues : "site_id"
+  sites ||--o{ site_service_windows : "site_id"
+  agents ||--o{ sla_policies : "created_by"
+  queues ||--o{ sla_policies : "queue_id"
+  sla_policies ||--o{ sla_policy_clocks : "policy_id"
   conversations ||--o| survey_responses : "conversation_id"
   survey_definitions ||--o{ survey_responses : "survey_definition_id"
   sites ||--o{ visitor_sessions : "site_id"

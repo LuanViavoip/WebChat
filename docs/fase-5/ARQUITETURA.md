@@ -1,5 +1,7 @@
 # Fase 5 — Gestão administrativa, configurações por empresa e qualidade operacional
 
+> Implementado na `main` em `02f5373`; este arquivo permanece como desenho histórico. O preâmbulo abaixo ("nada está ligado", "not implemented") não descreve mais o código. Para o comportamento atual, veja a documentação em `docs/gestao-administrativa/` e `docs/qualidade-operacional/`.
+
 Desenho. Nada neste documento está ligado ao processo que atende o widget. Os serviços, as rotas e o cálculo de qualidade lançam `throw new Error('not implemented')`. A migration proposta está em [migrations/009_company_admin.sql](migrations/009_company_admin.sql) e fica fora de `apps/server/migrations/` até a unidade 1 do plano.
 
 O Luan manteve o armazenamento relacional, o reaproveitamento de `audit_events`, o isolamento por empresa e as 10 unidades. O ajuste abaixo incorpora as decisões dele. O Ciclo A é a sequência 1–4: cada unidade termina com teste verde antes da próxima.

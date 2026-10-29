@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Auditoria — ViaVoip Webchat</title>
+</head>
+<body>
+<article>
+<h1 id="auditoria" tabindex="-1">Auditoria</h1>
+<p>Código de referência: <code>02f5373</code>. Fontes: <code>apps/server/src/modules/audit-query.ts</code>, <code>packages/protocol/src/company.ts</code>, migration <code>009</code>. Na Fase 4 a tabela <code>audit_events</code> era só escrita; a consulta é nova na Fase 5 e <strong>exclusiva do administrador</strong>.</p>
+<h2 id="rota" tabindex="-1">Rota</h2>
+<p><code>GET /audit/events</code> com os parâmetros opcionais <code>from</code>, <code>to</code>, <code>action</code> e <code>cursor</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Parâmetro</th>
+<th>Regra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from</code> / <code>to</code></td>
+<td>Instantes ISO 8601; devem vir juntos; <code>from</code> menor que <code>to</code>; janela de no máximo 31 dias. Sem os dois, a consulta cobre as últimas 24 horas</td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>Uma das ações conhecidas</td>
+</tr>
+<tr>
+<td><code>cursor</code></td>
+<td>Valor <code>nextCursor</code> da página anterior</td>
+</tr>
+</tbody>
+</table>
+<p>Parâmetros fora dessas regras resultam em <code>invalid_payload</code>.</p>
+<h2 id="resposta" tabindex="-1">Resposta</h2>
+<p><code>{ entries, nextCursor }</code>. Cada entrada traz <code>id</code>, <code>at</code>, <code>actorId</code>, <code>actorName</code>, <code>action</code> e <code>resource</code> (tipo e, quando existe, identificador). A ordem é do mais recente para o mais antigo, desempatada por <code>id</code>.</p>
+<ul>
+<li><strong>Paginação por cursor</strong> (base64url de <code>instante|id</code>), sem <code>OFFSET</code>. O serviço lê <code>pageSize + 1</code> linhas para saber se há próxima página.</li>
+<li><strong>Tamanho da página: 50.</strong> O contrato Zod aceita até 100 entradas por resposta, mas o serviço usa 50.</li>
+<li>Ação desconhecida (gravada por versão futura ou anterior) aparece como <code>{ kind: 'unrecognized', raw }</code>, sem quebrar a leitura.</li>
+</ul>
+<h2 id="a%C3%A7%C3%B5es-conhecidas" tabindex="-1">Ações conhecidas</h2>
+<ul>
+<li>Fase 4: <code>conversation.watch</code>, <code>sector.save</code>, <code>sector.member_added</code>, <code>sector.member_removed</code>, <code>announcement.publish</code>, <code>announcement.update</code>, <code>announcement.archive</code>, <code>activity.type_save</code>, <code>activity.assign</code>, <code>activity.finish</code>.</li>
+<li>Fase 5 (um registro por comando de gestão aplicado): <code>agent.create</code>, <code>agent.suspend</code>, <code>agent.reactivate</code>, <code>agent.role_change</code>, <code>agent.queues_replace</code>, <code>agent.activity_authority</code>, <code>agent.credential_reset</code>, <code>agent.sessions_revoke</code>, <code>queue.create</code>, <code>queue.rename</code>, <code>disposition.create</code>, <code>disposition.rename</code>, <code>disposition.retire</code>, <code>survey.publish</code>, <code>company.rename</code>, <code>company.concurrency_limit</code>, <code>company.time_zone</code>, <code>site.create</code>, <code>site.appearance_replace</code>, <code>site.acceptance_set</code>, <code>site.origins_replace</code>, <code>site.service_windows_replace</code>, <code>sla.publish</code>, <code>sla.retire</code>.</li>
+</ul>
+<h2 id="garantias-e-limites" tabindex="-1">Garantias e limites</h2>
+<ul>
+<li>A auditoria do comando é gravada na mesma transação do efeito.</li>
+<li>A migration 009 faz <code>REVOKE UPDATE, DELETE ON audit_events FROM webchat_app</code>: o servidor não altera nem apaga registros.</li>
+<li>A resposta não traz metadados do evento, apenas ator, ação e recurso.</li>
+<li>Não há retenção nem expurgo definidos.</li>
+</ul>
+</article>
+</body>
+</html>

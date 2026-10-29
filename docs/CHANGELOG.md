@@ -8,6 +8,13 @@
 - Novo `scripts/verify-visual.mjs` (cinco viewports, console e widget em :8090 e :3100). `scripts/verify-browser.mjs` ganhou o clique no botão do widget, a aba Filas, o modal "Nova fila" e a confirmação de encerramento.
 - Sem mudanças em `apps/server`, `packages/protocol`, migrations e seed.
 
+## 2026-10-28 — Fase 5 (commit `02f5373`)
+
+- Novos módulos no Docs Helper: Gestão Administrativa (papéis, configuração por empresa, comandos idempotentes, auditoria, revogação de sessão) e Qualidade Operacional (política de SLA, relatório de qualidade).
+- Nova página de migrations 009–011; Ambientes, Status, Visão geral e Supervisor atualizados.
+- Divergências de código registradas: cabeçalho de `009_company_admin.sql` e `docs/fase-5/ARQUITETURA.md` ainda dizem "não aplicada"; a página de auditoria usa 50 entradas embora o contrato aceite 100.
+- Publicação no site de teste: **não realizada**. Exige reimportar o ZIP depois do merge, por ordem do responsável.
+
 ## 2026-10-27 — Correções e validação da Fase 4
 
 - Atualizados escopos, autenticação, interface e resultados: 62 testes passaram com PostgreSQL e Redis descartáveis.

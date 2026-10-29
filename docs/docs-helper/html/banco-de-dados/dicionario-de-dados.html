@@ -25,6 +25,7 @@
 <li><a href="#announcements"><code>announcements</code></a></li>
 <li><a href="#audit_events"><code>audit_events</code></a></li>
 <li><a href="#auth_sessions"><code>auth_sessions</code></a></li>
+<li><a href="#company_command_receipts"><code>company_command_receipts</code></a></li>
 <li><a href="#conversation_events"><code>conversation_events</code></a></li>
 <li><a href="#conversation_reads"><code>conversation_reads</code></a></li>
 <li><a href="#conversations"><code>conversations</code></a></li>
@@ -43,7 +44,10 @@
 <li><a href="#sector_supervisors"><code>sector_supervisors</code></a></li>
 <li><a href="#sectors"><code>sectors</code></a></li>
 <li><a href="#site_queues"><code>site_queues</code></a></li>
+<li><a href="#site_service_windows"><code>site_service_windows</code></a></li>
 <li><a href="#sites"><code>sites</code></a></li>
+<li><a href="#sla_policies"><code>sla_policies</code></a></li>
+<li><a href="#sla_policy_clocks"><code>sla_policy_clocks</code></a></li>
 <li><a href="#survey_definitions"><code>survey_definitions</code></a></li>
 <li><a href="#survey_responses"><code>survey_responses</code></a></li>
 <li><a href="#tenants"><code>tenants</code></a></li>
@@ -461,6 +465,34 @@
 <td><code>false</code></td>
 <td></td>
 </tr>
+<tr>
+<td><code>membership_status</code></td>
+<td>text</td>
+<td>não</td>
+<td><code>'active'::text</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>suspended_at</code></td>
+<td>timestamptz</td>
+<td>sim</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>suspension_reason</code></td>
+<td>text</td>
+<td>sim</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>auth_epoch</code></td>
+<td>bigint</td>
+<td>não</td>
+<td><code>1</code></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Chave primária:</strong> <code>id</code></p>
@@ -470,8 +502,13 @@
 </ul>
 <p><strong>Constraints (UNIQUE/CHECK):</strong></p>
 <ul>
+<li><code>agents_auth_epoch_check</code>: <code>CHECK ((auth_epoch &gt;= 1))</code></li>
 <li><code>agents_email_check</code>: <code>CHECK ((email = lower(email)))</code></li>
 <li><code>agents_email_key</code>: <code>UNIQUE (email)</code></li>
+<li><code>agents_email_len</code>: <code>CHECK (((char_length(email) &gt;= 3) AND (char_length(email) &lt;= 200)))</code></li>
+<li><code>agents_membership_pair</code>: <code>CHECK ((((membership_status = 'active'::text) AND (suspended_at IS NULL) AND (suspension_reason IS NULL)) OR ((membership_status = 'suspended'::text) AND (suspended_at IS NOT NULL) AND (suspension_reason IS NOT NULL) AND ((char_length(suspension_reason) &gt;= 1) AND (char_length(suspension_reason) &lt;= 200)))))</code></li>
+<li><code>agents_membership_status_check</code>: <code>CHECK ((membership_status = ANY (ARRAY['active'::text, 'suspended'::text])))</code></li>
+<li><code>agents_name_len</code>: <code>CHECK (((char_length(name) &gt;= 1) AND (char_length(name) &lt;= 120)))</code></li>
 <li><code>agents_role_check</code>: <code>CHECK ((role = ANY (ARRAY['agent'::text, 'supervisor'::text, 'admin'::text])))</code></li>
 </ul>
 <p><strong>Índices:</strong></p>
@@ -870,6 +907,7 @@
 <p><strong>Índices:</strong></p>
 <ul>
 <li><code>audit_events_pkey</code>: <code>CREATE UNIQUE INDEX audit_events_pkey ON public.audit_events USING btree (id)</code></li>
+<li><code>audit_events_tenant_action_time</code>: <code>CREATE INDEX audit_events_tenant_action_time ON public.audit_events USING btree (tenant_id, action, created_at DESC)</code></li>
 <li><code>audit_events_tenant_time</code>: <code>CREATE INDEX audit_events_tenant_time ON public.audit_events USING btree (tenant_id, created_at DESC)</code></li>
 </ul>
 <p><strong>Triggers:</strong></p>
@@ -939,6 +977,13 @@
 <td></td>
 <td></td>
 </tr>
+<tr>
+<td><code>auth_epoch</code></td>
+<td>bigint</td>
+<td>não</td>
+<td><code>1</code></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Chave primária:</strong> <code>id</code></p>
@@ -949,6 +994,7 @@
 </ul>
 <p><strong>Constraints (UNIQUE/CHECK):</strong></p>
 <ul>
+<li><code>auth_sessions_auth_epoch_check</code>: <code>CHECK ((auth_epoch &gt;= 1))</code></li>
 <li><code>auth_sessions_role_check</code>: <code>CHECK ((role = ANY (ARRAY['agent'::text, 'supervisor'::text, 'admin'::text])))</code></li>
 <li><code>auth_sessions_token_hash_key</code>: <code>UNIQUE (token_hash)</code></li>
 </ul>
@@ -956,6 +1002,111 @@
 <ul>
 <li><code>auth_sessions_pkey</code>: <code>CREATE UNIQUE INDEX auth_sessions_pkey ON public.auth_sessions USING btree (id)</code></li>
 <li><code>auth_sessions_token_hash_key</code>: <code>CREATE UNIQUE INDEX auth_sessions_token_hash_key ON public.auth_sessions USING btree (token_hash)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>auth_sessions_revoke_notify</code></li>
+</ul>
+<p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
+<h2 id="company_command_receipts" tabindex="-1">company_command_receipts</h2>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Nulo?</th>
+<th>Padrão</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tenant_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>PK, FK → tenants.id</td>
+</tr>
+<tr>
+<td><code>actor_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>PK, FK → agents.id</td>
+</tr>
+<tr>
+<td><code>request_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>PK</td>
+</tr>
+<tr>
+<td><code>command_kind</code></td>
+<td>text</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>payload_hash</code></td>
+<td>text</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>text</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>applied_at</code></td>
+<td>timestamptz</td>
+<td>sim</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>timestamptz</td>
+<td>não</td>
+<td><code>now()</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>timestamptz</td>
+<td>não</td>
+<td><code>(now() + '24:00:00'::interval)</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Chave primária:</strong> <code>tenant_id</code>, <code>actor_id</code>, <code>request_id</code></p>
+<p><strong>Chaves estrangeiras:</strong></p>
+<ul>
+<li><code>actor_id</code> → <code>agents(id)</code></li>
+<li><code>tenant_id</code> → <code>tenants(id)</code></li>
+</ul>
+<p><strong>Constraints (UNIQUE/CHECK):</strong></p>
+<ul>
+<li><code>company_command_receipts_check</code>: <code>CHECK ((((status = 'in_flight'::text) AND (applied_at IS NULL)) OR ((status = 'applied'::text) AND (applied_at IS NOT NULL))))</code></li>
+<li><code>company_command_receipts_command_kind_check</code>: <code>CHECK (((char_length(command_kind) &gt;= 1) AND (char_length(command_kind) &lt;= 80)))</code></li>
+<li><code>company_command_receipts_expiry</code>: <code>CHECK ((expires_at &gt;= created_at))</code></li>
+<li><code>company_command_receipts_payload_hash_check</code>: <code>CHECK ((payload_hash ~ '^[0-9a-f]{64}$'::text))</code></li>
+<li><code>company_command_receipts_status_check</code>: <code>CHECK ((status = ANY (ARRAY['in_flight'::text, 'applied'::text])))</code></li>
+</ul>
+<p><strong>Índices:</strong></p>
+<ul>
+<li><code>company_command_receipts_expiry</code>: <code>CREATE INDEX company_command_receipts_expiry ON public.company_command_receipts USING btree (tenant_id, actor_id, expires_at)</code></li>
+<li><code>company_command_receipts_pkey</code>: <code>CREATE UNIQUE INDEX company_command_receipts_pkey ON public.company_command_receipts USING btree (tenant_id, actor_id, request_id)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>company_command_receipts_scope</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
 <h2 id="conversation_events" tabindex="-1">conversation_events</h2>
@@ -1023,7 +1174,9 @@
 </ul>
 <p><strong>Índices:</strong></p>
 <ul>
+<li><code>conversation_events_conversation_time</code>: <code>CREATE INDEX conversation_events_conversation_time ON public.conversation_events USING btree (conversation_id, created_at)</code></li>
 <li><code>conversation_events_pkey</code>: <code>CREATE UNIQUE INDEX conversation_events_pkey ON public.conversation_events USING btree (id)</code></li>
+<li><code>conversation_events_tenant_time</code>: <code>CREATE INDEX conversation_events_tenant_time ON public.conversation_events USING btree (tenant_id, created_at)</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
 <h2 id="conversation_reads" tabindex="-1">conversation_reads</h2>
@@ -1262,6 +1415,20 @@
 <td><code>now()</code></td>
 <td></td>
 </tr>
+<tr>
+<td><code>status</code></td>
+<td>text</td>
+<td>não</td>
+<td><code>'active'::text</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>retired_at</code></td>
+<td>timestamptz</td>
+<td>sim</td>
+<td></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Chave primária:</strong> <code>id</code></p>
@@ -1271,6 +1438,9 @@
 </ul>
 <p><strong>Constraints (UNIQUE/CHECK):</strong></p>
 <ul>
+<li><code>dispositions_name_len</code>: <code>CHECK (((char_length(name) &gt;= 1) AND (char_length(name) &lt;= 120)))</code></li>
+<li><code>dispositions_status_check</code>: <code>CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text])))</code></li>
+<li><code>dispositions_status_pair</code>: <code>CHECK ((((status = 'active'::text) AND (retired_at IS NULL)) OR ((status = 'retired'::text) AND (retired_at IS NOT NULL))))</code></li>
 <li><code>dispositions_tenant_id_name_key</code>: <code>UNIQUE (tenant_id, name)</code></li>
 </ul>
 <p><strong>Índices:</strong></p>
@@ -1846,6 +2016,7 @@
 </ul>
 <p><strong>Constraints (UNIQUE/CHECK):</strong></p>
 <ul>
+<li><code>queues_name_len</code>: <code>CHECK (((char_length(name) &gt;= 1) AND (char_length(name) &lt;= 120)))</code></li>
 <li><code>queues_tenant_id_name_key</code>: <code>UNIQUE (tenant_id, name)</code></li>
 </ul>
 <p><strong>Índices:</strong></p>
@@ -2202,6 +2373,78 @@
 <li><code>site_queues_tenant</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
+<h2 id="site_service_windows" tabindex="-1">site_service_windows</h2>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Nulo?</th>
+<th>Padrão</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>site_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>PK, FK → sites.id</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>FK → tenants.id</td>
+</tr>
+<tr>
+<td><code>weekday</code></td>
+<td>smallint</td>
+<td>não</td>
+<td></td>
+<td>PK</td>
+</tr>
+<tr>
+<td><code>start_minute</code></td>
+<td>smallint</td>
+<td>não</td>
+<td></td>
+<td>PK</td>
+</tr>
+<tr>
+<td><code>end_minute</code></td>
+<td>smallint</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Chave primária:</strong> <code>site_id</code>, <code>weekday</code>, <code>start_minute</code></p>
+<p><strong>Chaves estrangeiras:</strong></p>
+<ul>
+<li><code>site_id</code> → <code>sites(id)</code></li>
+<li><code>tenant_id</code> → <code>tenants(id)</code></li>
+</ul>
+<p><strong>Constraints (UNIQUE/CHECK):</strong></p>
+<ul>
+<li><code>site_service_windows_check</code>: <code>CHECK ((end_minute &gt; start_minute))</code></li>
+<li><code>site_service_windows_end_minute_check</code>: <code>CHECK (((end_minute &gt;= 1) AND (end_minute &lt;= 1440)))</code></li>
+<li><code>site_service_windows_start_minute_check</code>: <code>CHECK (((start_minute &gt;= 0) AND (start_minute &lt;= 1439)))</code></li>
+<li><code>site_service_windows_weekday_check</code>: <code>CHECK (((weekday &gt;= 1) AND (weekday &lt;= 7)))</code></li>
+</ul>
+<p><strong>Índices:</strong></p>
+<ul>
+<li><code>site_service_windows_pkey</code>: <code>CREATE UNIQUE INDEX site_service_windows_pkey ON public.site_service_windows USING btree (site_id, weekday, start_minute)</code></li>
+<li><code>site_service_windows_tenant</code>: <code>CREATE INDEX site_service_windows_tenant ON public.site_service_windows USING btree (tenant_id, site_id)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>site_service_windows_scope</code></li>
+</ul>
+<p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
 <h2 id="sites" tabindex="-1">sites</h2>
 <p>Site/widget de um tenant, identificado por <code>public_id</code>; guarda origens permitidas e aparência do widget.</p>
 <table>
@@ -2292,6 +2535,20 @@
 <td><code>true</code></td>
 <td></td>
 </tr>
+<tr>
+<td><code>acceptance</code></td>
+<td>text</td>
+<td>não</td>
+<td><code>'accepting'::text</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>pause_reason</code></td>
+<td>text</td>
+<td>sim</td>
+<td></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Chave primária:</strong> <code>id</code></p>
@@ -2301,7 +2558,10 @@
 </ul>
 <p><strong>Constraints (UNIQUE/CHECK):</strong></p>
 <ul>
+<li><code>sites_acceptance_check</code>: <code>CHECK ((acceptance = ANY (ARRAY['accepting'::text, 'paused'::text])))</code></li>
 <li><code>sites_logo_url_https</code>: <code>CHECK (((logo_url IS NULL) OR (logo_url ~ '^https://'::text)))</code></li>
+<li><code>sites_name_len</code>: <code>CHECK (((char_length(name) &gt;= 1) AND (char_length(name) &lt;= 120)))</code></li>
+<li><code>sites_pause_reason_pair</code>: <code>CHECK ((((acceptance = 'accepting'::text) AND (pause_reason IS NULL)) OR ((acceptance = 'paused'::text) AND (pause_reason IS NOT NULL) AND ((char_length(pause_reason) &gt;= 1) AND (char_length(pause_reason) &lt;= 200)))))</code></li>
 <li><code>sites_primary_color_hex</code>: <code>CHECK ((primary_color ~ '^#[0-9a-fA-F]{6}$'::text))</code></li>
 <li><code>sites_public_id_check</code>: <code>CHECK ((public_id ~ '^[a-z0-9_-]+$'::text))</code></li>
 <li><code>sites_public_id_key</code>: <code>UNIQUE (public_id)</code></li>
@@ -2311,6 +2571,169 @@
 <ul>
 <li><code>sites_pkey</code>: <code>CREATE UNIQUE INDEX sites_pkey ON public.sites USING btree (id)</code></li>
 <li><code>sites_public_id_key</code>: <code>CREATE UNIQUE INDEX sites_public_id_key ON public.sites USING btree (public_id)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>sites_acceptance_sync</code></li>
+<li><code>sites_origins_when_accepting</code></li>
+</ul>
+<p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
+<h2 id="sla_policies" tabindex="-1">sla_policies</h2>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Nulo?</th>
+<th>Padrão</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td><code>gen_random_uuid()</code></td>
+<td>PK</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>FK → tenants.id</td>
+</tr>
+<tr>
+<td><code>queue_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>FK → queues.id</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>text</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>effective_from</code></td>
+<td>timestamptz</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>retired_at</code></td>
+<td>timestamptz</td>
+<td>sim</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>created_by</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>FK → agents.id</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>timestamptz</td>
+<td>não</td>
+<td><code>now()</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Chave primária:</strong> <code>id</code></p>
+<p><strong>Chaves estrangeiras:</strong></p>
+<ul>
+<li><code>created_by</code> → <code>agents(id)</code></li>
+<li><code>queue_id</code> → <code>queues(id)</code></li>
+<li><code>tenant_id</code> → <code>tenants(id)</code></li>
+</ul>
+<p><strong>Constraints (UNIQUE/CHECK):</strong></p>
+<ul>
+<li><code>sla_policies_check</code>: <code>CHECK ((((status = 'active'::text) AND (retired_at IS NULL)) OR ((status = 'retired'::text) AND (retired_at IS NOT NULL) AND (retired_at &gt;= effective_from))))</code></li>
+<li><code>sla_policies_status_check</code>: <code>CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text])))</code></li>
+</ul>
+<p><strong>Índices:</strong></p>
+<ul>
+<li><code>sla_policies_no_overlap</code>: <code>CREATE INDEX sla_policies_no_overlap ON public.sla_policies USING gist (queue_id, tstzrange(effective_from, retired_at, '[)'::text))</code></li>
+<li><code>sla_policies_one_active</code>: <code>CREATE UNIQUE INDEX sla_policies_one_active ON public.sla_policies USING btree (queue_id) WHERE (status = 'active'::text)</code></li>
+<li><code>sla_policies_pkey</code>: <code>CREATE UNIQUE INDEX sla_policies_pkey ON public.sla_policies USING btree (id)</code></li>
+<li><code>sla_policies_queue_effective</code>: <code>CREATE INDEX sla_policies_queue_effective ON public.sla_policies USING btree (tenant_id, queue_id, effective_from DESC)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>sla_policies_clocks_complete</code></li>
+<li><code>sla_policies_publication</code></li>
+<li><code>sla_policies_scope</code></li>
+</ul>
+<p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
+<h2 id="sla_policy_clocks" tabindex="-1">sla_policy_clocks</h2>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Nulo?</th>
+<th>Padrão</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>policy_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>PK, FK → sla_policies.id</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td>uuid</td>
+<td>não</td>
+<td></td>
+<td>FK → tenants.id</td>
+</tr>
+<tr>
+<td><code>metric</code></td>
+<td>text</td>
+<td>não</td>
+<td></td>
+<td>PK</td>
+</tr>
+<tr>
+<td><code>threshold_seconds</code></td>
+<td>integer</td>
+<td>não</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Chave primária:</strong> <code>policy_id</code>, <code>metric</code></p>
+<p><strong>Chaves estrangeiras:</strong></p>
+<ul>
+<li><code>policy_id</code> → <code>sla_policies(id)</code></li>
+<li><code>tenant_id</code> → <code>tenants(id)</code></li>
+</ul>
+<p><strong>Constraints (UNIQUE/CHECK):</strong></p>
+<ul>
+<li><code>sla_policy_clocks_metric_check</code>: <code>CHECK ((metric = ANY (ARRAY['queue_wait'::text, 'first_response'::text])))</code></li>
+<li><code>sla_policy_clocks_threshold_seconds_check</code>: <code>CHECK (((threshold_seconds &gt;= 1) AND (threshold_seconds &lt;= 86400)))</code></li>
+</ul>
+<p><strong>Índices:</strong></p>
+<ul>
+<li><code>sla_policy_clocks_pkey</code>: <code>CREATE UNIQUE INDEX sla_policy_clocks_pkey ON public.sla_policy_clocks USING btree (policy_id, metric)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>sla_policy_clocks_scope</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
 <h2 id="survey_definitions" tabindex="-1">survey_definitions</h2>
@@ -2388,6 +2811,7 @@
 </ul>
 <p><strong>Índices:</strong></p>
 <ul>
+<li><code>survey_definitions_one_active</code>: <code>CREATE UNIQUE INDEX survey_definitions_one_active ON public.survey_definitions USING btree (tenant_id) WHERE (active = true)</code></li>
 <li><code>survey_definitions_pkey</code>: <code>CREATE UNIQUE INDEX survey_definitions_pkey ON public.survey_definitions USING btree (id)</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
@@ -2471,6 +2895,7 @@
 <ul>
 <li><code>survey_responses_conversation_id_key</code>: <code>CREATE UNIQUE INDEX survey_responses_conversation_id_key ON public.survey_responses USING btree (conversation_id)</code></li>
 <li><code>survey_responses_pkey</code>: <code>CREATE UNIQUE INDEX survey_responses_pkey ON public.survey_responses USING btree (id)</code></li>
+<li><code>survey_responses_tenant_time</code>: <code>CREATE INDEX survey_responses_tenant_time ON public.survey_responses USING btree (tenant_id, created_at DESC)</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_isolation</code> (ALL)</p>
 <h2 id="tenants" tabindex="-1">tenants</h2>
@@ -2528,6 +2953,13 @@
 <td><code>'retain_until_removed'::text</code></td>
 <td></td>
 </tr>
+<tr>
+<td><code>time_zone</code></td>
+<td>text</td>
+<td>não</td>
+<td><code>'America/Sao_Paulo'::text</code></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><strong>Chave primária:</strong> <code>id</code></p>
@@ -2535,13 +2967,19 @@
 <ul>
 <li><code>tenants_internal_history_policy_check</code>: <code>CHECK ((internal_history_policy = 'retain_until_removed'::text))</code></li>
 <li><code>tenants_max_concurrent_assignments_range</code>: <code>CHECK (((max_concurrent_assignments &gt;= 1) AND (max_concurrent_assignments &lt;= 100)))</code></li>
+<li><code>tenants_name_len</code>: <code>CHECK (((char_length(name) &gt;= 1) AND (char_length(name) &lt;= 120)))</code></li>
 <li><code>tenants_slug_check</code>: <code>CHECK ((slug ~ '^[a-z0-9-]+$'::text))</code></li>
 <li><code>tenants_slug_key</code>: <code>UNIQUE (slug)</code></li>
+<li><code>tenants_time_zone_len</code>: <code>CHECK (((char_length(time_zone) &gt;= 1) AND (char_length(time_zone) &lt;= 64)))</code></li>
 </ul>
 <p><strong>Índices:</strong></p>
 <ul>
 <li><code>tenants_pkey</code>: <code>CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id)</code></li>
 <li><code>tenants_slug_key</code>: <code>CREATE UNIQUE INDEX tenants_slug_key ON public.tenants USING btree (slug)</code></li>
+</ul>
+<p><strong>Triggers:</strong></p>
+<ul>
+<li><code>tenants_time_zone</code></li>
 </ul>
 <p><strong>RLS:</strong> habilitada e forçada — política <code>tenant_self</code> (ALL)</p>
 <h2 id="visitor_sessions" tabindex="-1">visitor_sessions</h2>

@@ -13,4 +13,4 @@ Fontes editáveis em Mermaid (`*.mmd`); imagens em `rendered/` (SVG e PNG), gera
 | 7 | Estados: atendimento, presença, atividade | `attendance-states.mmd`, `presence-states.mmd`, `activity-states.mmd` | ![Atendimento](rendered/attendance-states.svg) |
 | 8 | Infraestrutura | `infrastructure.mmd` | ![Infra](rendered/infrastructure.svg) |
 
-Fonte do DER: schema real extraído das migrations `001–007` (ver [database/overview.md](../database/overview.md)). O DER geral é largo por ter 35 tabelas; use os cinco por domínio para leitura.
+Fonte do DER: schema real extraído das migrations `001–011` (ver [database/overview.md](../database/overview.md)). O DER geral é largo por ter 40 tabelas; use os cinco por domínio para leitura.
