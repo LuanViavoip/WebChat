@@ -24,23 +24,25 @@ export function MessageList({
   }, [messages, typing.isTyping]);
 
   return (
-    <div className="message-list" ref={scrollerRef} role="log" aria-live="polite" aria-label="Mensagens">
-      {messages.map((message, index) => {
-        const previous = messages[index - 1];
-        const showDate = !previous || !isSameCalendarDay(previous.timestamp, message.timestamp);
-        return (
-          <div key={message.id} className="message-row">
-            {showDate ? (
-              <div className="date-separator">
-                <span>{formatDateSeparator(message.timestamp)}</span>
-              </div>
-            ) : null}
-            <MessageBubble message={message} {...(onRetry ? { onRetry } : {})} />
-          </div>
-        );
-      })}
+    <div className="message-list" ref={scrollerRef}>
+      <div role="log" aria-label="Mensagens">
+        {messages.map((message, index) => {
+          const previous = messages[index - 1];
+          const showDate = !previous || !isSameCalendarDay(previous.timestamp, message.timestamp);
+          return (
+            <div key={message.id} className="message-row">
+              {showDate ? (
+                <div className="date-separator">
+                  <span>{formatDateSeparator(message.timestamp)}</span>
+                </div>
+              ) : null}
+              <MessageBubble message={message} {...(onRetry ? { onRetry } : {})} />
+            </div>
+          );
+        })}
+      </div>
       {typing.isTyping ? (
-        <p className="typing-indicator" aria-live="polite">
+        <p className="typing-indicator">
           {typing.actorName} está digitando…
         </p>
       ) : null}

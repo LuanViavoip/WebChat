@@ -72,6 +72,29 @@ describe('ChatPanel', () => {
     expect(await screen.findByText(/Carla Mendes/)).toBeInTheDocument();
   });
 
+  it('falha de envio → Reconectar preserva texto e Reenviar', async () => {
+    const user = userEvent.setup();
+    const transport = new MockTransport({ delays: instant, failSend: true });
+    render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.type(screen.getByLabelText('Mensagem'), 'preciso de ajuda');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByText('preciso de ajuda')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reenviar mensagem' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reconectar' }));
+    expect(screen.getByText('preciso de ajuda')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reenviar mensagem' })).toBeInTheDocument();
+    expect(screen.getByText(/Como posso ajudar/)).toBeInTheDocument();
+  });
+
+  it('usa uma única região aria-live educada para anúncios', async () => {
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    const polite = document.querySelectorAll('[aria-live="polite"]');
+    expect(polite).toHaveLength(1);
+    expect(document.querySelectorAll('[aria-live="polite"] [aria-live]')).toHaveLength(0);
+  });
+
   it('mantém o texto em erro e permite reenviar', async () => {
     const user = userEvent.setup();
     const transport = new MockTransport({ delays: instant, failSend: true });

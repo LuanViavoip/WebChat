@@ -7,11 +7,19 @@ import type {
   TransportStatus,
 } from '../transport/ChatTransport';
 
+type HeldSend = {
+  request: SendRequest;
+  resolve: () => void;
+  reject: (error: Error) => void;
+};
+
 export class ScriptedTransport implements ChatTransport {
   readonly sent: SendRequest[] = [];
   lastSession: ConnectSession | undefined;
   failConnect = false;
   failSend = false;
+  holdSend = false;
+  private readonly held: HeldSend[] = [];
   private status: TransportStatus = 'disconnected';
   private readonly handlers = new Set<ChatEventHandler>();
 
@@ -53,9 +61,21 @@ export class ScriptedTransport implements ChatTransport {
 
   send(request: SendRequest): Promise<void> {
     this.sent.push(request);
+    if (this.holdSend) {
+      return new Promise((resolve, reject) => {
+        this.held.push({ request, resolve, reject });
+      });
+    }
     if (this.failSend) {
       return Promise.reject(new Error('Falha ao enviar'));
     }
     return Promise.resolve();
+  }
+
+  rejectHeld(error: Error = new Error('Falha tardia de envio')): void {
+    const pending = this.held.splice(0, this.held.length);
+    for (const item of pending) {
+      item.reject(error);
+    }
   }
 }

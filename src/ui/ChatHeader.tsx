@@ -20,7 +20,7 @@ export function ChatHeader({
       </div>
       <div className="header-identity">
         <h1 className="header-title">ICS Pré-atendimento</h1>
-        <p className="header-status" aria-live="polite">
+        <p className="header-status">
           <span className={`status-dot ${online ? 'online' : 'offline'}`} />
           {subtitle}
         </p>

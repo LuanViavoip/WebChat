@@ -28,13 +28,16 @@ export function useChatSession(transport: ChatTransport, patientName: string) {
   return {
     state,
     send: (text: string) => {
-      void session.send(text);
+      void session.send({ type: 'text', text });
     },
     sendMenuOption: (option: MenuOption) => {
       void session.sendMenuOption(option);
     },
     retry: (messageId: string) => {
       void session.retry(messageId);
+    },
+    reconnect: () => {
+      void session.reconnect();
     },
     restart: () => {
       void session.start(patientName);

@@ -52,6 +52,8 @@ export class MockTransport implements ChatTransport {
   private patientName = 'Paciente';
   private ended = false;
   private botQueue: Promise<void> = Promise.resolve();
+  private welcomeGate: Promise<void> = Promise.resolve();
+  private unlockWelcome: (() => void) | undefined;
   private idSeq = 0;
 
   constructor(options: MockTransportOptions = {}) {
@@ -86,13 +88,19 @@ export class MockTransport implements ChatTransport {
     this.setStatus('connecting');
     if (this.failConnect) {
       this.setStatus('error');
+      this.unlockWelcome?.();
       throw new Error('Falha ao conectar');
     }
-    this.setStatus('connected');
     const epoch = this.epoch;
-    await this.runBotTurn(epoch, () => {
-      this.emitMessage(this.botText(welcomeText(this.patientName), PRE_ATENDIMENTO_MENU));
-    });
+    this.botQueue = this.botQueue.then(() =>
+      this.runBotTurn(epoch, () => {
+        this.emitMessage(this.botText(welcomeText(this.patientName), PRE_ATENDIMENTO_MENU));
+      }),
+    );
+    await this.botQueue;
+    this.guard(epoch);
+    this.setStatus('connected');
+    this.unlockWelcome?.();
   }
 
   disconnect(): void {
@@ -101,6 +109,16 @@ export class MockTransport implements ChatTransport {
   }
 
   send(request: SendRequest): Promise<void> {
+    if (this.status === 'disconnected' || this.status === 'error') {
+      return Promise.reject(new Error('Não conectado'));
+    }
+    if (this.status === 'connected') {
+      return this.dispatchSend(request);
+    }
+    return this.whenReady().then(() => this.dispatchSend(request));
+  }
+
+  private dispatchSend(request: SendRequest): Promise<void> {
     if (this.status !== 'connected') {
       return Promise.reject(new Error('Não conectado'));
     }
@@ -262,15 +280,29 @@ export class MockTransport implements ChatTransport {
     this.epoch += 1;
     this.abort = new AbortController();
     this.botQueue = Promise.resolve();
+    this.welcomeGate = new Promise((resolve) => {
+      this.unlockWelcome = resolve;
+    });
   }
 
   private abortPending(): void {
     this.abort.abort();
+    this.unlockWelcome?.();
     for (const timer of this.timers) {
       clearTimeout(timer);
     }
     this.timers.clear();
     this.botQueue = Promise.resolve();
+  }
+
+  private whenReady(): Promise<void> {
+    if (this.status === 'connected') {
+      return Promise.resolve();
+    }
+    if (this.status === 'connecting') {
+      return this.welcomeGate;
+    }
+    return Promise.reject(new Error('Não conectado'));
   }
 
   private guard(epoch: number): void {

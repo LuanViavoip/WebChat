@@ -48,9 +48,10 @@ describe('MockTransport', () => {
     const events = collect(transport);
     await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
     const types = events.map((event) => event.type);
-    expect(types).toEqual(['connection', 'connection', 'typing', 'typing', 'message']);
-    expect(events[2]).toMatchObject({ type: 'typing', isTyping: true });
-    expect(events[3]).toMatchObject({ type: 'typing', isTyping: false });
+    expect(types).toEqual(['connection', 'typing', 'typing', 'message', 'connection']);
+    expect(events[1]).toMatchObject({ type: 'typing', isTyping: true });
+    expect(events[2]).toMatchObject({ type: 'typing', isTyping: false });
+    expect(events[4]).toMatchObject({ type: 'connection', status: 'connected' });
   });
 
   it('progredir status da mensagem do cliente: enviando → enviado → entregue → lido', async () => {
@@ -150,6 +151,31 @@ describe('MockTransport', () => {
     await vi.runAllTimersAsync();
     const bots = events.filter((event) => event.type === 'message' && event.message.direction === 'bot');
     expect(bots).toHaveLength(2);
+    vi.useRealTimers();
+  });
+
+  it('enfileira envio do usuário até as boas-vindas terminarem', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { typingMs: 40, sentMs: 10, deliveredMs: 10, readMs: 10, replyMs: 40 },
+    });
+    const events = collect(transport);
+    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const sending = sendText(transport, '1', 'early');
+    await vi.advanceTimersByTimeAsync(20);
+    const earlyMessages = events.filter((event) => event.type === 'message');
+    expect(earlyMessages).toHaveLength(0);
+
+    await vi.runAllTimersAsync();
+    await connecting;
+    await sending;
+
+    const texts = events
+      .filter((event) => event.type === 'message' && event.message.type === 'text')
+      .map((event) => (event.type === 'message' && event.message.type === 'text' ? event.message.text : ''));
+    expect(texts[0]).toContain('Como posso ajudar');
+    expect(texts[1]).toBe('1');
+    expect(texts[2]).toContain('Primeira vez');
     vi.useRealTimers();
   });
 });

@@ -14,11 +14,15 @@ export function ChatPanel({
   patientName: string;
   onClose?: () => void;
 }) {
-  const { state, send, sendMenuOption, retry, restart } = useChatSession(transport, patientName);
+  const { state, send, sendMenuOption, retry, reconnect, restart } = useChatSession(transport, patientName);
   const disabled = state.connection !== 'connected' || state.ended;
+  const announcement = state.typing.isTyping ? `${state.typing.actorName} está digitando…` : '';
 
   return (
     <section className="chat-panel" aria-label="Conversa com o ICS">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
       <ChatHeader
         connection={state.connection}
         typing={state.typing}
@@ -28,7 +32,7 @@ export function ChatPanel({
       {state.error ? (
         <div className="session-banner session-banner-error" role="alert">
           <p>{state.error}</p>
-          <button type="button" onClick={restart}>
+          <button type="button" onClick={reconnect}>
             Reconectar
           </button>
         </div>
