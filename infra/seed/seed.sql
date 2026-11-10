@@ -98,14 +98,14 @@ ON CONFLICT (id) DO NOTHING;
 UPDATE sites
 SET primary_color = '#0c7c73',
     welcome_message = 'Olá, bem-vindo ao atendimento do Site A.',
-    require_visitor_name = false,
+    require_visitor_name = true,
     accepting_chats = true
 WHERE public_id = 'site_a';
 
 UPDATE sites
 SET primary_color = '#1d4e89',
     welcome_message = 'Olá, bem-vindo ao atendimento do Site B.',
-    require_visitor_name = false,
+    require_visitor_name = true,
     accepting_chats = true
 WHERE public_id = 'site_b';
 

@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { groupMessagesByDay, mergeMessages } from '../desk/state.js';
 import { ackMessage, emitAck, type LinkState } from '../realtime.js';
+import { uuidv4 } from '../uuid.js';
 import { Avatar } from '../ui/Avatar.js';
 import { Button } from '../ui/Button.js';
 import { Composer } from '../ui/Composer.js';
@@ -176,7 +177,7 @@ export function InternalChat({
     if (!socket || !selectedId) return;
     const body = draft.trim();
     if (!body) return;
-    const requestId = crypto.randomUUID();
+    const requestId = uuidv4();
     setDraft('');
     const parsed = messageSendAckSchema.safeParse(
       await emitAck(socket, 'internal.message.send', { conversationId: selectedId, requestId, body }),

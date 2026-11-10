@@ -218,7 +218,7 @@ async function regression(primary: string): Promise<void> {
   await waitConnect(visitorSocket);
   const anaSaw = waitEvent(ana, 'conversation.updated', 5000);
   const carlaSaw = waitEvent(carla, 'conversation.updated', 1500);
-  const started = await emitAck(visitorSocket, 'conversation.start', { queueId: demoIds.queueSupportA });
+  const started = await emitAck(visitorSocket, 'conversation.start', { queueId: demoIds.queueSupportA, displayName: 'Visitante verificador' });
   assert(started.ok === true, `abertura recusada: ${JSON.stringify(started)}`);
   const seenByAna = await anaSaw;
   const seenByCarla = await carlaSaw;

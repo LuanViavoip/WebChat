@@ -1,4 +1,5 @@
 import type { CompanyCommand, CompanyCommandResult } from '@viavoip/protocol';
+import { uuidv4 } from '../uuid.js';
 import { isRetryable } from './company-desk.js';
 
 export type CommandSubmit = (command: CompanyCommand, requestId: string) => Promise<CompanyCommandResult>;
@@ -34,7 +35,7 @@ export class CommandRunner {
     const fingerprint = JSON.stringify(command);
     if (this.fingerprint !== fingerprint || !this.requestId) {
       this.fingerprint = fingerprint;
-      this.requestId = crypto.randomUUID();
+      this.requestId = uuidv4();
     }
     const requestId = this.requestId;
     this.inFlight = true;

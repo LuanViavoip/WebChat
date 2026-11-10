@@ -12,6 +12,7 @@ import {
   type QualityReport,
   type QualityScope,
 } from '@viavoip/protocol';
+import { uuidv4 } from '../uuid.js';
 
 type Parser<T> = {
   safeParse(data: unknown): { success: true; data: T } | { success: false };
@@ -39,7 +40,7 @@ export async function submitCompanyCommand(
   command: CompanyCommand,
   options?: { requestId?: string; attempts?: number; timeoutMs?: number },
 ): Promise<CompanyCommandResult> {
-  const requestId = options?.requestId ?? crypto.randomUUID();
+  const requestId = options?.requestId ?? uuidv4();
   const envelope: CompanyCommandEnvelope = { requestId, command };
   return retrySameRequest(
     (signal) => sendJson('/company/commands', companyCommandResultSchema, session.token, envelope, signal),

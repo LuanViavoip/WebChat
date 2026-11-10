@@ -17,6 +17,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { ackMessage, emitAck, type LinkState } from '../realtime.js';
+import { uuidv4 } from '../uuid.js';
 import { ConfirmDialog, Drawer } from '../ui/Dialog.js';
 import { useElementWidth, useNow } from '../ui/hooks.js';
 import { useToast } from '../ui/Toast.js';
@@ -170,11 +171,17 @@ export function Desk({
     if (!socket || !selected) return;
     const body = draft.trim();
     if (!body) return;
-    const requestId = crypto.randomUUID();
+    const requestId = uuidv4();
     setDraft('');
-    const parsed = messageSendAckSchema.safeParse(
-      await emitAck(socket, 'message.send', { conversationId: selected.id, requestId, body }),
-    );
+    let ack: unknown;
+    try {
+      ack = await emitAck(socket, 'message.send', { conversationId: selected.id, requestId, body });
+    } catch {
+      setDraft(body);
+      toast.notify('error', 'Sem resposta do servidor. A mensagem não foi enviada.');
+      return;
+    }
+    const parsed = messageSendAckSchema.safeParse(ack);
     if (!parsed.success || !parsed.data.ok) {
       setDraft(body);
       toast.notify('error', ackMessage(parsed, 'Mensagem recusada'));
