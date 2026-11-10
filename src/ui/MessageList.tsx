@@ -12,7 +12,6 @@ export function MessageList({
   menu,
   menuDisabled,
   onMenuSelect,
-  live = true,
 }: {
   messages: ChatMessage[];
   typing: TypingState;
@@ -20,7 +19,6 @@ export function MessageList({
   menu: MenuOption[];
   menuDisabled: boolean;
   onMenuSelect: (option: MenuOption) => void;
-  live?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const menuHostId = lastBotMenuHostId(messages, menu);
@@ -35,7 +33,7 @@ export function MessageList({
 
   return (
     <div className="message-list" ref={scrollerRef}>
-      <div role="log" aria-label="Mensagens" {...(live ? {} : { 'aria-live': 'off' as const })}>
+      <div role="log" aria-label="Mensagens">
         {messages.map((message, index) => {
           const previous = messages[index - 1];
           const showDate = !previous || !isSameCalendarDay(previous.timestamp, message.timestamp);

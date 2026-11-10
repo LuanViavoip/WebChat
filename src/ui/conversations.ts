@@ -61,3 +61,13 @@ export function filterConversations(
     return `${item.title} ${preview} ${demoLabel}`.toLowerCase().includes(needle);
   });
 }
+
+export function emptyConversationCopy(filter: 'all' | 'unread', query: string): string {
+  if (query.trim().length > 0) {
+    return 'Nenhum resultado encontrado';
+  }
+  if (filter === 'unread') {
+    return 'Nenhuma conversa não lida';
+  }
+  return 'Nenhum resultado encontrado';
+}

@@ -1,4 +1,4 @@
-import { CLIENT_CONVERSATIONS, filterConversations } from './conversations';
+import { CLIENT_CONVERSATIONS, emptyConversationCopy, filterConversations } from './conversations';
 
 describe('filterConversations', () => {
   it('não inclui conversas de demonstração no filtro Não lidas', () => {
@@ -15,5 +15,17 @@ describe('filterConversations', () => {
       'Exames e vacinas',
     ]);
     expect(all.filter((item) => item.demo)).toHaveLength(2);
+  });
+});
+
+describe('emptyConversationCopy', () => {
+  it('usa Nenhum resultado encontrado quando a busca não acha nada', () => {
+    expect(emptyConversationCopy('all', 'xyz')).toBe('Nenhum resultado encontrado');
+    expect(emptyConversationCopy('unread', 'xyz')).toBe('Nenhum resultado encontrado');
+  });
+
+  it('usa Nenhuma conversa não lida só no filtro Não lidas sem busca', () => {
+    expect(emptyConversationCopy('unread', '')).toBe('Nenhuma conversa não lida');
+    expect(emptyConversationCopy('unread', '   ')).toBe('Nenhuma conversa não lida');
   });
 });

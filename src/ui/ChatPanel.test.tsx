@@ -1,8 +1,10 @@
-import { StrictMode } from 'react';
+import { act, StrictMode } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChatPanel } from './ChatPanel';
+import type { TextMessage } from '../domain/message';
+import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
+import { ChatPanel } from './ChatPanel';
 
 const instant = {
   typingMs: 0,
@@ -17,6 +19,23 @@ function thread() {
 }
 
 const IMPLICIT_LIVE = '[role="log"], [role="status"], [role="alert"], [role="marquee"], [role="timer"]';
+
+function liveRoles(): Array<string | null> {
+  return liveRegions(document).map((node) => node.getAttribute('role'));
+}
+
+function botText(conversationId: string, id: string, text: string): TextMessage {
+  return {
+    id,
+    conversationId,
+    direction: 'bot',
+    author: { id: 'bot-preatendimento', name: 'ICS Pré-atendimento' },
+    timestamp: new Date().toISOString(),
+    status: 'delivered',
+    type: 'text',
+    text,
+  };
+}
 
 function liveRegions(root: ParentNode): HTMLElement[] {
   const nodes = root.querySelectorAll(`[aria-live]:not([aria-live="off"]), ${IMPLICIT_LIVE}`);
@@ -55,6 +74,16 @@ describe('ChatPanel', () => {
     expect(screen.queryByRole('button', { name: /Atendimento anterior/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ICS Pré-atendimento/ })).not.toBeInTheDocument();
     expect(screen.getByText('Nenhuma conversa não lida')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum resultado encontrado')).not.toBeInTheDocument();
+  });
+
+  it('mostra Nenhum resultado encontrado quando a busca no filtro Tudo não acha nada', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.type(screen.getByRole('searchbox', { name: 'Pesquisar conversa' }), 'zzzz-inexistente');
+    expect(screen.getByText('Nenhum resultado encontrado')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhuma conversa não lida')).not.toBeInTheDocument();
   });
 
   it('mostra o foco visível no campo de busca da barra lateral', async () => {
@@ -160,13 +189,72 @@ describe('ChatPanel', () => {
     expect(screen.getByText(/Como posso ajudar/)).toBeInTheDocument();
   });
 
-  it('usa uma única região viva (explícita ou implícita) para anúncios', async () => {
+  it('usa o log como única região viva no estado normal', async () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
     await screen.findByText(/Como posso ajudar/);
-    const live = liveRegions(document);
-    expect(live).toHaveLength(1);
-    expect(live[0]?.getAttribute('role')).toBe('log');
-    expect(live[0]?.querySelector('[aria-live], [role="log"], [role="status"], [role="alert"]')).toBeNull();
+    expect(liveRoles()).toEqual(['log']);
+    expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
+  });
+
+  it('no erro de conexão o log permanece ativo e o banner é o único alerta', async () => {
+    render(<ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} patientName="Carla Mendes" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
+    expect(liveRoles()).toEqual(['log', 'alert']);
+    expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
+  });
+
+  it('no erro de envio o log permanece ativo junto do alerta', async () => {
+    const user = userEvent.setup();
+    const transport = new MockTransport({ delays: instant, failSend: true });
+    render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.type(screen.getByLabelText('Mensagem'), 'oi');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(liveRoles()).toEqual(['log', 'alert']);
+    expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
+  });
+
+  it('anuncia no log uma resposta que chega depois de um erro de envio', async () => {
+    const user = userEvent.setup();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const conversationId = transport.lastSession?.conversationId ?? 'conv-web';
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: botText(conversationId, 'w1', 'Olá, Carla Mendes!\nComo posso ajudar?'),
+      });
+    });
+    await screen.findByText(/Como posso ajudar/);
+    transport.failSend = true;
+    await user.type(screen.getByLabelText('Mensagem'), 'oi');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    const log = screen.getByRole('log', { name: 'Mensagens' });
+    expect(log).not.toHaveAttribute('aria-live', 'off');
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: botText(conversationId, 'pending-reply', 'Resposta pendente chegou'),
+      });
+    });
+    expect(within(log).getByText('Resposta pendente chegou')).toBeInTheDocument();
+    expect(liveRoles()).toEqual(['log', 'alert']);
+  });
+
+  it('no encerramento só o log permanece vivo', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.click(screen.getByRole('button', { name: /Encerrar o Atendimento/ }));
+    expect(await screen.findByText('Atendimento encerrado')).toBeInTheDocument();
+    expect(liveRoles()).toEqual(['log']);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('mantém o texto em erro e permite reenviar', async () => {

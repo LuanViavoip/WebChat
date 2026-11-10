@@ -1,6 +1,6 @@
 import { CircleDashed, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { CLIENT_CONVERSATIONS, filterConversations } from './conversations';
+import { CLIENT_CONVERSATIONS, emptyConversationCopy, filterConversations } from './conversations';
 
 export function Sidebar({ preview }: { preview: string }) {
   const [query, setQuery] = useState('');
@@ -66,7 +66,7 @@ export function Sidebar({ preview }: { preview: string }) {
         </button>
       </div>
       {items.length === 0 ? (
-        <p className="conversation-empty">Nenhuma conversa não lida</p>
+        <p className="conversation-empty">{emptyConversationCopy(filter, query)}</p>
       ) : (
         <ul className="conversation-list">
           {items.map((item) => (

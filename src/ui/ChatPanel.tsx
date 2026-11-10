@@ -38,7 +38,6 @@ export function ChatPanel({
           menuDisabled={disabled}
           onMenuSelect={sendMenuOption}
           onRetry={retry}
-          live={!state.error}
         />
         {state.error ? (
           <div className="session-banner session-banner-error" role="alert">
