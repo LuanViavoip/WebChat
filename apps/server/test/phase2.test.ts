@@ -268,7 +268,7 @@ describe('nome, disponibilidade e limite', () => {
       visitor.socket.disconnect();
     } finally {
       await withTenant(app.pool, demoIds.tenantA, (client) =>
-        client.query(`UPDATE sites SET require_visitor_name = false WHERE id = $1`, [demoIds.siteA]),
+        client.query(`UPDATE sites SET require_visitor_name = true WHERE id = $1`, [demoIds.siteA]),
       );
     }
 

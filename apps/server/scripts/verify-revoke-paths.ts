@@ -211,7 +211,7 @@ async function exercise(label: string, revokeUrl: string, socketUrl: string): Pr
   assert(visitor.status === 200, `visitante ${visitor.status}`);
   const visitorSocket = connect(socketUrl, '/visitor', (visitor.payload as { token: string }).token);
   await waitConnect(visitorSocket);
-  const opened = await emitAck(visitorSocket, 'conversation.start', { queueId: demoIds.queueSupportA });
+  const opened = await emitAck(visitorSocket, 'conversation.start', { queueId: demoIds.queueSupportA, displayName: 'Visitante verificador' });
   assert(opened.ok === true, `abertura ${JSON.stringify(opened)}`);
   const leaked = await Promise.race([
     missed.then((payload) => payload),

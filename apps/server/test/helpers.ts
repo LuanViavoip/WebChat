@@ -120,12 +120,10 @@ export function emitAck(socket: Socket, event: string, payload: unknown = {}): P
   });
 }
 
-export async function startConversation(socket: Socket, queueId: string, displayName?: string) {
+// Os sites de demonstração exigem nome antes da fila (seed: require_visitor_name = true).
+export async function startConversation(socket: Socket, queueId: string, displayName = 'Visitante de teste') {
   const parsed = conversationSnapshotAckSchema.parse(
-    await emitAck(socket, 'conversation.start', {
-      queueId,
-      ...(displayName ? { displayName } : {}),
-    }),
+    await emitAck(socket, 'conversation.start', { queueId, displayName }),
   );
   if (!parsed.ok) throw new Error(parsed.error.message);
   return parsed;

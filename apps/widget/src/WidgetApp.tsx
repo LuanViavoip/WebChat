@@ -20,6 +20,7 @@ import { panelSize } from './panel-size.js';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { createVisitorSession, fetchPublicWidget, resumeVisitor } from './api.js';
+import { uuidv4 } from './uuid.js';
 
 const tokenKey = 'viavoip.visitorToken';
 const conversationKey = 'viavoip.conversationId';
@@ -254,6 +255,10 @@ export function WidgetApp() {
   async function startQueue(queueId: string) {
     const socket = socketRef.current;
     if (!socket) return;
+    if (nameMissing) {
+      setError('Informe seu nome para entrar na fila');
+      return;
+    }
     const parsed = conversationSnapshotAckSchema.safeParse(
       await emit(socket, 'conversation.start', {
         queueId,
@@ -298,7 +303,7 @@ export function WidgetApp() {
     const conversationId = conversation?.id;
     const body = draft.trim();
     if (!socket || !conversationId || !body) return;
-    const requestId = crypto.randomUUID();
+    const requestId = uuidv4();
     setDraft('');
     const parsed = messageSendAckSchema.safeParse(
       await emit(socket, 'message.send', { conversationId, requestId, body }),
