@@ -27,6 +27,7 @@ export function ChatWidget({
           <ChatPanel
             transport={transport}
             patientName={patientName}
+            compact
             onClose={() => {
               returnFocus.current = true;
               setOpen(false);
@@ -38,7 +39,7 @@ export function ChatWidget({
         ref={fabRef}
         type="button"
         className="widget-fab"
-        aria-label={open ? 'Chat aberto' : 'Abrir chat de atendimento'}
+        aria-label={open ? 'Chat ICS, aberto' : 'Abrir chat de atendimento'}
         onClick={() => {
           setOpen(true);
         }}

@@ -17,6 +17,7 @@ describe('ChatWidget', () => {
     render(<ChatWidget transport={new MockTransport({ delays: instant })} patientName="Carla" />);
     await user.click(screen.getByRole('button', { name: 'Abrir chat de atendimento' }));
     expect(await screen.findByText(/Carla/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Lista de conversas')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Fechar chat' }));
     expect(screen.queryByLabelText('Conversa com o ICS')).not.toBeInTheDocument();
   });

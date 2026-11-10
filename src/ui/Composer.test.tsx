@@ -3,6 +3,16 @@ import userEvent from '@testing-library/user-event';
 import { Composer } from './Composer';
 
 describe('Composer', () => {
+  it('mostra microfone desabilitado e troca para enviar ao digitar', async () => {
+    const user = userEvent.setup();
+    render(<Composer onSend={vi.fn()} disabled={false} />);
+    expect(screen.getByRole('button', { name: 'Gravar áudio (em breve)' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Enviar' })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Mensagem'), 'oi');
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Gravar áudio (em breve)' })).not.toBeInTheDocument();
+  });
+
   it('envia o texto pelo botão e limpa o campo', async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();

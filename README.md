@@ -2,7 +2,7 @@
 
 ChatWeb do **SM (ICS — Instituto Curitiba de Saúde)**: canal web de atendimento ao cliente com cara de WhatsApp.
 
-Esta é a **Etapa 1** (com correções **1.1**). Backend do SM ainda não está acessível; o fluxo roda com `MockTransport` (pré-atendimento simulado). Não há mídia, chat interno nem integração real.
+Esta é a **Etapa 1.2**: o layout visual segue o **WhatsApp Web (desktop)** em duas colunas (tema claro, identidade ICS). Backend do SM ainda não está acessível; o fluxo roda com `MockTransport` (pré-atendimento simulado). Não há mídia, chat interno nem integração real.
 
 ## Como rodar
 
@@ -30,18 +30,18 @@ Query strings úteis:
 
 CI no GitHub Actions (`lint`, `typecheck`, `test`, `build`) em push e pull request.
 
-## Teste manual (Etapa 1)
+## Teste manual (Etapa 1.2)
 
-1. `npm run dev` e abrir a página cheia.
-2. Conferir cabeçalho verde ICS, avatar, status **online**, fundo de conversa e a mensagem de boas-vindas com o nome do paciente e o menu `1 / 2 / 3 / 4 / 0`.
-3. Esperar o indicador **digitando…** antes da primeira mensagem do bot.
-4. Clicar num chip de menu (ex.: “1 — Primeira vez / Orientação”): a opção deve ir como mensagem sua; ticks passam por enviada → entregue → **lida**; o bot responde.
-5. Digitar `4` e enviar com **Enter**. **Shift+Enter** deve quebrar linha sem enviar.
-6. Abrir o seletor de emojis, inserir um emoji no meio do texto, enviar.
-7. Redimensionar para mobile: cabeçalho, lista e composer continuam usáveis.
-8. Abrir `/?modo=widget`, clicar em **Chat ICS**, conversar, **Fechar** (o foco deve voltar ao botão).
-9. Percorrer o teclado (Tab) nos botões de menu, setas no seletor de emojis, campo e enviar.
-10. Encerrar com `0`: composer e chips desligam; **Iniciar novo atendimento** reabre o menu.
+1. `npm run dev` e abrir a página cheia em **1366×768** ou **1920×1080**.
+2. Conferir **duas colunas**: esquerda (avatar ICS, busca, filtros Tudo / Não lidas, lista) e direita (cabeçalho da conversa, doodle, balões, composer Web).
+3. A conversa ativa é **ICS Pré-atendimento**; **Atendimento anterior** e **Exames e vacinas** são mock do canal do cliente (desabilitados, “em breve”).
+4. Esperar **digitando…** e a boas-vindas com o nome do paciente. O menu `1 / 2 / 3 / 4 / 0` fica **no balão** (lista de botões), não solto.
+5. Clicar em “1 — Primeira vez / Orientação”: ticks enviada → entregue → **lida** (azul); o bot responde.
+6. Digitar no campo arredondado: o **microfone** vira **enviar**. Clipe de anexo permanece desabilitado (“em breve”). **Enter** envia; **Shift+Enter** quebra linha.
+7. Abrir o seletor de emojis, inserir um emoji no meio do texto, enviar.
+8. Redimensionar para **~390px**: a coluna esquerda some (uma coluna, como o Web).
+9. Abrir `/?modo=widget`: coluna única compacta, conversar, **Fechar** (foco volta ao botão).
+10. Encerrar com `0`: faixa amarela de encerrado, composer e botões do menu desligam; **Iniciar novo atendimento** reabre.
 11. Enviar duas mensagens rápido: as duas devem aparecer na hora, sem esperar o bot.
 
 ## Arquitetura (mínima)
@@ -49,6 +49,6 @@ CI no GitHub Actions (`lint`, `typecheck`, `test`, `build`) em push e pull reque
 - `src/domain` — mensagem normalizada (união discriminada)
 - `src/transport` — `ChatTransport` + `MockTransport`
 - `src/chat` — sessão, datas, inserção de emoji
-- `src/ui` — painel estilo WhatsApp e modo widget
+- `src/ui` — shell WhatsApp Web (sidebar + chat) e modo widget compacto
 - `docs/contrato-mensagem.md` — rascunho do contrato
 - `docs/residuais.md` — o que fica para etapas seguintes

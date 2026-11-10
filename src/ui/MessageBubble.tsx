@@ -1,4 +1,4 @@
-import type { ChatMessage } from '../domain/message';
+import type { ChatMessage, MenuOption } from '../domain/message';
 import { formatTime } from '../chat/dates';
 import { isTextMessage } from '../domain/message';
 import { StatusTicks } from './StatusTicks';
@@ -6,20 +6,26 @@ import { StatusTicks } from './StatusTicks';
 export function MessageBubble({
   message,
   onRetry,
+  showTail,
+  menu,
+  menuDisabled,
+  onMenuSelect,
 }: {
   message: ChatMessage;
   onRetry?: (messageId: string) => void;
+  showTail: boolean;
+  menu?: MenuOption[];
+  menuDisabled?: boolean;
+  onMenuSelect?: (option: MenuOption) => void;
 }) {
   const outgoing = message.direction === 'client';
   const body = renderBody(message);
+  const hasMenu = Boolean(menu && menu.length > 0 && onMenuSelect);
   return (
     <article
-      className={`bubble bubble-${message.direction} ${outgoing ? 'outgoing' : 'incoming'}`}
+      className={`bubble bubble-${message.direction} ${outgoing ? 'outgoing' : 'incoming'}${showTail ? ' has-tail' : ''}`}
       aria-label={`${message.author.name}: ${preview(message)}`}
     >
-      {message.direction !== 'client' && message.direction !== 'system' ? (
-        <p className="bubble-author">{message.author.name}</p>
-      ) : null}
       <div className="bubble-body">{body}</div>
       <p className="bubble-meta">
         <time dateTime={message.timestamp}>{formatTime(message.timestamp)}</time>
@@ -37,6 +43,23 @@ export function MessageBubble({
           </button>
         ) : null}
       </p>
+      {hasMenu && menu && onMenuSelect ? (
+        <div className="bubble-actions" aria-label="Opções do atendimento">
+          {menu.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className="bubble-action"
+              disabled={menuDisabled}
+              onClick={() => {
+                onMenuSelect(option);
+              }}
+            >
+              {option.key} — {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
 }

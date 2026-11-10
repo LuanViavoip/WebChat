@@ -1,3 +1,4 @@
+import { MoreVertical, Search, X } from 'lucide-react';
 import type { TransportStatus } from '../transport/ChatTransport';
 import type { TypingState } from '../chat/ChatSession';
 
@@ -15,7 +16,7 @@ export function ChatHeader({
 
   return (
     <header className="chat-header">
-      <div className="avatar" aria-hidden="true">
+      <div className="avatar avatar-ics" aria-hidden="true">
         ICS
       </div>
       <div className="header-identity">
@@ -25,11 +26,19 @@ export function ChatHeader({
           {subtitle}
         </p>
       </div>
-      {onClose ? (
-        <button type="button" className="header-close" aria-label="Fechar chat" onClick={onClose}>
-          Fechar
+      <div className="header-actions">
+        <button type="button" className="icon-button" aria-label="Buscar na conversa (em breve)" title="em breve" disabled>
+          <Search size={20} strokeWidth={1.7} aria-hidden="true" />
         </button>
-      ) : null}
+        <button type="button" className="icon-button" aria-label="Menu da conversa (em breve)" title="em breve" disabled>
+          <MoreVertical size={20} strokeWidth={1.7} aria-hidden="true" />
+        </button>
+        {onClose ? (
+          <button type="button" className="icon-button" aria-label="Fechar chat" onClick={onClose}>
+            <X size={20} strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
     </header>
   );
 }
