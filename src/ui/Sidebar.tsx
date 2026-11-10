@@ -1,11 +1,14 @@
 import { CircleDashed, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { CLIENT_CONVERSATIONS, type ConversationPreview } from './conversations';
+import { CLIENT_CONVERSATIONS, filterConversations } from './conversations';
 
 export function Sidebar({ preview }: { preview: string }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const items = useMemo(() => filterConversations(query, filter, preview), [filter, preview, query]);
+  const items = useMemo(
+    () => filterConversations(CLIENT_CONVERSATIONS, query, filter, preview),
+    [filter, preview, query],
+  );
 
   return (
     <aside className="wa-sidebar" aria-label="Lista de conversas">
@@ -62,51 +65,38 @@ export function Sidebar({ preview }: { preview: string }) {
           Não lidas
         </button>
       </div>
-      <ul className="conversation-list">
-        {items.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              className={`conversation-item${item.active ? ' is-active' : ''}`}
-              disabled={!item.available}
-              {...(item.available ? {} : { title: 'em breve' })}
-              {...(item.active ? { 'aria-current': 'true' as const } : {})}
-            >
-              <div className="avatar avatar-ics" aria-hidden="true">
-                ICS
-              </div>
-              <span className="conversation-copy">
-                <span className="conversation-row">
-                  <span className="conversation-title">{item.title}</span>
-                  <time className="conversation-time">{item.timeLabel}</time>
+      {items.length === 0 ? (
+        <p className="conversation-empty">Nenhuma conversa não lida</p>
+      ) : (
+        <ul className="conversation-list">
+          {items.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className={`conversation-item${item.active ? ' is-active' : ''}`}
+                disabled={!item.available}
+                {...(item.available ? {} : { title: 'em breve' })}
+                {...(item.active ? { 'aria-current': 'true' as const } : {})}
+              >
+                <div className="avatar avatar-ics" aria-hidden="true">
+                  ICS
+                </div>
+                <span className="conversation-copy">
+                  <span className="conversation-row">
+                    <span className="conversation-title">{item.title}</span>
+                    <time className="conversation-time">{item.timeLabel}</time>
+                  </span>
+                  <span className="conversation-row">
+                    <span className="conversation-preview">{item.active ? preview : item.preview}</span>
+                    {item.demo ? <span className="demo-badge">Demonstração</span> : null}
+                    {item.unread > 0 ? <span className="unread-badge">{item.unread}</span> : null}
+                  </span>
                 </span>
-                <span className="conversation-row">
-                  <span className="conversation-preview">{item.active ? preview : item.preview}</span>
-                  {item.unread > 0 ? <span className="unread-badge">{item.unread}</span> : null}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </aside>
   );
-}
-
-function filterConversations(
-  query: string,
-  filter: 'all' | 'unread',
-  activePreview: string,
-): ConversationPreview[] {
-  const needle = query.trim().toLowerCase();
-  return CLIENT_CONVERSATIONS.filter((item) => {
-    if (filter === 'unread' && item.unread === 0) {
-      return false;
-    }
-    if (!needle) {
-      return true;
-    }
-    const preview = item.active ? activePreview : item.preview;
-    return `${item.title} ${preview}`.toLowerCase().includes(needle);
-  });
 }

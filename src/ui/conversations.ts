@@ -6,6 +6,7 @@ export type ConversationPreview = {
   active: boolean;
   available: boolean;
   unread: number;
+  demo: boolean;
 };
 
 export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
@@ -17,6 +18,7 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     active: true,
     available: true,
     unread: 0,
+    demo: false,
   },
   {
     id: 'ics-anterior',
@@ -26,6 +28,7 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     active: false,
     available: false,
     unread: 0,
+    demo: true,
   },
   {
     id: 'ics-exames',
@@ -34,6 +37,27 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     timeLabel: 'ontem',
     active: false,
     available: false,
-    unread: 1,
+    unread: 0,
+    demo: true,
   },
 ];
+
+export function filterConversations(
+  items: ConversationPreview[],
+  query: string,
+  filter: 'all' | 'unread',
+  activePreview: string,
+): ConversationPreview[] {
+  const needle = query.trim().toLowerCase();
+  return items.filter((item) => {
+    if (filter === 'unread' && (item.demo || item.unread === 0)) {
+      return false;
+    }
+    if (!needle) {
+      return true;
+    }
+    const preview = item.active ? activePreview : item.preview;
+    const demoLabel = item.demo ? 'demonstração' : '';
+    return `${item.title} ${preview} ${demoLabel}`.toLowerCase().includes(needle);
+  });
+}

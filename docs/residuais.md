@@ -41,4 +41,4 @@ Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (s
 
 3. **P3 (etapa 2) — testes de retry.** Cobrir rejeição tardia após restart/unmount também no `retry` (hoje o caso é só em `send`); reenvio de payload de mídia com o mesmo `clientId`; decidir se o `MockTransport` aceita mídia simulada (hoje recusa em `MockTransport.ts` ~128) ou testar explicitamente essa recusa.
 
-4. **P3 (manual) — leitor de tela real (NVDA/VoiceOver).** `role="log"` e os papéis `alert`/`status` têm semântica viva implícita além da região de digitação. Confirmar no teste manual do Luan que os anúncios não se repetem.
+4. **P3 (manual) — leitor de tela real (NVDA/VoiceOver).** Pendência da Etapa 1.2: não há NVDA/VoiceOver neste ambiente. No estado normal a única região viva é `role="log"` (mensagens + “digitando…”). O menu do bot vai no último balão; o texto da mensagem já lista as opções, e os botões são alcançáveis por Tab. Com erro de conexão, o `log` fica `aria-live="off"` e vale o `role="alert"`. Confirmar no dispositivo do Luan que o log anuncia a mensagem/menu uma vez e que o alerta de reconexão não duplica.

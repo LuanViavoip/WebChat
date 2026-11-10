@@ -34,7 +34,7 @@ CI no GitHub Actions (`lint`, `typecheck`, `test`, `build`) em push e pull reque
 
 1. `npm run dev` e abrir a página cheia em **1366×768** ou **1920×1080**.
 2. Conferir **duas colunas**: esquerda (avatar ICS, busca, filtros Tudo / Não lidas, lista) e direita (cabeçalho da conversa, doodle, balões, composer Web).
-3. A conversa ativa é **ICS Pré-atendimento**; **Atendimento anterior** e **Exames e vacinas** são mock do canal do cliente (desabilitados, “em breve”).
+3. A conversa ativa é **ICS Pré-atendimento**; **Atendimento anterior** e **Exames e vacinas** são itens de **Demonstração** (desabilitados, sem badge de não lida). O filtro **Não lidas** não os lista.
 4. Esperar **digitando…** e a boas-vindas com o nome do paciente. O menu `1 / 2 / 3 / 4 / 0` fica **no balão** (lista de botões), não solto.
 5. Clicar em “1 — Primeira vez / Orientação”: ticks enviada → entregue → **lida** (azul); o bot responde.
 6. Digitar no campo arredondado: o **microfone** vira **enviar**. Clipe de anexo permanece desabilitado (“em breve”). **Enter** envia; **Shift+Enter** quebra linha.

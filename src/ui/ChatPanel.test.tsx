@@ -16,6 +16,21 @@ function thread() {
   return within(screen.getByRole('log', { name: 'Mensagens' }));
 }
 
+const IMPLICIT_LIVE = '[role="log"], [role="status"], [role="alert"], [role="marquee"], [role="timer"]';
+
+function liveRegions(root: ParentNode): HTMLElement[] {
+  const nodes = root.querySelectorAll(`[aria-live]:not([aria-live="off"]), ${IMPLICIT_LIVE}`);
+  return [...nodes].filter((node): node is HTMLElement => {
+    if (!(node instanceof HTMLElement)) {
+      return false;
+    }
+    if (node.getAttribute('aria-live') === 'off') {
+      return false;
+    }
+    return !node.parentElement?.closest(`[aria-live]:not([aria-live="off"]), ${IMPLICIT_LIVE}`);
+  });
+}
+
 describe('ChatPanel', () => {
   it('mostra boas-vindas pelo nome do paciente', async () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
@@ -28,6 +43,32 @@ describe('ChatPanel', () => {
     expect(await screen.findByLabelText('Lista de conversas')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toBeDisabled();
+    expect(screen.getAllByText('Demonstração')).toHaveLength(2);
+  });
+
+  it('não mostra conversas de demonstração no filtro Não lidas', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.click(screen.getByRole('button', { name: 'Não lidas' }));
+    expect(screen.queryByRole('button', { name: /Exames e vacinas/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Atendimento anterior/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ICS Pré-atendimento/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Nenhuma conversa não lida')).toBeInTheDocument();
+  });
+
+  it('mostra o foco visível no campo de busca da barra lateral', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    const search = screen.getByRole('searchbox', { name: 'Pesquisar conversa' });
+    const shell = search.closest('.sidebar-search');
+    expect(shell).not.toBeNull();
+    for (let step = 0; step < 12 && document.activeElement !== search; step += 1) {
+      await user.tab();
+    }
+    expect(search).toHaveFocus();
+    expect(shell?.matches(':focus-within')).toBe(true);
   });
 
   it('no modo compacto omite a lista e mantém o chat', async () => {
@@ -119,12 +160,13 @@ describe('ChatPanel', () => {
     expect(screen.getByText(/Como posso ajudar/)).toBeInTheDocument();
   });
 
-  it('usa uma única região aria-live educada para anúncios', async () => {
+  it('usa uma única região viva (explícita ou implícita) para anúncios', async () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
     await screen.findByText(/Como posso ajudar/);
-    const polite = document.querySelectorAll('[aria-live="polite"]');
-    expect(polite).toHaveLength(1);
-    expect(document.querySelectorAll('[aria-live="polite"] [aria-live]')).toHaveLength(0);
+    const live = liveRegions(document);
+    expect(live).toHaveLength(1);
+    expect(live[0]?.getAttribute('role')).toBe('log');
+    expect(live[0]?.querySelector('[aria-live], [role="log"], [role="status"], [role="alert"]')).toBeNull();
   });
 
   it('mantém o texto em erro e permite reenviar', async () => {

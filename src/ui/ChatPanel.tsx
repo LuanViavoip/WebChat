@@ -20,14 +20,10 @@ export function ChatPanel({
 }) {
   const { state, send, sendMenuOption, retry, reconnect, restart } = useChatSession(transport, patientName);
   const disabled = state.connection !== 'connected' || state.ended;
-  const announcement = state.typing.isTyping ? `${state.typing.actorName} está digitando…` : '';
   const preview = lastPreview(state.messages);
 
   return (
     <section className={`wa-shell${compact ? ' wa-compact' : ''}`} aria-label="Conversa com o ICS">
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {announcement}
-      </div>
       {compact ? null : <Sidebar preview={preview} />}
       <div className="wa-chat">
         <ChatHeader
@@ -42,6 +38,7 @@ export function ChatPanel({
           menuDisabled={disabled}
           onMenuSelect={sendMenuOption}
           onRetry={retry}
+          live={!state.error}
         />
         {state.error ? (
           <div className="session-banner session-banner-error" role="alert">
@@ -52,7 +49,7 @@ export function ChatPanel({
           </div>
         ) : null}
         {state.ended ? (
-          <div className="session-banner" role="status">
+          <div className="session-banner">
             <p>
               <strong>Atendimento encerrado</strong>. Toque para iniciar um novo.
             </p>
