@@ -8,6 +8,8 @@ const EMPTY: ChatSessionState = {
   connection: 'disconnected',
   typing: { isTyping: false, actorName: '' },
   menu: [],
+  ended: false,
+  error: null,
 };
 
 export function useChatSession(transport: ChatTransport, patientName: string) {
@@ -30,6 +32,12 @@ export function useChatSession(transport: ChatTransport, patientName: string) {
     },
     sendMenuOption: (option: MenuOption) => {
       void session.sendMenuOption(option);
+    },
+    retry: (messageId: string) => {
+      void session.retry(messageId);
+    },
+    restart: () => {
+      void session.start(patientName);
     },
   };
 }

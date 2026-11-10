@@ -11,13 +11,7 @@ export function ChatHeader({
   onClose?: () => void;
 }) {
   const online = connection === 'connected';
-  const subtitle = typing.isTyping
-    ? 'digitando…'
-    : online
-      ? 'online'
-      : connection === 'connecting'
-        ? 'conectando…'
-        : 'offline';
+  const subtitle = headerSubtitle(connection, typing);
 
   return (
     <header className="chat-header">
@@ -38,4 +32,24 @@ export function ChatHeader({
       ) : null}
     </header>
   );
+}
+
+function headerSubtitle(connection: TransportStatus, typing: TypingState): string {
+  if (typing.isTyping) {
+    return 'digitando…';
+  }
+  switch (connection) {
+    case 'connected':
+      return 'online';
+    case 'connecting':
+      return 'conectando…';
+    case 'error':
+      return 'falha na conexão';
+    case 'disconnected':
+      return 'offline';
+    default: {
+      const exhaustive: never = connection;
+      return exhaustive;
+    }
+  }
 }

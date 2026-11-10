@@ -2,7 +2,7 @@
 
 ChatWeb do **SM (ICS — Instituto Curitiba de Saúde)**: canal web de atendimento ao cliente com cara de WhatsApp.
 
-Esta é a **Etapa 1**. Backend do SM ainda não está acessível; o fluxo roda com `MockTransport` (pré-atendimento simulado). Não há mídia, chat interno nem integração real.
+Esta é a **Etapa 1** (com correções **1.1**). Backend do SM ainda não está acessível; o fluxo roda com `MockTransport` (pré-atendimento simulado). Não há mídia, chat interno nem integração real.
 
 ## Como rodar
 
@@ -39,8 +39,10 @@ CI no GitHub Actions (`lint`, `typecheck`, `test`, `build`) em push e pull reque
 5. Digitar `4` e enviar com **Enter**. **Shift+Enter** deve quebrar linha sem enviar.
 6. Abrir o seletor de emojis, inserir um emoji no meio do texto, enviar.
 7. Redimensionar para mobile: cabeçalho, lista e composer continuam usáveis.
-8. Abrir `/?modo=widget`, clicar em **Chat ICS**, conversar, **Fechar**.
-9. Percorrer o teclado (Tab) nos botões de menu, emoji, campo e enviar; labels e contraste devem permanecer legíveis.
+8. Abrir `/?modo=widget`, clicar em **Chat ICS**, conversar, **Fechar** (o foco deve voltar ao botão).
+9. Percorrer o teclado (Tab) nos botões de menu, setas no seletor de emojis, campo e enviar.
+10. Encerrar com `0`: composer e chips desligam; **Iniciar novo atendimento** reabre o menu.
+11. Enviar duas mensagens rápido: as duas devem aparecer na hora, sem esperar o bot.
 
 ## Arquitetura (mínima)
 

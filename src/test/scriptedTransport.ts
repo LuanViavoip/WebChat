@@ -1,0 +1,61 @@
+import type {
+  ChatEvent,
+  ChatEventHandler,
+  ChatTransport,
+  ConnectSession,
+  SendRequest,
+  TransportStatus,
+} from '../transport/ChatTransport';
+
+export class ScriptedTransport implements ChatTransport {
+  readonly sent: SendRequest[] = [];
+  lastSession: ConnectSession | undefined;
+  failConnect = false;
+  failSend = false;
+  private status: TransportStatus = 'disconnected';
+  private readonly handlers = new Set<ChatEventHandler>();
+
+  subscribe(handler: ChatEventHandler): () => void {
+    this.handlers.add(handler);
+    return () => {
+      this.handlers.delete(handler);
+    };
+  }
+
+  getStatus(): TransportStatus {
+    return this.status;
+  }
+
+  emit(event: ChatEvent): void {
+    for (const handler of this.handlers) {
+      handler(event);
+    }
+  }
+
+  connect(session: ConnectSession): Promise<void> {
+    this.lastSession = session;
+    this.status = 'connecting';
+    this.emit({ type: 'connection', status: 'connecting' });
+    if (this.failConnect) {
+      this.status = 'error';
+      this.emit({ type: 'connection', status: 'error' });
+      return Promise.reject(new Error('Falha ao conectar'));
+    }
+    this.status = 'connected';
+    this.emit({ type: 'connection', status: 'connected' });
+    return Promise.resolve();
+  }
+
+  disconnect(): void {
+    this.status = 'disconnected';
+    this.emit({ type: 'connection', status: 'disconnected' });
+  }
+
+  send(request: SendRequest): Promise<void> {
+    this.sent.push(request);
+    if (this.failSend) {
+      return Promise.reject(new Error('Falha ao enviar'));
+    }
+    return Promise.resolve();
+  }
+}

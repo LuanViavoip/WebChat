@@ -3,7 +3,13 @@ import { formatTime } from '../chat/dates';
 import { isTextMessage } from '../domain/message';
 import { StatusTicks } from './StatusTicks';
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  onRetry,
+}: {
+  message: ChatMessage;
+  onRetry?: (messageId: string) => void;
+}) {
   const outgoing = message.direction === 'client';
   const body = renderBody(message);
   return (
@@ -18,6 +24,18 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       <p className="bubble-meta">
         <time dateTime={message.timestamp}>{formatTime(message.timestamp)}</time>
         {outgoing ? <StatusTicks status={message.status} /> : null}
+        {outgoing && message.status === 'error' && onRetry ? (
+          <button
+            type="button"
+            className="retry-button"
+            aria-label="Reenviar mensagem"
+            onClick={() => {
+              onRetry(message.id);
+            }}
+          >
+            Reenviar
+          </button>
+        ) : null}
       </p>
     </article>
   );

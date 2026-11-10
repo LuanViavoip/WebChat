@@ -1,4 +1,4 @@
-import type { ChatEvent } from './ChatTransport';
+import type { ChatEvent, ChatTransport } from './ChatTransport';
 import { MockTransport } from './MockTransport';
 
 function collect(transport: MockTransport): ChatEvent[] {
@@ -7,6 +7,10 @@ function collect(transport: MockTransport): ChatEvent[] {
     events.push(event);
   });
   return events;
+}
+
+function sendText(transport: ChatTransport, text: string, clientId: string) {
+  return transport.send({ clientId, payload: { type: 'text', text } });
 }
 
 const instant = {
@@ -55,13 +59,17 @@ describe('MockTransport', () => {
     await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
     events.length = 0;
 
-    await transport.send('1');
+    await sendText(transport, '1', 'local-1');
+    await vi.waitFor(() => {
+      expect(events.filter((event) => event.type === 'status')).toHaveLength(3);
+    });
 
     const client = events.find((event) => event.type === 'message' && event.message.direction === 'client');
     expect(client?.type).toBe('message');
     if (client?.type !== 'message') {
       throw new Error('esperava mensagem do cliente');
     }
+    expect(client.message.id).toBe('local-1');
     expect(client.message.status).toBe('sending');
 
     const statuses = events
@@ -81,9 +89,9 @@ describe('MockTransport', () => {
     await connecting;
     events.length = 0;
 
-    const sending = transport.send('4');
-    await vi.runAllTimersAsync();
+    const sending = sendText(transport, '4', 'local-4');
     await sending;
+    await vi.runAllTimersAsync();
 
     const bot = events.find((event) => event.type === 'message' && event.message.direction === 'bot');
     expect(bot?.type).toBe('message');
@@ -91,6 +99,57 @@ describe('MockTransport', () => {
       throw new Error('esperava resposta do bot');
     }
     expect(bot.message.text).toContain('Agendamentos');
+    vi.useRealTimers();
+  });
+
+  it('após disconnect durante timers, reconecta e envia de novo', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { typingMs: 400, sentMs: 200, deliveredMs: 200, readMs: 200, replyMs: 400 },
+    });
+    const events = collect(transport);
+    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.advanceTimersByTimeAsync(100);
+    transport.disconnect();
+    await expect(first).rejects.toThrow();
+    events.length = 0;
+
+    const second = transport.connect({ conversationId: 'c2', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await second;
+    expect(events.some((event) => event.type === 'message')).toBe(true);
+
+    events.length = 0;
+    await sendText(transport, '2', 'after-reconnect');
+    expect(events.some((event) => event.type === 'message' && event.message.id === 'after-reconnect')).toBe(
+      true,
+    );
+    await vi.runAllTimersAsync();
+    expect(events.some((event) => event.type === 'status' && event.status === 'read')).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('mostra envios rápidos na hora e serializa só o bot', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { typingMs: 50, sentMs: 50, deliveredMs: 50, readMs: 50, replyMs: 50 },
+    });
+    const events = collect(transport);
+    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await connecting;
+    events.length = 0;
+
+    void sendText(transport, '1', 'a');
+    void sendText(transport, '2', 'b');
+    const clientIds = events
+      .filter((event) => event.type === 'message' && event.message.direction === 'client')
+      .map((event) => (event.type === 'message' ? event.message.id : ''));
+    expect(clientIds).toEqual(['a', 'b']);
+
+    await vi.runAllTimersAsync();
+    const bots = events.filter((event) => event.type === 'message' && event.message.direction === 'bot');
+    expect(bots).toHaveLength(2);
     vi.useRealTimers();
   });
 });

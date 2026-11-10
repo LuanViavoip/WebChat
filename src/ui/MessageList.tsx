@@ -7,9 +7,11 @@ import { MessageBubble } from './MessageBubble';
 export function MessageList({
   messages,
   typing,
+  onRetry,
 }: {
   messages: ChatMessage[];
   typing: TypingState;
+  onRetry?: (messageId: string) => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -33,7 +35,7 @@ export function MessageList({
                 <span>{formatDateSeparator(message.timestamp)}</span>
               </div>
             ) : null}
-            <MessageBubble message={message} />
+            <MessageBubble message={message} {...(onRetry ? { onRetry } : {})} />
           </div>
         );
       })}

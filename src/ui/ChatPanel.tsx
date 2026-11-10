@@ -14,8 +14,8 @@ export function ChatPanel({
   patientName: string;
   onClose?: () => void;
 }) {
-  const { state, send, sendMenuOption } = useChatSession(transport, patientName);
-  const disabled = state.connection !== 'connected';
+  const { state, send, sendMenuOption, retry, restart } = useChatSession(transport, patientName);
+  const disabled = state.connection !== 'connected' || state.ended;
 
   return (
     <section className="chat-panel" aria-label="Conversa com o ICS">
@@ -24,7 +24,23 @@ export function ChatPanel({
         typing={state.typing}
         {...(onClose ? { onClose } : {})}
       />
-      <MessageList messages={state.messages} typing={state.typing} />
+      <MessageList messages={state.messages} typing={state.typing} onRetry={retry} />
+      {state.error ? (
+        <div className="session-banner session-banner-error" role="alert">
+          <p>{state.error}</p>
+          <button type="button" onClick={restart}>
+            Reconectar
+          </button>
+        </div>
+      ) : null}
+      {state.ended ? (
+        <div className="session-banner" role="status">
+          <p>Atendimento encerrado</p>
+          <button type="button" onClick={restart}>
+            Iniciar novo atendimento
+          </button>
+        </div>
+      ) : null}
       <MenuBar options={state.menu} onSelect={sendMenuOption} disabled={disabled} />
       <Composer onSend={send} disabled={disabled} />
     </section>

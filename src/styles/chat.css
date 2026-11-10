@@ -2,14 +2,14 @@
   --ics-green: #0b4f3b;
   --ics-green-accent: #1b7a4e;
   --wa-teal: #075e54;
-  --wa-send: #00a884;
+  --wa-send: #0b4f3b;
   --wa-tick-read: #53bdeb;
   --bubble-out: #d9fdd3;
   --bubble-in: #ffffff;
   --chat-bg: #e5ddd5;
   --page-bg: #ece5dd;
   --text: #111b21;
-  --muted: #667781;
+  --muted: #3f5460;
   --danger: #ea4335;
   --composer: #f0f2f5;
   --radius: 8px;
@@ -244,6 +244,53 @@ body,
   letter-spacing: 0;
 }
 
+.retry-button {
+  margin-left: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ics-green);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.session-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border-top: 1px solid #d1d7db;
+  font-size: 13px;
+}
+
+.session-banner p {
+  margin: 0;
+}
+
+.session-banner button {
+  border: 0;
+  background: var(--ics-green);
+  color: #fff;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.session-banner-error {
+  background: #fdecea;
+  color: #8a1c13;
+}
+
+.session-banner-error button {
+  background: var(--danger);
+}
+
 .typing-indicator {
   align-self: flex-start;
   margin: 4px 0 0;
@@ -380,8 +427,9 @@ body,
 }
 
 .emoji-button:hover,
-.emoji-button:focus-visible {
-  background: #f0f2f5;
+.emoji-button:focus-visible,
+.emoji-button-active {
+  background: #e8f5ee;
 }
 
 .host-page {

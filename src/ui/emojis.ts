@@ -1,3 +1,5 @@
+export const EMOJI_COLUMNS = 8;
+
 export const QUICK_EMOJIS = [
   '😀',
   '😁',
