@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { ChatPanel } from './ui/ChatPanel';
 import { ChatWidget } from './ui/ChatWidget';
+import { LIVE_CONVERSATION_ID } from './ui/conversations';
 import type { ChatTransport } from './transport/ChatTransport';
 
 export type AppMode = 'page' | 'widget';
@@ -13,6 +15,8 @@ export function App({
   patientName: string;
   mode: AppMode;
 }) {
+  const [selectedConversationId, setSelectedConversationId] = useState(LIVE_CONVERSATION_ID);
+
   if (mode === 'widget') {
     return (
       <div className="host-page">
@@ -30,8 +34,13 @@ export function App({
   }
 
   return (
-    <div className="page-shell">
-      <ChatPanel transport={transport} patientName={patientName} />
-    </div>
+    <main className="page-shell">
+      <ChatPanel
+        transport={transport}
+        patientName={patientName}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={setSelectedConversationId}
+      />
+    </main>
   );
 }

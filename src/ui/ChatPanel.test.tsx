@@ -61,8 +61,57 @@ describe('ChatPanel', () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
     expect(await screen.findByLabelText('Lista de conversas')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toBeDisabled();
-    expect(screen.getAllByText('Demonstração')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Exames e vacinas/ })).toBeEnabled();
+    expect(screen.queryByText('Demonstração')).not.toBeInTheDocument();
+  });
+
+  it('abre o histórico somente leitura e preserva a sessão ao vivo', async () => {
+    const user = userEvent.setup();
+    const transport = new MockTransport({ delays: instant });
+    const connect = vi.spyOn(transport, 'connect');
+    render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    expect(await thread().findByText(/Como posso ajudar/)).toBeInTheDocument();
+    expect(connect).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(screen.getByText('Atendimento encerrado · somente leitura')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mensagem')).not.toBeInTheDocument();
+    expect(thread().getByText(/remarcar a consulta da clínica da família/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toHaveAttribute('aria-current', 'true');
+
+    await user.click(screen.getByRole('button', { name: /ICS Pré-atendimento/ }));
+    expect(thread().getByText(/Como posso ajudar/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Mensagem')).toBeInTheDocument();
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('abre conversa do histórico com Enter e volta com Espaço', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await thread().findByText(/Como posso ajudar/);
+
+    const historyItem = screen.getByRole('button', { name: /Atendimento anterior/ });
+    historyItem.focus();
+    expect(historyItem).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(thread().getByText(/remarcar a consulta da clínica da família/)).toBeInTheDocument();
+
+    const liveItem = screen.getByRole('button', { name: /ICS Pré-atendimento/ });
+    liveItem.focus();
+    await user.keyboard(' ');
+    expect(thread().getByText(/Como posso ajudar/)).toBeInTheDocument();
+  });
+
+  it('Tab alcança os itens da lista de conversas', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await thread().findByText(/Como posso ajudar/);
+    const historyItem = screen.getByRole('button', { name: /Atendimento anterior/ });
+    for (let step = 0; step < 24 && document.activeElement !== historyItem; step += 1) {
+      await user.tab();
+    }
+    expect(historyItem).toHaveFocus();
   });
 
   it('não mostra conversas de demonstração no filtro Não lidas', async () => {

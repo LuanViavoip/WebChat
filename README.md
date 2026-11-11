@@ -1,8 +1,8 @@
 # sm-webchat
 
-ChatWeb do **SM (ICS — Instituto Curitiba de Saúde)**: canal web de atendimento ao cliente com cara de WhatsApp.
+ChatWeb do **SM (ICS — Instituto Curitiba de Saúde)**: canal web de atendimento ao cliente, agora com visual **ViaVoip** (etapa 1.3). O nome de negócio ICS permanece.
 
-Esta é a **Etapa 1.2**: o layout visual segue o **WhatsApp Web (desktop)** em duas colunas (tema claro, identidade ICS). Backend do SM ainda não está acessível; o fluxo roda com `MockTransport` (pré-atendimento simulado). Não há mídia, chat interno nem integração real.
+Esta é a **Etapa 1.3**: tela cheia em qualquer viewport, histórico simulado das outras conversas (somente leitura) e tokens visuais ViaVoip. Backend do SM ainda não está acessível; o fluxo ao vivo roda com `MockTransport`. Não há mídia, chat interno nem integração real.
 
 ## Como rodar
 
@@ -16,7 +16,7 @@ Abra o endereço que o Vite imprimir (em geral `http://localhost:5173`).
 Query strings úteis:
 
 - `?nome=Ana%20Souza` — saudação do bot usa esse nome (padrão: Maria Silva)
-- `?modo=widget` — demonstra o chat como widget flutuante numa página hospedeira
+- `?modo=widget` — demonstra o chat como widget flutuante 380×640 numa página hospedeira
 
 ## Scripts
 
@@ -27,28 +27,31 @@ Query strings úteis:
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` | ESLint |
 | `npm test` | Vitest + Testing Library |
+| `npm run test:e2e` | Playwright (1366, 1920, 2560, 390 e widget) + axe |
 
-CI no GitHub Actions (`lint`, `typecheck`, `test`, `build`) em push e pull request.
+CI no GitHub Actions (`lint`, `typecheck`, `test`, `build`, `test:e2e`) em push e pull request. Screenshots da etapa vão como artifacts.
 
-## Teste manual (Etapa 1.2)
+## Teste manual (Etapa 1.3)
 
-1. `npm run dev` e abrir a página cheia em **1366×768** ou **1920×1080**.
-2. Conferir **duas colunas**: esquerda (avatar ICS, busca, filtros Tudo / Não lidas, lista) e direita (cabeçalho da conversa, doodle, balões, composer Web).
-3. A conversa ativa é **ICS Pré-atendimento**; **Atendimento anterior** e **Exames e vacinas** são itens de **Demonstração** (desabilitados, sem badge de não lida). O filtro **Não lidas** não os lista.
-4. Esperar **digitando…** e a boas-vindas com o nome do paciente. O menu `1 / 2 / 3 / 4 / 0` fica **no balão** (lista de botões), não solto.
-5. Clicar em “1 — Primeira vez / Orientação”: ticks enviada → entregue → **lida** (azul); o bot responde.
-6. Digitar no campo arredondado: o **microfone** vira **enviar**. Clipe de anexo permanece desabilitado (“em breve”). **Enter** envia; **Shift+Enter** quebra linha.
-7. Abrir o seletor de emojis, inserir um emoji no meio do texto, enviar.
-8. Redimensionar para **~390px**: a coluna esquerda some (uma coluna, como o Web).
-9. Abrir `/?modo=widget`: coluna única compacta, conversar, **Fechar** (foco volta ao botão).
-10. Encerrar com `0`: faixa amarela de encerrado, composer e botões do menu desligam; **Iniciar novo atendimento** reabre.
-11. Enviar duas mensagens rápido: as duas devem aparecer na hora, sem esperar o bot.
+1. `npm run dev` e abrir a página em **1366×768**, **1920×1080** e **2560×1440**: o shell (`.wa-shell`) preenche o viewport, sem faixa cinza nas laterais e sem scroll horizontal.
+2. Conferir duas colunas no desktop: lista (wordmark **ViaVoip**, busca, Tudo / Não lidas) e conversa. Superfícies claras, azul de acento, cabeçalho em gradiente escuro; lima só sobre o ink do cabeçalho.
+3. A conversa ativa é **ICS Pré-atendimento**. Clicar em **Atendimento anterior** e **Exames e vacinas** abre transcrições mock no mesmo `MessageList`, sem composer, com a faixa “Atendimento encerrado · somente leitura”. Não há badge “Demonstração” nem itens desabilitados.
+4. Voltar para **ICS Pré-atendimento**: o histórico ao vivo continua lá (a sessão não chama `start()` de novo).
+5. Filtro **Não lidas**: nenhuma conversa falsa; mensagem “Nenhuma conversa não lida”.
+6. Teclado: Tab chega aos itens da lista; Enter ou Espaço abre a conversa. O item atual tem `aria-current`.
+7. Esperar **digitando…** e a boas-vindas. O menu `1 / 2 / 3 / 4 / 0` fica **no balão**.
+8. Encerrar com `0`: faixa de encerrado, composer desligado; **Iniciar novo atendimento** reabre.
+9. Redimensionar para **~390×844**: abre na **lista**. Tocar um item abre o chat; o cabeçalho mostra **Voltar**. O botão Voltar e o voltar do navegador retornam à lista.
+10. Abrir `/?modo=widget`: sem sidebar, 380×640, direto no chat ao vivo; **Fechar** devolve o foco ao botão.
+11. Percorrer o teclado; labels e contraste devem permanecer legíveis (branco sobre `#1E3FCC` no envio; tick de lida azul no balão `#EEF2FF`).
 
 ## Arquitetura (mínima)
 
 - `src/domain` — mensagem normalizada (união discriminada)
 - `src/transport` — `ChatTransport` + `MockTransport`
 - `src/chat` — sessão, datas, inserção de emoji
-- `src/ui` — shell WhatsApp Web (sidebar + chat) e modo widget compacto
+- `src/ui` — shell em tela cheia (sidebar + chat), histórico mock e modo widget compacto
+- `src/styles` — tokens `--vv-*`, camada semântica e contraste WCAG
 - `docs/contrato-mensagem.md` — rascunho do contrato
 - `docs/residuais.md` — o que fica para etapas seguintes
+- `docs/screenshots/etapa-1.3/` — antes/depois nos viewports pedidos

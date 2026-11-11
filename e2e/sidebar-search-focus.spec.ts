@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { isWidgetProject } from './project';
 
-test('Tab até a busca mostra outline visível no contêiner', async ({ page }) => {
+test('Tab até a busca mostra outline visível no contêiner', async ({ page }, testInfo) => {
+  test.skip(isWidgetProject(testInfo), 'widget não tem sidebar');
   await page.goto('/?nome=Maria%20Silva');
   const search = page.getByRole('searchbox', { name: 'Pesquisar conversa' });
   await search.waitFor();

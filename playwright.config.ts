@@ -18,8 +18,24 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: '1366',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } },
+    },
+    {
+      name: '1920',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
+    },
+    {
+      name: '2560',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 2560, height: 1440 } },
+    },
+    {
+      name: '390',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: 'widget',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
   ],
 });

@@ -1,8 +1,16 @@
 import { CircleDashed, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { CLIENT_CONVERSATIONS, emptyConversationCopy, filterConversations } from './conversations';
+import { CLIENT_CONVERSATIONS, emptyConversationCopy, filterConversations, isLiveConversation } from './conversations';
 
-export function Sidebar({ preview }: { preview: string }) {
+export function Sidebar({
+  preview,
+  selectedConversationId,
+  onSelect,
+}: {
+  preview: string;
+  selectedConversationId: string;
+  onSelect: (id: string) => void;
+}) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const items = useMemo(
@@ -13,9 +21,7 @@ export function Sidebar({ preview }: { preview: string }) {
   return (
     <aside className="wa-sidebar" aria-label="Lista de conversas">
       <div className="sidebar-top">
-        <div className="avatar avatar-ics" aria-hidden="true">
-          ICS
-        </div>
+        <h1 className="brand-wordmark">ViaVoip</h1>
         <div className="header-actions">
           <button type="button" className="icon-button" aria-label="Comunidades (em breve)" title="em breve" disabled>
             <Users size={20} strokeWidth={1.7} aria-hidden="true" />
@@ -69,32 +75,37 @@ export function Sidebar({ preview }: { preview: string }) {
         <p className="conversation-empty">{emptyConversationCopy(filter, query)}</p>
       ) : (
         <ul className="conversation-list">
-          {items.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={`conversation-item${item.active ? ' is-active' : ''}`}
-                disabled={!item.available}
-                {...(item.available ? {} : { title: 'em breve' })}
-                {...(item.active ? { 'aria-current': 'true' as const } : {})}
-              >
-                <div className="avatar avatar-ics" aria-hidden="true">
-                  ICS
-                </div>
-                <span className="conversation-copy">
-                  <span className="conversation-row">
-                    <span className="conversation-title">{item.title}</span>
-                    <time className="conversation-time">{item.timeLabel}</time>
+          {items.map((item) => {
+            const selected = item.id === selectedConversationId;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={`conversation-item${selected ? ' is-active' : ''}`}
+                  {...(selected ? { 'aria-current': 'true' as const } : {})}
+                  onClick={() => {
+                    onSelect(item.id);
+                  }}
+                >
+                  <div className="avatar avatar-ics" aria-hidden="true">
+                    ICS
+                  </div>
+                  <span className="conversation-copy">
+                    <span className="conversation-row">
+                      <span className="conversation-title">{item.title}</span>
+                      <time className="conversation-time">{item.timeLabel}</time>
+                    </span>
+                    <span className="conversation-row">
+                      <span className="conversation-preview">
+                        {isLiveConversation(item.id) ? preview : item.preview}
+                      </span>
+                      {item.unread > 0 ? <span className="unread-badge">{item.unread}</span> : null}
+                    </span>
                   </span>
-                  <span className="conversation-row">
-                    <span className="conversation-preview">{item.active ? preview : item.preview}</span>
-                    {item.demo ? <span className="demo-badge">Demonstração</span> : null}
-                    {item.unread > 0 ? <span className="unread-badge">{item.unread}</span> : null}
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </aside>
