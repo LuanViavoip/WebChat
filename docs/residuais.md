@@ -1,8 +1,8 @@
 # Residuais
 
-Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
+Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3 / 2):
 
-- Mídia real: imagem, áudio, vídeo, documento, sticker, upload, gravação, preview (o contrato `OutboundPayload` já reserva os tipos; o mock recusa)
+- Sticker (envio e render) e gravação de áudio (mic continua “em breve”)
 - Integração real com o SM / canal WhatsApp (hoje só `MockTransport`)
 - Mapear `clientId` → id definitivo do servidor quando o canal WhatsApp existir
 - Chat interno de agentes e supervisores
@@ -15,7 +15,7 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 - PWA, push, notificações nativas
 - Widget SDK publicável (npm) — o modo widget continua `?modo=widget`
 - Busca na conversa, menu ⋮, comunidades, status e nova conversa da coluna esquerda (ícones visíveis, desabilitados, tooltip “em breve”)
-- Anexo e microfone reais (clipe e mic desabilitados nesta etapa; o mic vira enviar ao digitar)
+- Microfone / gravação real (MediaRecorder); o mic continua desabilitado e vira enviar ao digitar texto
 - Lista de conversas ligada ao SM — no canal do cliente a coluna esquerda é mock (sessão ao vivo + dois históricos simulados)
 - Rebrand do **nome** ICS → ViaVoip (esta etapa só aplica o visual; wordmark CSS “ViaVoip”, textos de negócio ICS permanecem)
 - Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
@@ -69,6 +69,24 @@ Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (s
 
 2. **P2 (integração real) — limitar o índice de aliases** (`idAlias.ts` ~19). Hoje só limpa em novo atendimento (`start`). Na integração com eventos reais, definir política de descarte/limite para o índice não crescer sem teto.
 
-3. **P3 (etapa 2) — testes de retry.** Cobrir rejeição tardia após restart/unmount também no `retry` (hoje o caso é só em `send`); reenvio de payload de mídia com o mesmo `clientId`; decidir se o `MockTransport` aceita mídia simulada (hoje recusa em `MockTransport.ts` ~128) ou testar explicitamente essa recusa.
+3. **P3 (etapa 2) — testes de retry. Resolvido na Etapa 2:** o `MockTransport` aceita mídia simulada (`upload` + eco); `retry` depois de falha de upload reenvia o mesmo `File`/`clientId`; `retry` depois de falha de `send` reusa a URL remota; rejeição tardia de `retry` após `stop` é ignorada.
 
-4. **P3 (manual) — leitor de tela real (NVDA/VoiceOver).** Pendência da Etapa 1.2: não há NVDA/VoiceOver neste ambiente. O `role="log"` permanece sempre ativo; o teste de resposta após falha de envio cobre só a estrutura (mensagem no log vivo), não o anúncio único. Erros usam `role="alert"` no banner, sem desligar o log. Encerrado não usa `status`/`alert`. Confirmar no dispositivo do Luan se o leitor anuncia cada mensagem uma vez ou se log + alerta se repetem.
+4. **P3 (manual) — leitor de tela real (NVDA/VoiceOver).** Pendência da Etapa 1.2: não há NVDA/VoiceOver neste ambiente. O `role="log"` permanece sempre ativo; o teste de resposta após falha de envio cobre só a estrutura (mensagem no log vivo), não o anúncio único. Erros usam `role="alert"` no banner, sem desligar o log. Encerrado não usa `status`/`alert`. Confirmar no dispositivo do Luan se o leitor anuncia cada mensagem uma vez ou se log + alerta se repetem. Vale também para progressbar de upload, alerta de falha de mídia e o dialog do visualizador.
+
+## Etapa 2 — residuais de mídia
+
+- **R1** Storage real do SM desconhecido (URL vs media id, expiração). `upload()` isolado no transporte.
+- **R2** Limites/formatos reais do SM podem divergir da Cloud API. Fonte única: `MEDIA_RULES`.
+- **R3** Sem magic bytes / antivírus no cliente; OGG precisa ser Opus e vídeo H.264/AAC no servidor.
+- **R4** Object URLs e memória com arquivos grandes (documento até 100 MB) — dono único por URL, mas heap não foi medido.
+- **R5** Gravação de áudio (mic).
+- **R6** Upload real sem progresso fino.
+- **R7** Leitor de tela real (NVDA/VoiceOver) em progressbar, alerta e dialog.
+- **R8** jsdom sem `showModal`/`createObjectURL` (polyfill + `fakeObjectUrls`); `color-mix` em navegadores antigos.
+- **R9** Legenda em documento (Cloud API aceita; contrato desta etapa não).
+- **R10** Vários arquivos por envio, colar do clipboard, câmera, compressão, miniatura de vídeo.
+- **R11** Sticker.
+- **R12** Mídia recebida com URL externa / `download` cross-origin / CSP.
+- **R13** Bot do mock não responde a mídia.
+- **R14** Viewer no widget cobre a página hospedeira (é modal).
+- **R15** Índice de aliases e pendências P2 de integração real.

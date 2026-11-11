@@ -32,8 +32,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: etapa-1.3-artifacts
+          name: etapa-2-artifacts
           path: |
-            docs/screenshots/etapa-1.3/
+            docs/screenshots/etapa-2/
             playwright-report/
             test-results/
