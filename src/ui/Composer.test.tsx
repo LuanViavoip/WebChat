@@ -1,11 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { Composer } from './Composer';
+
+function Harness({
+  onSend = vi.fn(),
+  disabled = false,
+}: {
+  onSend?: (text: string) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState('');
+  return <Composer value={value} onChange={setValue} onSend={onSend} disabled={disabled} />;
+}
 
 describe('Composer', () => {
   it('mostra microfone desabilitado e troca para enviar ao digitar', async () => {
     const user = userEvent.setup();
-    render(<Composer onSend={vi.fn()} disabled={false} />);
+    render(<Harness />);
     expect(screen.getByRole('button', { name: 'Gravar áudio (em breve)' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Enviar' })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Mensagem'), 'oi');
@@ -16,7 +28,7 @@ describe('Composer', () => {
   it('envia o texto pelo botão e limpa o campo', async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();
-    render(<Composer onSend={onSend} disabled={false} />);
+    render(<Harness onSend={onSend} />);
     const field = screen.getByLabelText('Mensagem');
     await user.type(field, 'Olá equipe');
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
@@ -27,7 +39,7 @@ describe('Composer', () => {
   it('Enter envia e Shift+Enter quebra a linha', async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();
-    render(<Composer onSend={onSend} disabled={false} />);
+    render(<Harness onSend={onSend} />);
     const field = screen.getByLabelText('Mensagem');
     await user.type(field, 'linha 1{Shift>}{Enter}{/Shift}linha 2');
     expect(onSend).not.toHaveBeenCalled();
@@ -39,7 +51,7 @@ describe('Composer', () => {
   it('não envia Enter enquanto o IME está compondo', async () => {
     const user = userEvent.setup();
     const onSend = vi.fn();
-    render(<Composer onSend={onSend} disabled={false} />);
+    render(<Harness onSend={onSend} />);
     const field = screen.getByLabelText('Mensagem');
     await user.type(field, 'oi');
     fireEvent.keyDown(field, { key: 'Enter', isComposing: true });
@@ -48,7 +60,7 @@ describe('Composer', () => {
 
   it('insere emoji na posição do cursor', async () => {
     const user = userEvent.setup();
-    render(<Composer onSend={vi.fn()} disabled={false} />);
+    render(<Harness />);
     const field = screen.getByRole('textbox', { name: 'Mensagem' });
     if (!(field instanceof HTMLTextAreaElement)) {
       throw new Error('esperava textarea');
@@ -62,7 +74,7 @@ describe('Composer', () => {
 
   it('substitui a seleção ao inserir emoji', async () => {
     const user = userEvent.setup();
-    render(<Composer onSend={vi.fn()} disabled={false} />);
+    render(<Harness />);
     const field = screen.getByRole('textbox', { name: 'Mensagem' });
     if (!(field instanceof HTMLTextAreaElement)) {
       throw new Error('esperava textarea');
@@ -76,7 +88,7 @@ describe('Composer', () => {
 
   it('navega o listbox de emojis com setas e confirma com Enter', async () => {
     const user = userEvent.setup();
-    render(<Composer onSend={vi.fn()} disabled={false} />);
+    render(<Harness />);
     const field = screen.getByRole('textbox', { name: 'Mensagem' });
     await user.click(screen.getByRole('button', { name: 'Abrir seletor de emojis' }));
     const listbox = screen.getByRole('listbox', { name: 'Seletor de emojis' });

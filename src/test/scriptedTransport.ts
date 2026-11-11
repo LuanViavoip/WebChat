@@ -19,7 +19,9 @@ export class ScriptedTransport implements ChatTransport {
   failConnect = false;
   failSend = false;
   holdSend = false;
+  holdConnect = false;
   private readonly held: HeldSend[] = [];
+  private connectHeld: { resolve: () => void } | undefined;
   private status: TransportStatus = 'disconnected';
   private readonly handlers = new Set<ChatEventHandler>();
 
@@ -49,9 +51,21 @@ export class ScriptedTransport implements ChatTransport {
       this.emit({ type: 'connection', status: 'error' });
       return Promise.reject(new Error('Falha ao conectar'));
     }
+    if (this.holdConnect) {
+      return new Promise((resolve) => {
+        this.connectHeld = { resolve };
+      });
+    }
     this.status = 'connected';
     this.emit({ type: 'connection', status: 'connected' });
     return Promise.resolve();
+  }
+
+  releaseConnect(): void {
+    this.status = 'connected';
+    this.emit({ type: 'connection', status: 'connected' });
+    this.connectHeld?.resolve();
+    this.connectHeld = undefined;
   }
 
   disconnect(): void {

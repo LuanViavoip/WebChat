@@ -6,22 +6,25 @@ import { EmojiPicker } from './EmojiPicker';
 export function Composer({
   onSend,
   disabled,
+  value,
+  onChange,
 }: {
   onSend: (text: string) => void;
   disabled: boolean;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
-  const canSend = text.trim().length > 0;
+  const canSend = value.trim().length > 0;
 
   function submit() {
-    const next = text.trim();
+    const next = value.trim();
     if (!next || disabled) {
       return;
     }
     onSend(next);
-    setText('');
+    onChange('');
     setPickerOpen(false);
   }
 
@@ -37,10 +40,10 @@ export function Composer({
 
   function insertEmoji(emoji: string) {
     const field = fieldRef.current;
-    const start = field?.selectionStart ?? text.length;
-    const end = field?.selectionEnd ?? text.length;
-    const next = insertAtCursor(text, emoji, start, end);
-    setText(next.text);
+    const start = field?.selectionStart ?? value.length;
+    const end = field?.selectionEnd ?? value.length;
+    const next = insertAtCursor(value, emoji, start, end);
+    onChange(next.text);
     setPickerOpen(false);
     requestAnimationFrame(() => {
       field?.focus();
@@ -77,13 +80,13 @@ export function Composer({
           <span className="sr-only">Mensagem</span>
           <textarea
             ref={fieldRef}
-            value={text}
+            value={value}
             disabled={disabled}
             rows={1}
             placeholder="Digite uma mensagem"
             aria-label="Mensagem"
             onChange={(event) => {
-              setText(event.target.value);
+              onChange(event.target.value);
             }}
             onKeyDown={onKeyDown}
           />

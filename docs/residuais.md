@@ -1,6 +1,6 @@
 # Residuais
 
-Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2):
+Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 
 - Mídia real: imagem, áudio, vídeo, documento, sticker, upload, gravação, preview (o contrato `OutboundPayload` já reserva os tipos; o mock recusa)
 - Integração real com o SM / canal WhatsApp (hoje só `MockTransport`)
@@ -9,31 +9,61 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2):
 - Grupos, pastas, transferência, fila, troca de fila
 - Encerramento com pesquisa de satisfação (NPS/CSAT) de ponta a ponta — o mock só encerra com a opção `0`
 - Autenticação do paciente, SSO, vínculo com prontuário
-- Persistência / histórico entre reloads (reconectar hoje recomeça a conversa)
-- Alternância de tema claro/escuro na UI — tokens `[data-theme='dark']` existem no CSS, mas o app permanece no tema claro
+- Persistência / histórico entre reloads (reconectar hoje recomeça a conversa; o histórico das outras conversas é mock só de front)
 - Internacionalização além de pt-BR
 - Biblioteca de emojis completa (seletor curto próprio, agora com setas de listbox)
 - PWA, push, notificações nativas
 - Widget SDK publicável (npm) — o modo widget continua `?modo=widget`
-- Check de contraste/axe no GitHub Actions (rodado localmente com evidência no PR)
 - Busca na conversa, menu ⋮, comunidades, status e nova conversa da coluna esquerda (ícones visíveis, desabilitados, tooltip “em breve”)
 - Anexo e microfone reais (clipe e mic desabilitados nesta etapa; o mic vira enviar ao digitar)
-- Lista de conversas ligada ao SM — no canal do cliente a coluna esquerda é mock (conversa ativa + “Atendimento anterior” / “Exames e vacinas” indisponíveis)
-- Papel de parede e ícones oficiais do WhatsApp (recriação própria + Lucide + verde ICS)
+- Lista de conversas ligada ao SM — no canal do cliente a coluna esquerda é mock (sessão ao vivo + dois históricos simulados)
+- Rebrand do **nome** ICS → ViaVoip (esta etapa só aplica o visual; wordmark CSS “ViaVoip”, textos de negócio ICS permanecem)
+- Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
+- Assets oficiais da ViaVoip ou do WhatsApp (wordmark em texto + Lucide; sem copiar logotipos)
 
-## Etapa 1.2 — o que ficou de fora do redesign
+## Etapa 1.3 — rodada 5 do PR #5
 
-- Pixel-perfect de cada ícone/glyph do WhatsApp Web (Lucide equivalente, não assets proprietários)
+- **N13** — o baseline de “não vista” no reload (N11) assume que as boas-vindas chegam **antes** do status `connected`, como o `MockTransport` faz. O contrato não garante essa ordem. Um transporte real que emita `connected` e só depois a primeira mensagem ainda pode marcar essa mensagem como “Nova mensagem” no reload sobre o histórico.
+- **N14** — coberto por teste unitário (`depois do reload no histórico, mensagem nova fica não vista`): depois do baseline, uma mensagem real que chega com o histórico aberto vira “Nova mensagem”.
+- Validação manual com leitor de tela (NVDA/VoiceOver) no badge de atividade, no anúncio `aria-live` e no aviso de demonstração — o CI só tem axe + Testing Library.
+
+## Etapa 1.3 — rodada 4 do PR #5
+
+Correções: região `aria-live` permanente (só erro / reconexão / nova mensagem, e só com o histórico aberto); mensagens do carregamento inicial não contam como não vistas; `hadConnected` saiu do render.
+
+## Etapa 1.3 — rodada 3 do PR #5
+
+Correções: foco mobile no item de origem, mensagem não vista no histórico, item ao vivo pinado na busca, contraste com banner real, Conectando vs Reconectando, anúncio aria-live da atividade, e o workflow Playwright por digest.
+
+O que **não** entrou (opcionais não triviais ou já cobertos em outro lugar):
+
+- N6 — o teste unitário das caudas continua checando a classe `has-tail`; a cor da `::after` já é medida no e2e `conversations.spec.ts`. jsdom não resolve o cascade do `chat.css` para `getComputedStyle` da cauda
+- Pixel-perfect do indicador de nova mensagem no botão Voltar (ponto lima) além do anúncio e do banner no painel
+
+## Etapa 1.3 — revisão Codex do PR #5
+
+Correções desta passagem (histórico fictício identificado, rascunho, history.state, atividade na lista, foco mobile, caudas e contraste computado). O que **não** entrou:
+
+- Histórico real do SM — os itens continuam mock de front, agora com rótulo explícito de demonstração
+- Persistência do rascunho entre reloads (só sobrevive à troca de conversa na mesma sessão)
+- Leitor de tela real (NVDA/VoiceOver) no badge de atividade e no aviso de demonstração
+
+## Etapa 1.3 — o que ficou de fora
+
+- Pixel-perfect do site institucional ViaVoip (tokens e direção visual sóbria, não landing page)
 - Dark mode aplicável pelo usuário
-- Lista de conversas real, arquivadas, pinned, mute
+- Histórico persistido / vindo do SM (hoje transcrições estáticas em `conversations.ts`)
+- Contagens reais de não lidas (o filtro permanece coerente, sem badges inventados)
 - Emoji picker completo / stickers / GIF
 - Reações, encaminhar, responder, estrela, info da mensagem
-- Indicador de digitação no item da lista (só no cabeçalho/área da conversa)
 - Layout de três painéis (contato / conversa / perfil)
+- Rascunhos por conversa além da sessão ao vivo (hoje só o composer do canal ao vivo persiste ao trocar de item)
+- NVDA/VoiceOver reais no aviso de demonstração e nos badges de atividade da lista — o ambiente de CI só tem axe + Testing Library
+- `getComputedStyle` no Vitest/jsdom não resolve o cascade do `chat.css` (devolve `canvastext`); o contraste computado de erro/foco/ativo roda no Playwright (`e2e/contrast.spec.ts`)
 
 ## Ressalvas da revisão a4a6b60
 
-Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (sem P0/P1). Registrado a pedido do Luan. Sem correção de código nesta passagem. A Etapa 1.2 não altera `ChatSession` / transporte.
+Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (sem P0/P1). Registrado a pedido do Luan. Sem correção de código nesta passagem. A Etapa 1.3 não altera `ChatSession` / transporte / contrato.
 
 1. **P2 (integração real) — mesclar pendência quando um evento de status associa os IDs.** Com mensagem otimista já presente por `clientId`, um `read` antecipado pelo id do servidor e depois um evento que associa os dois, `ChatSession.ts` (~199, `apply` de `status`) atualiza a mensagem mas não consome a pendência antiga; o status visível pode ficar em `sent`. Falta teste: otimista existente + associação só no evento de status.
 
