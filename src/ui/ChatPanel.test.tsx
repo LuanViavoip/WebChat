@@ -1119,6 +1119,33 @@ describe('ChatPanel mídia', () => {
     expect(urls.revoked).toContain(previewSrc);
   });
 
+  it('depois de ended o upload falho não gera atividade de erro na lista', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.failUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Falha ao enviar exame.png/);
+    expect(activityBadge()).toHaveTextContent('Erro');
+    act(() => {
+      transport.emit({ type: 'ended', conversationId: transport.lastSession?.conversationId ?? 'c1' });
+    });
+    await screen.findByRole('button', { name: 'Iniciar novo atendimento' });
+    expect(within(screen.getByRole('article', { name: 'Você: Foto' })).getByText('Atendimento encerrado')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(document.querySelector('.live-activity-badge')).toBeNull();
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).not.toHaveAccessibleName(/erro/i);
+    expect(activityAnnouncer()).not.toHaveTextContent('Erro');
+    await user.type(screen.getByRole('searchbox', { name: 'Pesquisar conversa' }), 'zzzz-inexistente');
+    expect(screen.queryByRole('button', { name: /ICS Pré-atendimento/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Nenhum resultado encontrado')).toBeInTheDocument();
+  });
+
   it('depois de ended o Tentar de novo do upload falho não fica ativo', async () => {
     const user = userEvent.setup();
     const urls = createFakeObjectUrls();

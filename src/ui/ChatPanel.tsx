@@ -79,7 +79,7 @@ export function ChatPanel({
     messages: state.messages,
     unseen: unseenLive,
     hadConnected: hadConnected.current,
-    failedUpload: Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
+    failedUpload: !state.ended && Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
   });
   const announcement = liveActivityAnnouncement(activity, liveVisible);
   const pendingFocus = useRef<PendingFocus | null>(null);

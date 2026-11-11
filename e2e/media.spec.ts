@@ -184,6 +184,25 @@ test.describe('mídia', () => {
     await expect(page.getByRole('button', { name: 'Tentar de novo' })).toHaveCount(0);
   });
 
+  test('encerrar com upload falho não deixa Erro na sidebar nem pina a busca', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'atividade após ended em 1920');
+    await openLiveChat(page, testInfo, 'falha=upload');
+    await attach(page, pngFile('exame.png'));
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByRole('button', { name: 'Tentar enviar exame.png de novo' })).toBeVisible();
+    await expect(page.locator('.live-activity-badge.is-error')).toHaveText('Erro');
+    await page.getByRole('button', { name: /Encerrar o Atendimento/ }).click();
+    await expect(page.getByRole('button', { name: 'Iniciar novo atendimento' })).toBeVisible();
+    await page.getByRole('button', { name: /Atendimento anterior/ }).click();
+    await expect(page.getByText(/remarcar a consulta da clínica da família/)).toBeVisible();
+    await expect(page.locator('.live-activity-badge.is-error')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).not.toHaveAccessibleName(/erro/i);
+    await expect(page.locator('[data-live-announcer]')).not.toHaveText('Erro');
+    await page.getByRole('searchbox', { name: 'Pesquisar conversa' }).fill('zzzz-inexistente');
+    await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveCount(0);
+    await expect(page.getByText('Nenhum resultado encontrado')).toBeVisible();
+  });
+
   test('widget aberto não bloqueia drop nem input de arquivo do portal', async ({ page }, testInfo) => {
     test.skip(!isWidgetProject(testInfo), 'só no projeto widget');
     await page.goto('/?modo=widget');
