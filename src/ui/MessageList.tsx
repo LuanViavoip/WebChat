@@ -18,6 +18,7 @@ export function MessageList({
   uploads,
   onCancelUpload,
   onOpenImage,
+  sessionEnded = false,
 }: {
   messages: ChatMessage[];
   typing: TypingState;
@@ -29,6 +30,7 @@ export function MessageList({
   uploads?: Readonly<Record<string, UploadView>>;
   onCancelUpload?: (id: string) => void;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
+  sessionEnded?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const menuHostId = lastBotMenuHostId(messages, menu);
@@ -67,6 +69,7 @@ export function MessageList({
                 {...(upload ? { upload } : {})}
                 {...(onCancelUpload ? { onCancelUpload } : {})}
                 {...(onOpenImage ? { onOpenImage } : {})}
+                {...(sessionEnded ? { sessionEnded } : {})}
               />
             </div>
           );

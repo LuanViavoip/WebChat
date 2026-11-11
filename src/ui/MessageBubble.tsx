@@ -15,6 +15,7 @@ export function MessageBubble({
   upload,
   onOpenImage,
   onCancelUpload,
+  sessionEnded = false,
 }: {
   message: ChatMessage;
   onRetry?: (messageId: string) => void;
@@ -25,11 +26,12 @@ export function MessageBubble({
   upload?: UploadView;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   onCancelUpload?: (id: string) => void;
+  sessionEnded?: boolean;
 }) {
   const outgoing = message.direction === 'client';
-  const body = renderBody(message, { upload, onOpenImage, onCancelUpload, onRetry });
+  const body = renderBody(message, { upload, onOpenImage, onCancelUpload, onRetry, sessionEnded });
   const hasMenu = Boolean(menu && menu.length > 0 && onMenuSelect);
-  const showGenericRetry = outgoing && message.status === 'error' && onRetry && !upload;
+  const showGenericRetry = outgoing && message.status === 'error' && onRetry && !upload && !sessionEnded;
   return (
     <article
       className={`bubble bubble-${message.direction} ${outgoing ? 'outgoing' : 'incoming'}${showTail ? ' has-tail' : ''}`}
@@ -80,6 +82,7 @@ function renderBody(
     onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
     onCancelUpload?: (id: string) => void;
     onRetry?: (id: string) => void;
+    sessionEnded?: boolean;
   },
 ) {
   if (isTextMessage(message)) {
@@ -92,6 +95,7 @@ function renderBody(
       {...(extras.onOpenImage ? { onOpenImage: extras.onOpenImage } : {})}
       {...(extras.onCancelUpload ? { onCancelUpload: extras.onCancelUpload } : {})}
       {...(extras.onRetry ? { onRetry: extras.onRetry } : {})}
+      {...(extras.sessionEnded ? { sessionEnded: extras.sessionEnded } : {})}
     />
   );
 }

@@ -91,6 +91,8 @@ Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (s
 - **R14** Viewer no widget cobre a página hospedeira (é modal).
 - **R15** Índice de aliases e pendências P2 de integração real.
 - **N2** Mídia recebida em `image/webp`, `image/gif` ou com MIME em maiúsculas (`IMAGE/PNG`) baixa sem extensão. `extensionForMime` só casa o MIME minúsculo das regras desta etapa (JPG/PNG/MP4…); webp/gif não entram no envio e o download de recebidos cai no fallback `foto`. Não entra nesta correção.
+- **N7** No widget, soltar um arquivo sobre o launcher (`.widget-fab`) abre o arquivo no navegador: o `preventDefault` de drop fica na superfície `.wa-shell`, e o botão de abrir o chat fica fora dela.
+- **N8** Ao encerrar, a bolha do upload em andamento some sem avisar que a foto não foi enviada. O abort remove a mensagem otimista; não há toast nem linha no log.
 
 ## Etapa 2 — QA do PR #6 (não são bugs)
 

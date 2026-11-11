@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useRef } from 'react';
+import { useRef, type RefObject } from 'react';
 import { useFileDrop } from './useFileDrop';
 
 function DropHarness({
@@ -109,7 +109,53 @@ describe('useFileDrop', () => {
     expect(fireEvent.dragOver(window, { dataTransfer: dataTransfer() })).toBe(true);
     expect(fireEvent.drop(window, { dataTransfer: dataTransfer() })).toBe(true);
   });
+
+  it('depois de desmontar o hook, drop na superfície que permanece no DOM não é interceptado', () => {
+    const onFiles = vi.fn();
+    const { rerender } = render(<PersistentSurfaceHarness hooked onFiles={onFiles} />);
+    expect(dispatchFileDrag(screen.getByTestId('surface'))).toEqual({ over: true, drop: true });
+    rerender(<PersistentSurfaceHarness hooked={false} onFiles={onFiles} />);
+    onFiles.mockClear();
+    expect(screen.getByTestId('surface')).toBeInTheDocument();
+    expect(dispatchFileDrag(screen.getByTestId('surface'))).toEqual({ over: false, drop: false });
+    expect(dispatchFileDrag(screen.getByTestId('drop'))).toEqual({ over: false, drop: false });
+    expect(onFiles).not.toHaveBeenCalled();
+  });
 });
+
+function PersistentSurfaceHarness({
+  hooked,
+  onFiles,
+}: {
+  hooked: boolean;
+  onFiles: (files: File[]) => void;
+}) {
+  const surface = useRef<HTMLDivElement>(null);
+  const zone = useRef<HTMLDivElement>(null);
+  return (
+    <div>
+      <div ref={surface} data-testid="surface">
+        <div ref={zone} data-testid="drop">
+          zona
+        </div>
+        {hooked ? <FileDropBinding target={zone} surface={surface} onFiles={onFiles} /> : null}
+      </div>
+    </div>
+  );
+}
+
+function FileDropBinding({
+  target,
+  surface,
+  onFiles,
+}: {
+  target: RefObject<HTMLElement | null>;
+  surface: RefObject<HTMLElement | null>;
+  onFiles: (files: File[]) => void;
+}) {
+  useFileDrop(target, { enabled: true, onFiles, surface });
+  return null;
+}
 
 function dispatchFileDrag(node: Element): { over: boolean; drop: boolean } {
   const transfer = dataTransfer([new File([new Uint8Array([1])], 'foto.png', { type: 'image/png' })]);

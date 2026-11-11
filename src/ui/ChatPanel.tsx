@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { CAPTION_MAX_LENGTH, rejectionMessage, validateFiles, type ValidAttachment } from '../domain/attachment';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage } from '../domain/message';
 import { previewOf } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
@@ -222,13 +222,31 @@ export function ChatPanel({
     focusAttachControl();
   }
 
+  const restoreViewerFocus = useCallback((opener: HTMLElement | null) => {
+    requestAnimationFrame(() => {
+      if (opener?.isConnected) {
+        opener.focus();
+        return;
+      }
+      const attach = document.querySelector<HTMLButtonElement>('[aria-label="Anexar arquivo"]');
+      if (attach && !attach.disabled) {
+        attach.focus();
+        return;
+      }
+      const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Mensagem"]');
+      if (field && !field.disabled) {
+        field.focus();
+        return;
+      }
+      document.querySelector<HTMLElement>('.chat-header')?.focus();
+    });
+  }, []);
+
   const closeViewer = useCallback(() => {
     const opener = viewerOpener.current;
     setViewer(null);
-    requestAnimationFrame(() => {
-      opener?.focus();
-    });
-  }, []);
+    restoreViewerFocus(opener);
+  }, [restoreViewerFocus]);
 
   function backToList() {
     if (!compact && isMobile && historyPane(window.history.state) === 'chat') {
@@ -242,6 +260,19 @@ export function ChatPanel({
   }
 
   const openImage = resolveOpenImage(viewer, messages);
+  const restoreFocusAfterGone = useRef(false);
+  if (viewer && !openImage) {
+    restoreFocusAfterGone.current = true;
+    setViewer(null);
+  }
+
+  useLayoutEffect(() => {
+    if (!restoreFocusAfterGone.current) {
+      return;
+    }
+    restoreFocusAfterGone.current = false;
+    restoreViewerFocus(viewerOpener.current);
+  }, [openImage, restoreViewerFocus]);
 
   return (
     <section
@@ -289,6 +320,7 @@ export function ChatPanel({
           menuDisabled={!live || disabled}
           onMenuSelect={sendMenuOption}
           onRetry={retry}
+          sessionEnded={live && state.ended}
           hidden={Boolean(pendingAttachment)}
           uploads={state.uploads}
           onCancelUpload={handleCancelUpload}
@@ -345,7 +377,7 @@ export function ChatPanel({
               const kind = pendingAttachment.kind;
               sendAttachment(pendingAttachment, caption);
               if (kind === 'image' || kind === 'video') {
-                setDraft(draft.slice(CAPTION_MAX_LENGTH));
+                setDraft(splitCaption(draft).rest);
               }
               closePreview();
             }}

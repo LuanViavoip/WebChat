@@ -95,6 +95,22 @@ describe('MediaBody', () => {
     expect(screen.getByRole('button', { name: 'Descartar exame.png' })).toBeInTheDocument();
   });
 
+  it('depois de ended não oferece Tentar de novo ativo', () => {
+    const message: ImageMessage = { ...base, type: 'image', mimeType: 'image/png', url: '/x.png', status: 'error' };
+    render(
+      <MediaBody
+        message={message}
+        upload={{ phase: 'failed', message: 'Falha ao enviar exame.png.', fileName: 'exame.png' }}
+        onCancelUpload={vi.fn()}
+        onRetry={vi.fn()}
+        sessionEnded
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Falha ao enviar exame.png.');
+    expect(screen.queryByRole('button', { name: 'Tentar enviar exame.png de novo' })).not.toBeInTheDocument();
+    expect(screen.getByText('Atendimento encerrado')).toBeInTheDocument();
+  });
+
   it('uploading mostra progress e cancelar', () => {
     const message: ImageMessage = { ...base, type: 'image', mimeType: 'image/png', url: '/x.png', status: 'sending' };
     render(

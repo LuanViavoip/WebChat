@@ -32,6 +32,15 @@ function png(name = 'exame.png'): File {
   return new File([new Uint8Array(12)], name, { type: 'image/png' });
 }
 
+function isWellFormed(value: string): boolean {
+  try {
+    encodeURIComponent(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const IMPLICIT_LIVE = '[role="log"], [role="status"], [role="alert"], [role="marquee"], [role="timer"]';
 
 function liveRoles(): Array<string | null> {
@@ -917,6 +926,61 @@ describe('ChatPanel mídia', () => {
     expect(screen.getByLabelText('Mensagem')).toHaveValue('x'.repeat(476));
   });
 
+  it('rascunho com emoji no corte 1023-1024 não parte o par surrogate', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const draft = `${'a'.repeat(1023)}😀fim`;
+    fireEvent.change(screen.getByLabelText('Mensagem'), { target: { value: draft } });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => {
+      expect(transport.sent.length).toBeGreaterThan(0);
+    });
+    const payload = transport.sent.at(-1)?.payload;
+    const caption = payload && 'caption' in payload ? (payload.caption ?? '') : '';
+    const leftover = screen.getByLabelText('Mensagem');
+    if (!(leftover instanceof HTMLTextAreaElement)) {
+      throw new Error('esperava textarea');
+    }
+    expect(caption + leftover.value).toBe(draft);
+    expect(isWellFormed(caption)).toBe(true);
+    expect(isWellFormed(leftover.value)).toBe(true);
+  });
+
+  it('rascunho com emoji ZWJ no corte permanece inteiro na legenda ou no resto', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const family = '👨‍👩‍👧‍👦';
+    const draft = `${'a'.repeat(1022)}${family}fim`;
+    fireEvent.change(screen.getByLabelText('Mensagem'), { target: { value: draft } });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => {
+      expect(transport.sent.length).toBeGreaterThan(0);
+    });
+    const payload = transport.sent.at(-1)?.payload;
+    const caption = payload && 'caption' in payload ? (payload.caption ?? '') : '';
+    const leftoverField = screen.getByLabelText('Mensagem');
+    if (!(leftoverField instanceof HTMLTextAreaElement)) {
+      throw new Error('esperava textarea');
+    }
+    const leftover = leftoverField.value;
+    expect(caption + leftover).toBe(draft);
+    expect(caption.includes(family) || leftover.startsWith(family)).toBe(true);
+    expect(isWellFormed(caption)).toBe(true);
+    expect(isWellFormed(leftover)).toBe(true);
+  });
+
   it('Baixar no visualizador usa a extensão do arquivo, não foto.jpg', async () => {
     const user = userEvent.setup();
     const urls = createFakeObjectUrls();
@@ -1053,6 +1117,55 @@ describe('ChatPanel mídia', () => {
     });
     expect(within(dialog).getByRole('link', { name: 'Baixar foto' })).toHaveAttribute('href', 'uploaded:exame.png');
     expect(urls.revoked).toContain(previewSrc);
+  });
+
+  it('depois de ended o Tentar de novo do upload falho não fica ativo', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.failUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('button', { name: 'Tentar enviar exame.png de novo' })).toBeEnabled();
+    act(() => {
+      transport.emit({ type: 'ended', conversationId: transport.lastSession?.conversationId ?? 'c1' });
+    });
+    await screen.findByRole('button', { name: 'Iniciar novo atendimento' });
+    expect(screen.queryByRole('button', { name: 'Tentar enviar exame.png de novo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tentar de novo' })).not.toBeInTheDocument();
+  });
+
+  it('encerrar com o visualizador aberto devolve o foco a um destino válido', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(await screen.findByRole('button', { name: 'Abrir foto em tela cheia' }));
+    expect(screen.getByRole('button', { name: 'Fechar foto' })).toHaveFocus();
+    act(() => {
+      transport.emit({ type: 'ended', conversationId: transport.lastSession?.conversationId ?? 'c1' });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Fechar foto' })).not.toBeInTheDocument();
+      expect(document.activeElement).not.toBe(document.body);
+    });
+    const focused = document.activeElement;
+    expect(
+      focused === document.querySelector('.chat-header') ||
+        focused === screen.getByRole('button', { name: 'Iniciar novo atendimento' }) ||
+        focused?.getAttribute('aria-label') === 'Anexar arquivo' ||
+        focused?.getAttribute('aria-label') === 'Mensagem',
+    ).toBe(true);
   });
 });
 

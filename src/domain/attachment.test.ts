@@ -4,6 +4,7 @@ import {
   MEDIA_RULES,
   clampCaption,
   extensionForMime,
+  splitCaption,
   formatBytes,
   rejectionMessage,
   validateFiles,
@@ -11,6 +12,15 @@ import {
 } from './attachment';
 
 const MB = 1024 * 1024;
+
+function isWellFormed(value: string): boolean {
+  try {
+    encodeURIComponent(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const TABLE: Array<{
   ext: string;
@@ -223,6 +233,27 @@ describe('clampCaption', () => {
   it('corta em CAPTION_MAX_LENGTH', () => {
     expect(clampCaption('ok')).toBe('ok');
     expect(clampCaption('x'.repeat(CAPTION_MAX_LENGTH + 8))).toHaveLength(CAPTION_MAX_LENGTH);
+  });
+
+  it('não parte um emoji nas posições 1023-1024', () => {
+    const draft = `${'a'.repeat(1023)}😀fim`;
+    const { caption, rest } = splitCaption(draft);
+    expect(caption + rest).toBe(draft);
+    expect(isWellFormed(caption)).toBe(true);
+    expect(isWellFormed(rest)).toBe(true);
+    expect(caption).toBe('a'.repeat(1023));
+    expect(rest.startsWith('😀')).toBe(true);
+  });
+
+  it('não parte um emoji ZWJ no limite da legenda', () => {
+    const family = '👨‍👩‍👧‍👦';
+    const draft = `${'a'.repeat(1022)}${family}fim`;
+    const { caption, rest } = splitCaption(draft);
+    expect(caption + rest).toBe(draft);
+    expect(isWellFormed(caption)).toBe(true);
+    expect(isWellFormed(rest)).toBe(true);
+    expect(caption).toBe('a'.repeat(1022));
+    expect(rest.startsWith(family)).toBe(true);
   });
 });
 

@@ -171,6 +171,19 @@ test.describe('mídia', () => {
     }).toPass({ timeout: 8_000 });
   });
 
+  test('encerrar com upload falho não deixa Tentar de novo ativo', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'ended com falha de upload em 1920');
+    await openLiveChat(page, testInfo, 'falha=upload');
+    await attach(page, pngFile('exame.png'));
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByRole('button', { name: 'Tentar enviar exame.png de novo' })).toBeVisible();
+    await page.getByRole('button', { name: /Encerrar o Atendimento/ }).click();
+    await expect(page.getByRole('button', { name: 'Iniciar novo atendimento' })).toBeVisible();
+    await expect(page.getByRole('article', { name: 'Você: Foto' }).getByText('Atendimento encerrado')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tentar enviar exame.png de novo' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tentar de novo' })).toHaveCount(0);
+  });
+
   test('widget aberto não bloqueia drop nem input de arquivo do portal', async ({ page }, testInfo) => {
     test.skip(!isWidgetProject(testInfo), 'só no projeto widget');
     await page.goto('/?modo=widget');

@@ -1,5 +1,5 @@
 import { Download, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 export function ImageViewer({
   image,
@@ -11,14 +11,20 @@ export function ImageViewer({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog || !image) {
+    if (!dialog) {
       return;
     }
-    if (!dialog.open) {
-      dialog.showModal();
-      closeRef.current?.focus();
+    if (image) {
+      if (!dialog.open) {
+        dialog.showModal();
+        closeRef.current?.focus();
+      }
+      return;
+    }
+    if (dialog.open) {
+      dialog.close();
     }
   }, [image]);
 
@@ -38,10 +44,6 @@ export function ImageViewer({
     };
   }, [image, onClose]);
 
-  if (!image) {
-    return null;
-  }
-
   return (
     <dialog
       ref={dialogRef}
@@ -52,30 +54,34 @@ export function ImageViewer({
         onClose();
       }}
     >
-      <button
-        type="button"
-        className="image-viewer-backdrop"
-        tabIndex={-1}
-        aria-hidden="true"
-        onClick={onClose}
-      />
-      <div className="image-viewer-bar">
-        <button
-          ref={closeRef}
-          type="button"
-          className="icon-button"
-          aria-label="Fechar foto"
-          onClick={onClose}
-        >
-          <X size={22} strokeWidth={1.8} aria-hidden="true" />
-        </button>
-        <a className="icon-button" href={image.url} download={image.fileName} aria-label="Baixar foto">
-          <Download size={20} strokeWidth={1.8} aria-hidden="true" />
-        </a>
-      </div>
-      <div className="image-viewer-stage">
-        <img src={image.url} alt={image.alt} />
-      </div>
+      {image ? (
+        <>
+          <button
+            type="button"
+            className="image-viewer-backdrop"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={onClose}
+          />
+          <div className="image-viewer-bar">
+            <button
+              ref={closeRef}
+              type="button"
+              className="icon-button"
+              aria-label="Fechar foto"
+              onClick={onClose}
+            >
+              <X size={22} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+            <a className="icon-button" href={image.url} download={image.fileName} aria-label="Baixar foto">
+              <Download size={20} strokeWidth={1.8} aria-hidden="true" />
+            </a>
+          </div>
+          <div className="image-viewer-stage">
+            <img src={image.url} alt={image.alt} />
+          </div>
+        </>
+      ) : null}
     </dialog>
   );
 }

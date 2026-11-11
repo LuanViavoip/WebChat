@@ -117,8 +117,37 @@ export const ACCEPT_ATTRIBUTE = uniqueAcceptTokens().join(',');
 
 export const CAPTION_MAX_LENGTH = 1024;
 
+export function splitCaption(value: string): { caption: string; rest: string } {
+  if (value.length <= CAPTION_MAX_LENGTH) {
+    return { caption: value, rest: '' };
+  }
+  let caption = '';
+  for (const segment of captionSegments(value)) {
+    if (caption.length + segment.length > CAPTION_MAX_LENGTH) {
+      break;
+    }
+    caption += segment;
+  }
+  return { caption, rest: value.slice(caption.length) };
+}
+
 export function clampCaption(value: string): string {
-  return value.slice(0, CAPTION_MAX_LENGTH);
+  return splitCaption(value).caption;
+}
+
+function captionSegments(value: string): string[] {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    const segments: string[] = [];
+    for (const part of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)) {
+      segments.push(part.segment);
+    }
+    return segments;
+  }
+  const points: string[] = [];
+  for (const point of value) {
+    points.push(point);
+  }
+  return points;
 }
 
 export function extensionForMime(mimeType: string): string | undefined {

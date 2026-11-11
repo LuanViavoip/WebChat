@@ -12,12 +12,14 @@ export function MediaBody({
   onOpenImage,
   onCancelUpload,
   onRetry,
+  sessionEnded = false,
 }: {
   message: Exclude<ChatMessage, TextMessage>;
   upload?: UploadView;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   onCancelUpload?: (id: string) => void;
   onRetry?: (id: string) => void;
+  sessionEnded?: boolean;
 }) {
   const fileName = uploadFileName(message, upload);
   return (
@@ -30,6 +32,7 @@ export function MediaBody({
           upload={upload}
           onCancel={onCancelUpload}
           onRetry={onRetry}
+          sessionEnded={sessionEnded}
         />
       ) : null}
     </>
