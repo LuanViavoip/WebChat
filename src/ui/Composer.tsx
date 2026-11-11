@@ -1,3 +1,4 @@
+import { Mic, Paperclip, SendHorizontal, Smile } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { insertAtCursor } from '../chat/textCursor';
 import { EmojiPicker } from './EmojiPicker';
@@ -12,6 +13,7 @@ export function Composer({
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const canSend = text.trim().length > 0;
 
   function submit() {
     const next = text.trim();
@@ -60,7 +62,16 @@ export function Composer({
             setPickerOpen((open) => !open);
           }}
         >
-          ☺
+          <Smile size={24} strokeWidth={1.6} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Anexar (em breve)"
+          title="em breve"
+          disabled
+        >
+          <Paperclip size={22} strokeWidth={1.6} aria-hidden="true" />
         </button>
         <label className="composer-field">
           <span className="sr-only">Mensagem</span>
@@ -69,7 +80,7 @@ export function Composer({
             value={text}
             disabled={disabled}
             rows={1}
-            placeholder="Mensagem"
+            placeholder="Digite uma mensagem"
             aria-label="Mensagem"
             onChange={(event) => {
               setText(event.target.value);
@@ -77,9 +88,15 @@ export function Composer({
             onKeyDown={onKeyDown}
           />
         </label>
-        <button type="button" className="send-button" aria-label="Enviar" disabled={disabled} onClick={submit}>
-          Enviar
-        </button>
+        {canSend ? (
+          <button type="button" className="send-fab" aria-label="Enviar" disabled={disabled} onClick={submit}>
+            <SendHorizontal size={20} strokeWidth={2} aria-hidden="true" />
+          </button>
+        ) : (
+          <button type="button" className="icon-button" aria-label="Gravar áudio (em breve)" title="em breve" disabled>
+            <Mic size={22} strokeWidth={1.6} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );

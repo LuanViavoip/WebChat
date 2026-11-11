@@ -17,6 +17,7 @@ export type MenuOption = {
 type MessageBase = {
   id: string;
   conversationId: string;
+  clientId?: string;
   direction: MessageSender;
   author: MessageAuthor;
   timestamp: string;

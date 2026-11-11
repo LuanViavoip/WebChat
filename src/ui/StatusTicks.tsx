@@ -1,3 +1,4 @@
+import { Check, CheckCheck, CircleAlert, Clock } from 'lucide-react';
 import type { MessageStatus } from '../domain/message';
 
 const LABELS: Record<MessageStatus, string> = {
@@ -11,24 +12,24 @@ const LABELS: Record<MessageStatus, string> = {
 export function StatusTicks({ status }: { status: MessageStatus }) {
   const label = LABELS[status];
   return (
-    <span className={`ticks ticks-${status}`} aria-label={label} title={label}>
+    <span className={`ticks ticks-${status}`} role="img" aria-label={label} title={label}>
       {glyph(status)}
     </span>
   );
 }
 
-function glyph(status: MessageStatus): string {
+function glyph(status: MessageStatus) {
   switch (status) {
     case 'sending':
-      return '◌';
+      return <Clock size={14} strokeWidth={2} aria-hidden="true" />;
     case 'sent':
-      return '✓';
+      return <Check size={14} strokeWidth={2.2} aria-hidden="true" />;
     case 'delivered':
-      return '✓✓';
+      return <CheckCheck size={14} strokeWidth={2.2} aria-hidden="true" />;
     case 'read':
-      return '✓✓';
+      return <CheckCheck size={14} strokeWidth={2.2} aria-hidden="true" />;
     case 'error':
-      return '!';
+      return <CircleAlert size={14} strokeWidth={2.2} aria-hidden="true" />;
     default: {
       const exhaustive: never = status;
       return exhaustive;
