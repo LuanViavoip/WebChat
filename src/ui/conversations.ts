@@ -175,20 +175,6 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
   },
 ];
 
-export function conversationItemLabel(
-  item: ConversationPreview,
-  extra?: string,
-): string {
-  const parts = [item.title];
-  if (item.demo) {
-    parts.push('Demonstração');
-  }
-  if (extra) {
-    parts.push(extra);
-  }
-  return parts.join(', ');
-}
-
 export function isLiveConversation(id: string): boolean {
   return id === LIVE_CONVERSATION_ID;
 }
@@ -210,9 +196,13 @@ export function filterConversations(
   query: string,
   filter: 'all' | 'unread',
   activePreview: string,
+  options?: { pinLive?: boolean },
 ): ConversationPreview[] {
   const needle = query.trim().toLowerCase();
   return items.filter((item) => {
+    if (options?.pinLive && isLiveConversation(item.id)) {
+      return true;
+    }
     if (filter === 'unread' && item.unread === 0) {
       return false;
     }

@@ -358,6 +358,26 @@ body:has(.page-shell) {
   border-color: var(--danger);
 }
 
+.live-activity-badge.is-unseen {
+  color: var(--accent-strong);
+  background: var(--vv-blue-50);
+  border-color: var(--accent);
+}
+
+.header-back {
+  position: relative;
+}
+
+.unseen-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-mark);
+}
+
 .conversation-empty {
   margin: 24px 16px;
   text-align: center;
@@ -569,6 +589,11 @@ body:has(.page-shell) {
 .session-banner-error {
   background: #fff5f5;
   color: var(--danger);
+}
+
+.session-banner-unseen {
+  background: var(--vv-blue-50);
+  color: var(--accent-strong);
 }
 
 .session-banner-error button {

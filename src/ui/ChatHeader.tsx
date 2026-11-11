@@ -10,6 +10,7 @@ export function ChatHeader({
   headingLevel = 'h1',
   onClose,
   onBack,
+  unseenLive = false,
 }: {
   title: string;
   connection: TransportStatus;
@@ -18,6 +19,7 @@ export function ChatHeader({
   headingLevel?: 'h1' | 'h2';
   onClose?: () => void;
   onBack?: () => void;
+  unseenLive?: boolean;
 }) {
   const online = connection === 'connected';
   const subtitle = readOnly ? 'Atendimento encerrado' : headerSubtitle(connection, typing);
@@ -25,8 +27,14 @@ export function ChatHeader({
   return (
     <header className="chat-header" tabIndex={-1}>
       {onBack ? (
-        <button type="button" className="icon-button header-back" aria-label="Voltar" onClick={onBack}>
+        <button
+          type="button"
+          className={`icon-button header-back${unseenLive ? ' has-unseen' : ''}`}
+          aria-label={unseenLive ? 'Voltar, nova mensagem' : 'Voltar'}
+          onClick={onBack}
+        >
           <ArrowLeft size={20} strokeWidth={1.7} aria-hidden="true" />
+          {unseenLive ? <span className="unseen-dot" aria-hidden="true" /> : null}
         </button>
       ) : null}
       <div className="avatar avatar-ics" aria-hidden="true">

@@ -1,10 +1,10 @@
 import {
   CLIENT_CONVERSATIONS,
-  conversationItemLabel,
   emptyConversationCopy,
   filterConversations,
   LIVE_CONVERSATION_ID,
 } from './conversations';
+import { pinsLiveConversation } from './liveActivity';
 
 describe('filterConversations', () => {
   it('não inclui conversas lidas no filtro Não lidas', () => {
@@ -40,15 +40,20 @@ describe('filterConversations', () => {
     }
   });
 
-  it('inclui Demonstração no rótulo acessível do histórico', () => {
-    const live = CLIENT_CONVERSATIONS[0];
-    const history = CLIENT_CONVERSATIONS[1];
-    if (!live || !history) {
-      throw new Error('conversas de fixture ausentes');
-    }
-    expect(conversationItemLabel(live)).toBe('ICS Pré-atendimento');
-    expect(conversationItemLabel(history)).toBe('Atendimento anterior, Demonstração');
-    expect(conversationItemLabel(live, 'Erro')).toBe('ICS Pré-atendimento, Erro');
+  it('mantém a conversa ao vivo quando a busca não casa e ela está pinada', () => {
+    const filtered = filterConversations(CLIENT_CONVERSATIONS, 'zzzz-inexistente', 'all', 'preview', {
+      pinLive: true,
+    });
+    expect(filtered.map((item) => item.id)).toEqual([LIVE_CONVERSATION_ID]);
+  });
+});
+
+describe('pinsLiveConversation', () => {
+  it('pina erro e mensagem não vista', () => {
+    expect(pinsLiveConversation('error')).toBe(true);
+    expect(pinsLiveConversation('unseen')).toBe(true);
+    expect(pinsLiveConversation('idle')).toBe(false);
+    expect(pinsLiveConversation('connecting')).toBe(false);
   });
 });
 

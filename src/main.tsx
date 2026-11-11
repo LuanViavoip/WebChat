@@ -17,9 +17,10 @@ if (!root) {
 const params = new URLSearchParams(window.location.search);
 const patientName = params.get('nome')?.trim() || 'Maria Silva';
 const mode: AppMode = params.get('modo') === 'widget' ? 'widget' : 'page';
+const failConnect = params.get('falha') === 'conectar';
 
 createRoot(root).render(
   <StrictMode>
-    <App transport={new MockTransport()} patientName={patientName} mode={mode} />
+    <App transport={new MockTransport({ failConnect })} patientName={patientName} mode={mode} />
   </StrictMode>,
 );

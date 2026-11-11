@@ -4,11 +4,14 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d
       options: --user 1001 --ipc=host
     env:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
@@ -20,10 +23,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

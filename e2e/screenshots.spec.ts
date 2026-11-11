@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { isMobileProject, isPageProject, isWidgetProject } from './project';
 
-const DIR = 'docs/screenshots/etapa-1.3';
+const DIR = process.env['CI'] ? 'docs/screenshots/etapa-1.3' : 'test-results/screenshots/etapa-1.3';
 
 test.describe('artefatos visuais', () => {
   test('depois — página', async ({ page }, testInfo) => {

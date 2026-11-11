@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import type { ChatTransport } from './transport/ChatTransport';
+import { historyConversationId } from './ui/chatHistory';
 import { ChatPanel } from './ui/ChatPanel';
 import { ChatWidget } from './ui/ChatWidget';
 import { LIVE_CONVERSATION_ID } from './ui/conversations';
-import type { ChatTransport } from './transport/ChatTransport';
 
 export type AppMode = 'page' | 'widget';
 
@@ -15,7 +16,9 @@ export function App({
   patientName: string;
   mode: AppMode;
 }) {
-  const [selectedConversationId, setSelectedConversationId] = useState(LIVE_CONVERSATION_ID);
+  const [selectedConversationId, setSelectedConversationId] = useState(
+    () => historyConversationId(window.history.state) ?? LIVE_CONVERSATION_ID,
+  );
 
   if (mode === 'widget') {
     return (

@@ -22,6 +22,17 @@ test.describe('histórico no desktop', () => {
     await expect(page.getByLabel('Mensagem')).toBeVisible();
   });
 
+  test('reload preserva a conversa selecionada', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
+    await page.goto('/?nome=Maria%20Silva');
+    await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
+    await page.getByRole('button', { name: /Atendimento anterior/ }).click();
+    await expect(page.getByText(/remarcar a consulta da clínica da família/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/remarcar a consulta da clínica da família/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Atendimento anterior/ })).toHaveAttribute('aria-current', 'true');
+  });
+
   test('voltar e avançar restauram a conversa certa', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
 
@@ -52,6 +63,19 @@ test.describe('histórico no desktop', () => {
     await expect(page.getByText(/conversa fictícia para demonstração/i)).toBeVisible();
     await page.getByRole('button', { name: /ICS Pré-atendimento/ }).click();
     await expect(page.getByLabel('Mensagem')).toHaveValue('quero remarcar amanhã');
+  });
+
+  test('mostra nova mensagem na lista quando a resposta chega no histórico', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
+    await page.goto('/?nome=Maria%20Silva');
+    await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
+    await page.getByLabel('Mensagem').fill('2');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await page.getByRole('button', { name: /Atendimento anterior/ }).click();
+    await expect(page.locator('.live-activity-badge.is-unseen')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAccessibleName(/nova mensagem/i);
+    await page.getByRole('button', { name: /ICS Pré-atendimento/ }).click();
+    await expect(page.locator('.live-activity-badge.is-unseen')).toHaveCount(0);
   });
 
   test('envia mensagem, troca de conversa e preserva o histórico ao vivo', async ({ page }, testInfo) => {
@@ -122,6 +146,60 @@ test.describe('navegação mobile', () => {
     await page.goBack();
     await expect(page.getByLabel('Lista de conversas')).toBeVisible();
     await expect(page.getByLabel('Mensagem')).toBeHidden();
+  });
+
+  test('ao voltar, seleção e foco voltam ao item de origem', async ({ page }, testInfo) => {
+    test.skip(!isMobileProject(testInfo), 'só em 390×844');
+    await page.goto('/?nome=Maria%20Silva');
+    await expect(page.getByLabel('Lista de conversas')).toBeVisible();
+
+    const origins = [
+      {
+        name: /Atendimento anterior/,
+        open: () => expect(page.getByRole('log').getByText(/remarcar a consulta da clínica da família/)).toBeVisible(),
+      },
+      {
+        name: /Exames e vacinas/,
+        open: () => expect(page.getByRole('log').getByText(/campanha de influenza/i)).toBeVisible(),
+      },
+      {
+        name: /ICS Pré-atendimento/,
+        open: () => expect(page.getByLabel('Mensagem')).toBeVisible(),
+      },
+    ];
+
+    for (const origin of origins) {
+      const item = page.getByRole('button', { name: origin.name });
+      await item.click();
+      await origin.open();
+      await page.getByRole('button', { name: 'Voltar' }).click();
+      await expect(page.getByLabel('Lista de conversas')).toBeVisible();
+      await expect(item).toHaveAttribute('aria-current', 'true');
+      await expect(item).toBeFocused();
+    }
+
+    for (const origin of origins) {
+      const item = page.getByRole('button', { name: origin.name });
+      await item.click();
+      await origin.open();
+      await page.goBack();
+      await expect(page.getByLabel('Lista de conversas')).toBeVisible();
+      await expect(item).toHaveAttribute('aria-current', 'true');
+      await expect(item).toBeFocused();
+    }
+  });
+
+  test('mostra nova mensagem quando a resposta chega com o histórico aberto', async ({ page }, testInfo) => {
+    test.skip(!isMobileProject(testInfo), 'só em 390×844');
+    await page.goto('/?nome=Maria%20Silva');
+    await page.getByRole('button', { name: /ICS Pré-atendimento/ }).click();
+    await expect(page.getByLabel('Mensagem')).toBeVisible();
+    await page.getByLabel('Mensagem').fill('2');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await page.getByRole('button', { name: 'Voltar' }).click();
+    await page.getByRole('button', { name: /Atendimento anterior/ }).click();
+    await expect(page.getByRole('button', { name: /voltar, nova mensagem/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/nova mensagem no ics pré-atendimento/i)).toBeVisible();
   });
 
   test('teclado move o foco ao abrir o chat e o devolve ao voltar', async ({ page }, testInfo) => {

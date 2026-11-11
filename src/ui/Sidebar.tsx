@@ -6,7 +6,7 @@ import {
   filterConversations,
   isLiveConversation,
 } from './conversations';
-import { liveActivityLabel, type LiveActivity } from './liveActivity';
+import { liveActivityLabel, pinsLiveConversation, type LiveActivity } from './liveActivity';
 
 export function Sidebar({
   preview,
@@ -22,8 +22,11 @@ export function Sidebar({
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const items = useMemo(
-    () => filterConversations(CLIENT_CONVERSATIONS, query, filter, preview),
-    [filter, preview, query],
+    () =>
+      filterConversations(CLIENT_CONVERSATIONS, query, filter, preview, {
+        pinLive: pinsLiveConversation(activity),
+      }),
+    [activity, filter, preview, query],
   );
 
   return (
@@ -112,7 +115,9 @@ export function Sidebar({
                       </span>
                       {item.demo ? <span className="demo-badge">Demonstração</span> : null}
                       {live && activityLabel ? (
-                        <span className={`live-activity-badge${activity === 'error' ? ' is-error' : ''}`}>
+                        <span
+                          className={`live-activity-badge${activity === 'error' ? ' is-error' : ''}${activity === 'unseen' ? ' is-unseen' : ''}`}
+                        >
                           {activityLabel}
                         </span>
                       ) : null}

@@ -21,6 +21,15 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 - Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
 - Assets oficiais da ViaVoip ou do WhatsApp (wordmark em texto + Lucide; sem copiar logotipos)
 
+## Etapa 1.3 — rodada 3 do PR #5
+
+Correções: foco mobile no item de origem, mensagem não vista no histórico, item ao vivo pinado na busca, contraste com banner real, Conectando vs Reconectando, anúncio aria-live da atividade, e o workflow Playwright por digest.
+
+O que **não** entrou (opcionais não triviais ou já cobertos em outro lugar):
+
+- N6 — o teste unitário das caudas continua checando a classe `has-tail`; a cor da `::after` já é medida no e2e `conversations.spec.ts`. jsdom não resolve o cascade do `chat.css` para `getComputedStyle` da cauda
+- Pixel-perfect do indicador de nova mensagem no botão Voltar (ponto lima) além do anúncio e do banner no painel
+
 ## Etapa 1.3 — revisão Codex do PR #5
 
 Correções desta passagem (histórico fictício identificado, rascunho, history.state, atividade na lista, foco mobile, caudas e contraste computado). O que **não** entrou:

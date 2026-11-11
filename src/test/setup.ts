@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 
+beforeEach(() => {
+  window.history.replaceState(null, '');
+});
+
 if (typeof window.matchMedia !== 'function') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

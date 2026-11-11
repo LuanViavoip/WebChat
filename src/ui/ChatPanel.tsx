@@ -6,7 +6,7 @@ import { ChatHeader } from './ChatHeader';
 import { historyConversationId, historyPane, mergeHistoryState } from './chatHistory';
 import { Composer } from './Composer';
 import { conversationById, isLiveConversation, LIVE_CONVERSATION_ID } from './conversations';
-import { liveActivity } from './liveActivity';
+import { liveActivity, liveActivityAnnouncement } from './liveActivity';
 import { MessageList } from './MessageList';
 import { Sidebar } from './Sidebar';
 import { useChatSession } from './useChatSession';
@@ -32,8 +32,10 @@ export function ChatPanel({
 }) {
   const { state, send, sendMenuOption, retry, reconnect, restart } = useChatSession(transport, patientName);
   const isMobile = useMediaQuery('(max-width: 900px)');
-  const [mobilePane, setMobilePane] = useState<MobilePane>('list');
-  const [uncontrolledId, setUncontrolledId] = useState(LIVE_CONVERSATION_ID);
+  const [mobilePane, setMobilePane] = useState<MobilePane>(() => historyPane(window.history.state));
+  const [uncontrolledId, setUncontrolledId] = useState(
+    () => (compact ? LIVE_CONVERSATION_ID : historyConversationId(window.history.state)) ?? LIVE_CONVERSATION_ID,
+  );
   const [draft, setDraft] = useState('');
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = selectedConversationIdProp ?? uncontrolledId;
@@ -44,7 +46,23 @@ export function ChatPanel({
   const disabled = state.connection !== 'connected' || state.ended;
   const preview = lastPreview(state.messages);
   const showBack = !compact && isMobile && mobilePane === 'chat';
-  const activity = liveActivity(state);
+  const hadConnected = useRef(false);
+  if (state.connection === 'connected') {
+    hadConnected.current = true;
+  }
+  const seenLiveCount = useRef(0);
+  const unseenLive =
+    !live &&
+    state.messages.slice(seenLiveCount.current).some((message) => message.direction !== 'client');
+  const activity = liveActivity({
+    error: state.error,
+    connection: state.connection,
+    typing: state.typing,
+    messages: state.messages,
+    unseen: unseenLive,
+    hadConnected: hadConnected.current,
+  });
+  const announcement = liveActivityAnnouncement(activity, live);
   const pendingFocus = useRef<PendingFocus | null>(null);
   const isMobileRef = useRef(isMobile);
   const onSelectRef = useRef(onSelectConversation);
@@ -92,6 +110,12 @@ export function ChatPanel({
     document.querySelector<HTMLElement>(`[data-conversation-id="${CSS.escape(selectedConversationId)}"]`)?.focus();
   }, [mobilePane, selectedConversationId]);
 
+  useEffect(() => {
+    if (live) {
+      seenLiveCount.current = state.messages.length;
+    }
+  }, [live, state.messages.length]);
+
   function assignConversation(id: string) {
     if (!controlledRef.current) {
       setUncontrolledId(id);
@@ -106,7 +130,10 @@ export function ChatPanel({
     if (!compact) {
       const currentPane = historyPane(window.history.state);
       const currentId = historyConversationId(window.history.state);
-      if (currentPane !== nextPane || currentId !== id) {
+      if (isMobile && currentPane === 'list' && nextPane === 'chat') {
+        writeHistory('list', id, 'replace');
+        writeHistory('chat', id, 'push');
+      } else if (currentPane !== nextPane || currentId !== id) {
         writeHistory(nextPane, id, 'push');
       }
     }
@@ -132,6 +159,11 @@ export function ChatPanel({
       data-mobile-pane={compact ? 'chat' : mobilePane}
       aria-label="Conversa com o ICS"
     >
+      {announcement ? (
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </div>
+      ) : null}
       {compact ? null : (
         <Sidebar
           preview={preview}
@@ -147,9 +179,15 @@ export function ChatPanel({
           typing={typing}
           readOnly={!live}
           headingLevel={compact ? 'h1' : 'h2'}
+          unseenLive={unseenLive}
           {...(onClose ? { onClose } : {})}
           {...(showBack ? { onBack: backToList } : {})}
         />
+        {!live && unseenLive ? (
+          <div className="session-banner session-banner-unseen">
+            <p>Nova mensagem no ICS Pré-atendimento</p>
+          </div>
+        ) : null}
         {conversation.demo ? (
           <div className="session-banner session-banner-demo" role="note">
             <p>Conversa fictícia para demonstração. Não é o seu histórico clínico.</p>
