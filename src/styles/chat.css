@@ -756,6 +756,31 @@ body:has(.page-shell) {
   color: var(--text-secondary);
 }
 
+.host-file {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.host-file input {
+  font-family: var(--font-body);
+  color: var(--text);
+}
+
+.host-drop {
+  margin-top: 16px;
+  padding: 18px;
+  min-height: 72px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
 .widget-root {
   position: fixed;
   right: 16px;

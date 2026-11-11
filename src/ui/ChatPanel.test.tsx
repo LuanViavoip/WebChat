@@ -914,6 +914,7 @@ describe('ChatPanel mídia', () => {
     const payload = transport.sent.at(-1)?.payload;
     const caption = payload && 'caption' in payload ? payload.caption ?? '' : '';
     expect(caption.length).toBeLessThanOrEqual(1024);
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('x'.repeat(476));
   });
 
   it('Baixar no visualizador usa a extensão do arquivo, não foto.jpg', async () => {
@@ -976,6 +977,82 @@ describe('ChatPanel mídia', () => {
     const payload = transport.sent.at(-1)?.payload;
     expect(payload && 'url' in payload ? payload.url : '').toBe('uploaded:exame.png');
     expect(transport.sent[0]?.clientId).toBe(transport.sent[1]?.clientId);
+  });
+
+  it('falha de upload aparece na atividade ao trocar de conversa e no voltar/avançar', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.failUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Falha ao enviar exame.png/);
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAccessibleName(/erro/i);
+    expect(activityBadge()).toHaveTextContent('Erro');
+    expect(activityAnnouncer()).toHaveTextContent('Erro');
+    window.history.back();
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Falha ao enviar exame.png/);
+    });
+    expect(activityAnnouncer()).toHaveTextContent('');
+    window.history.forward();
+    await waitFor(() => {
+      expect(activityAnnouncer()).toHaveTextContent('Erro');
+    });
+    expect(activityBadge()).toHaveTextContent('Erro');
+  });
+
+  it('progresso do upload não rouba o foco de Baixar foto', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(await screen.findByRole('button', { name: 'Abrir foto em tela cheia' }));
+    const dialog = screen.getByRole('dialog', { name: 'Foto em tela cheia' });
+    const download = within(dialog).getByRole('link', { name: 'Baixar foto' });
+    download.focus();
+    expect(download).toHaveFocus();
+    act(() => {
+      transport.progressUpload(0, 6);
+    });
+    expect(download).toHaveFocus();
+    expect(within(dialog).getByRole('button', { name: 'Fechar foto' })).not.toHaveFocus();
+  });
+
+  it('o visualizador acompanha a URL da mensagem depois do upload', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(await screen.findByRole('button', { name: 'Abrir foto em tela cheia' }));
+    const dialog = screen.getByRole('dialog', { name: 'Foto em tela cheia' });
+    const previewSrc = within(dialog).getByRole('img').getAttribute('src');
+    expect(previewSrc).toBeTruthy();
+    act(() => {
+      transport.resolveUpload(0, 'uploaded:exame.png');
+    });
+    await waitFor(() => {
+      expect(within(dialog).getByRole('img')).toHaveAttribute('src', 'uploaded:exame.png');
+    });
+    expect(within(dialog).getByRole('link', { name: 'Baixar foto' })).toHaveAttribute('href', 'uploaded:exame.png');
+    expect(urls.revoked).toContain(previewSrc);
   });
 });
 

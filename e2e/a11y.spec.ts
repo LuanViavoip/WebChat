@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { audioFile, pdfFile, pngFile, videoFile } from './files';
-import { isMobileProject, isPageProject, isWidgetProject } from './project';
+import { chatFileInput, isMobileProject, isPageProject, isWidgetProject } from './project';
 
 async function expectNoSeriousOrCritical(page: Page, label: string) {
   const results = await new AxeBuilder({ page }).analyze();
@@ -12,13 +12,13 @@ async function expectNoSeriousOrCritical(page: Page, label: string) {
 }
 
 async function attachAndSend(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
-  await page.locator('input[type="file"]').setInputFiles(file);
+  await chatFileInput(page).setInputFiles(file);
   await expect(page.getByRole('region', { name: 'Pré-visualização do anexo' })).toBeVisible();
   await page.getByRole('button', { name: 'Enviar' }).click();
 }
 
 async function expectMediaA11y(page: Page, label: string) {
-  await page.locator('input[type="file"]').setInputFiles(pngFile());
+  await chatFileInput(page).setInputFiles(pngFile());
   await expect(page.getByRole('region', { name: 'Pré-visualização do anexo' })).toBeVisible();
   await expectNoSeriousOrCritical(page, `${label} preview`);
   await page.getByRole('button', { name: 'Enviar' }).click();

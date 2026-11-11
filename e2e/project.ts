@@ -15,6 +15,10 @@ export function isPageProject(testInfo: TestInfo): boolean {
   return (PAGE_PROJECTS as readonly string[]).includes(testInfo.project.name);
 }
 
+export function chatFileInput(page: Page) {
+  return page.locator('.wa-chat input[type="file"]');
+}
+
 export async function openLiveChat(page: Page, testInfo: TestInfo, extraQuery = ''): Promise<void> {
   const extra = extraQuery.replace(/^\?/, '');
   if (isWidgetProject(testInfo)) {

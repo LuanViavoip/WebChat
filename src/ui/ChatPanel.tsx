@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { rejectionMessage, validateFiles, type ValidAttachment } from '../domain/attachment';
+import { CAPTION_MAX_LENGTH, rejectionMessage, validateFiles, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage } from '../domain/message';
 import { previewOf } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
@@ -54,6 +54,7 @@ export function ChatPanel({
   const [viewer, setViewer] = useState<OpenImage | null>(null);
   const viewerOpener = useRef<HTMLElement | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLElement>(null);
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = selectedConversationIdProp ?? uncontrolledId;
   const live = isLiveConversation(selectedConversationId);
@@ -78,6 +79,7 @@ export function ChatPanel({
     messages: state.messages,
     unseen: unseenLive,
     hadConnected: hadConnected.current,
+    failedUpload: Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
   });
   const announcement = liveActivityAnnouncement(activity, liveVisible);
   const pendingFocus = useRef<PendingFocus | null>(null);
@@ -105,6 +107,7 @@ export function ChatPanel({
   const { dragging } = useFileDrop(chatRef, {
     enabled: live && !disabled && !pendingAttachment,
     onFiles: handleFiles,
+    surface: shellRef,
   });
   const selectedIdRef = useRef(selectedConversationId);
   selectedIdRef.current = selectedConversationId;
@@ -219,6 +222,14 @@ export function ChatPanel({
     focusAttachControl();
   }
 
+  const closeViewer = useCallback(() => {
+    const opener = viewerOpener.current;
+    setViewer(null);
+    requestAnimationFrame(() => {
+      opener?.focus();
+    });
+  }, []);
+
   function backToList() {
     if (!compact && isMobile && historyPane(window.history.state) === 'chat') {
       window.history.back();
@@ -230,8 +241,11 @@ export function ChatPanel({
     }
   }
 
+  const openImage = resolveOpenImage(viewer, messages);
+
   return (
     <section
+      ref={shellRef}
       className={`wa-shell${compact ? ' wa-compact' : ''}`}
       data-mobile-pane={compact ? 'chat' : mobilePane}
       aria-label="Conversa com o ICS"
@@ -331,7 +345,7 @@ export function ChatPanel({
               const kind = pendingAttachment.kind;
               sendAttachment(pendingAttachment, caption);
               if (kind === 'image' || kind === 'video') {
-                setDraft('');
+                setDraft(draft.slice(CAPTION_MAX_LENGTH));
               }
               closePreview();
             }}
@@ -343,19 +357,24 @@ export function ChatPanel({
             <p>Atendimento encerrado · somente leitura</p>
           </div>
         )}
-        <ImageViewer
-          image={viewer}
-          onClose={() => {
-            const opener = viewerOpener.current;
-            setViewer(null);
-            requestAnimationFrame(() => {
-              opener?.focus();
-            });
-          }}
-        />
+        <ImageViewer image={openImage} onClose={closeViewer} />
       </div>
     </section>
   );
+}
+
+function resolveOpenImage(
+  viewer: OpenImage | null,
+  messages: ChatMessage[],
+): { url: string; alt: string; fileName: string } | null {
+  if (!viewer) {
+    return null;
+  }
+  const message = messages.find((item) => item.id === viewer.messageId);
+  if (!message || message.type !== 'image') {
+    return null;
+  }
+  return { url: message.url, alt: message.caption || viewer.alt, fileName: viewer.fileName };
 }
 
 function writeHistory(pane: MobilePane, conversationId: string, mode: 'push' | 'replace') {

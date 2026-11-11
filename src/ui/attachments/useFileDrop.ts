@@ -2,26 +2,31 @@ import { useEffect, useState, type RefObject } from 'react';
 
 export function useFileDrop(
   target: RefObject<HTMLElement | null>,
-  options: { enabled: boolean; onFiles: (files: File[]) => void },
+  options: { enabled: boolean; onFiles: (files: File[]) => void; surface?: RefObject<HTMLElement | null> },
 ): { dragging: boolean } {
   const [dragging, setDragging] = useState(false);
   const enabled = options.enabled;
   const onFiles = options.onFiles;
+  const surface = options.surface;
 
   useEffect(() => {
+    const node = surface?.current ?? target.current;
+    if (!node) {
+      return;
+    }
     function preventFileNavigation(event: DragEvent) {
       if (!event.dataTransfer?.types.includes('Files')) {
         return;
       }
       event.preventDefault();
     }
-    window.addEventListener('dragover', preventFileNavigation);
-    window.addEventListener('drop', preventFileNavigation);
+    node.addEventListener('dragover', preventFileNavigation);
+    node.addEventListener('drop', preventFileNavigation);
     return () => {
-      window.removeEventListener('dragover', preventFileNavigation);
-      window.removeEventListener('drop', preventFileNavigation);
+      node.removeEventListener('dragover', preventFileNavigation);
+      node.removeEventListener('drop', preventFileNavigation);
     };
-  }, []);
+  }, [surface, target]);
 
   useEffect(() => {
     const node = target.current;

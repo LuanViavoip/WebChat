@@ -2,19 +2,26 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useRef } from 'react';
 import { useFileDrop } from './useFileDrop';
 
-function DropTarget({
+function DropHarness({
   enabled,
   onFiles,
 }: {
   enabled: boolean;
   onFiles: (files: File[]) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { dragging } = useFileDrop(ref, { enabled, onFiles });
+  const surface = useRef<HTMLDivElement>(null);
+  const zone = useRef<HTMLDivElement>(null);
+  const { dragging } = useFileDrop(zone, { enabled, onFiles, surface });
   return (
-    <div ref={ref} data-testid="drop">
-      {dragging ? 'dragging' : 'idle'}
-      <span>filho</span>
+    <div>
+      <div ref={surface} data-testid="surface">
+        <div ref={zone} data-testid="drop">
+          {dragging ? 'dragging' : 'idle'}
+          <span>filho</span>
+        </div>
+        <aside data-testid="sidebar">fora da zona</aside>
+      </div>
+      <div data-testid="host">portal hospedeiro</div>
     </div>
   );
 }
@@ -28,7 +35,7 @@ function dataTransfer(files: File[] = [], types: string[] = ['Files']) {
 
 describe('useFileDrop', () => {
   it('dragenter com Files liga dragging e filhos não desligam', () => {
-    render(<DropTarget enabled onFiles={vi.fn()} />);
+    render(<DropHarness enabled onFiles={vi.fn()} />);
     const target = screen.getByTestId('drop');
     fireEvent.dragEnter(target, { dataTransfer: dataTransfer() });
     expect(target).toHaveTextContent('dragging');
@@ -43,7 +50,7 @@ describe('useFileDrop', () => {
   it('drop chama onFiles e desliga', () => {
     const onFiles = vi.fn();
     const file = new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' });
-    render(<DropTarget enabled onFiles={onFiles} />);
+    render(<DropHarness enabled onFiles={onFiles} />);
     const target = screen.getByTestId('drop');
     fireEvent.dragEnter(target, { dataTransfer: dataTransfer([file]) });
     fireEvent.drop(target, { dataTransfer: dataTransfer([file]) });
@@ -53,7 +60,7 @@ describe('useFileDrop', () => {
 
   it('enabled=false e arrastar texto ignoram', () => {
     const onFiles = vi.fn();
-    render(<DropTarget enabled={false} onFiles={onFiles} />);
+    render(<DropHarness enabled={false} onFiles={onFiles} />);
     const target = screen.getByTestId('drop');
     fireEvent.dragEnter(target, { dataTransfer: dataTransfer() });
     expect(target).toHaveTextContent('idle');
@@ -62,31 +69,45 @@ describe('useFileDrop', () => {
   });
 
   it('arrastar texto sem Files ignora', () => {
-    render(<DropTarget enabled onFiles={vi.fn()} />);
+    render(<DropHarness enabled onFiles={vi.fn()} />);
     const target = screen.getByTestId('drop');
     fireEvent.dragEnter(target, { dataTransfer: dataTransfer([], ['text/plain']) });
     expect(target).toHaveTextContent('idle');
   });
 
-  it('soltar arquivo fora da zona impede a navegação e não aceita o arquivo', () => {
+  it('soltar arquivo fora da zona, dentro da superfície, impede a navegação e não aceita', () => {
     const onFiles = vi.fn();
-    render(
-      <div>
-        <DropTarget enabled onFiles={onFiles} />
-        <aside data-testid="sidebar">fora</aside>
-      </div>,
-    );
+    render(<DropHarness enabled onFiles={onFiles} />);
     const prevented = dispatchFileDrag(screen.getByTestId('sidebar'));
     expect(prevented).toEqual({ over: true, drop: true });
     expect(onFiles).not.toHaveBeenCalled();
   });
 
-  it('com a zona desligada ainda bloqueia o drop no documento', () => {
+  it('com a zona desligada ainda bloqueia o drop na superfície', () => {
     const onFiles = vi.fn();
-    render(<DropTarget enabled={false} onFiles={onFiles} />);
+    render(<DropHarness enabled={false} onFiles={onFiles} />);
     const prevented = dispatchFileDrag(screen.getByTestId('drop'));
     expect(prevented).toEqual({ over: true, drop: true });
     expect(onFiles).not.toHaveBeenCalled();
+  });
+
+  it('não intercepta drop fora da superfície do chat', () => {
+    const onFiles = vi.fn();
+    render(<DropHarness enabled onFiles={onFiles} />);
+    expect(dispatchFileDrag(screen.getByTestId('host'))).toEqual({ over: false, drop: false });
+    expect(onFiles).not.toHaveBeenCalled();
+  });
+
+  it('depois de desmontar não intercepta drop fora do chat', () => {
+    const onFiles = vi.fn();
+    const { unmount } = render(<DropHarness enabled onFiles={onFiles} />);
+    unmount();
+    const host = document.createElement('div');
+    document.body.append(host);
+    expect(dispatchFileDrag(host)).toEqual({ over: false, drop: false });
+    host.remove();
+    expect(fireEvent.dragOver(window, { dataTransfer: dataTransfer() })).toBe(true);
+    expect(fireEvent.drop(window, { dataTransfer: dataTransfer() })).toBe(true);
   });
 });
 

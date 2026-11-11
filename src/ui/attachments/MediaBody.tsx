@@ -4,7 +4,7 @@ import type { ChatMessage, ImageMessage, TextMessage } from '../../domain/messag
 import { DocumentCard } from './DocumentCard';
 import { UploadStatus } from './UploadStatus';
 
-export type OpenImage = { url: string; alt: string; fileName: string };
+export type OpenImage = { url: string; alt: string; fileName: string; messageId: string };
 
 export function MediaBody({
   message,
@@ -50,7 +50,7 @@ function renderMedia(
             className="bubble-image-button"
             aria-label="Abrir foto em tela cheia"
             onClick={(event) => {
-              onOpenImage?.({ url: message.url, alt, fileName: imageDownloadName(message) }, event.currentTarget);
+              onOpenImage?.({ url: message.url, alt, fileName: imageDownloadName(message), messageId: message.id }, event.currentTarget);
             }}
           >
             <img className="bubble-image" src={message.url} alt={alt} loading="lazy" />

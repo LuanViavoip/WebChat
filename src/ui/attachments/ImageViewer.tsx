@@ -18,8 +18,14 @@ export function ImageViewer({
     }
     if (!dialog.open) {
       dialog.showModal();
+      closeRef.current?.focus();
     }
-    closeRef.current?.focus();
+  }, [image]);
+
+  useEffect(() => {
+    if (!image) {
+      return;
+    }
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();

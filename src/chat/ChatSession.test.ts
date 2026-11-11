@@ -423,6 +423,25 @@ describe('ChatSession', () => {
     expect(transport.sent[0]?.payload).toMatchObject({ type: 'image', url: 'blob:remote/1' });
   });
 
+  it('ended durante upload aborta e não dispara send da mídia', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12), 'rx');
+    expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
+    transport.emit({ type: 'ended', conversationId: 'c1' });
+    expect(session.getState().ended).toBe(true);
+    expect(session.getState().uploads).toEqual({});
+    expect(session.getState().messages.some((message) => message.type === 'image')).toBe(false);
+    expect(transport.uploads[0]?.signal.aborted).toBe(true);
+    transport.resolveUpload(0, 'blob:remote/1');
+    await sending;
+    expect(transport.sent.some((item) => item.payload.type !== 'text')).toBe(false);
+    expect(urls.revoked).toContain('blob:fake/1');
+  });
+
   it('ended torna sendAttachment no-op', async () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport, { objectUrls: createFakeObjectUrls() });

@@ -185,6 +185,9 @@ export class ChatSession {
   }
 
   async retry(messageId: string): Promise<void> {
+    if (this.ended) {
+      return;
+    }
     const uploadKey = this.uploadKey(messageId);
     const upload = uploadKey ? this.uploads.get(uploadKey) : undefined;
     if (upload?.view.phase === 'failed' && uploadKey) {
@@ -287,6 +290,9 @@ export class ChatSession {
     payload: OutboundPayload,
     generation?: number,
   ): Promise<void> {
+    if (this.ended) {
+      return;
+    }
     try {
       await this.transport.send({ clientId, payload });
     } catch (error) {
@@ -357,6 +363,7 @@ export class ChatSession {
       case 'ended':
         this.ended = true;
         this.typing = IDLE_TYPING;
+        this.abortInFlightUploads();
         break;
       default: {
         const exhaustive: never = event;
@@ -441,6 +448,19 @@ export class ChatSession {
       return message.clientId;
     }
     return undefined;
+  }
+
+  private abortInFlightUploads(): void {
+    for (const [id, entry] of [...this.uploads]) {
+      if (entry.view.phase !== 'uploading') {
+        continue;
+      }
+      this.uploadControllers.get(id)?.abort();
+      this.uploadControllers.delete(id);
+      this.objectUrls.revoke(entry.previewUrl);
+      this.uploads.delete(id);
+      this.messages = this.messages.filter((message) => !this.matchesId(message, id));
+    }
   }
 
   private clearUploads(): void {

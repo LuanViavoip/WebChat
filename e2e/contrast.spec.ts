@@ -68,7 +68,7 @@ test.describe('contraste computado', () => {
 
     await page.goto('/?nome=Maria%20Silva');
     await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('.wa-chat input[type="file"]').setInputFiles({
       name: 'guia.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.1\n%%EOF\n'),
@@ -85,7 +85,7 @@ test.describe('contraste computado', () => {
     const overlay = await paintedColors(page.locator('.drop-overlay'));
     expect(contrastRatioFromCss(overlay.color, overlay.background)).toBeGreaterThanOrEqual(4.5);
 
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('.wa-chat input[type="file"]').setInputFiles({
       name: 'foto.png',
       mimeType: 'image/png',
       buffer: Buffer.from(

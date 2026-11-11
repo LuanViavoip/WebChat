@@ -15,7 +15,7 @@ test.describe('artefatos visuais', () => {
       await page.screenshot({ path: `${DIR}/depois-390-lista.png` });
       await page.getByRole('button', { name: /ICS Pré-atendimento/ }).click();
       await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
-      await page.locator('input[type="file"]').setInputFiles({
+      await page.locator('.wa-chat input[type="file"]').setInputFiles({
         name: 'foto.png',
         mimeType: 'image/png',
         buffer: Buffer.from(
@@ -35,7 +35,7 @@ test.describe('artefatos visuais', () => {
     }
 
     await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('.wa-chat input[type="file"]').setInputFiles({
       name: 'foto.png',
       mimeType: 'image/png',
       buffer: Buffer.from(
@@ -68,7 +68,7 @@ test.describe('artefatos visuais', () => {
     await page.goto('/?modo=widget');
     await page.getByRole('button', { name: /Abrir chat de atendimento/ }).click();
     await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('.wa-chat input[type="file"]').setInputFiles({
       name: 'foto.png',
       mimeType: 'image/png',
       buffer: Buffer.from(

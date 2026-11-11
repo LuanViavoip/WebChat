@@ -13,6 +13,12 @@ const idle: LiveActivityInput = {
 };
 
 describe('liveActivity', () => {
+  it('trata upload failed como erro da atividade', () => {
+    expect(liveActivity({ ...idle, failedUpload: true })).toBe('error');
+    expect(liveActivityAnnouncement('error', false)).toBe('Erro');
+    expect(liveActivityAnnouncement('error', true)).toBe('');
+  });
+
   it('prioriza erro sobre os demais estados', () => {
     expect(
       liveActivity({

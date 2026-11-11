@@ -31,4 +31,20 @@ describe('ImageViewer', () => {
     await user.click(screen.getByRole('button', { name: 'Fechar foto' }));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('não refoca Fechar foto quando o callback ou a URL mudam com o viewer aberto', () => {
+    function Harness({ url, onClose }: { url: string; onClose: () => void }) {
+      return <ImageViewer image={{ url, alt: 'rx', fileName: 'foto.png' }} onClose={onClose} />;
+    }
+    const { rerender } = render(<Harness url="/blob.png" onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Fechar foto' })).toHaveFocus();
+    screen.getByRole('link', { name: 'Baixar foto' }).focus();
+    expect(screen.getByRole('link', { name: 'Baixar foto' })).toHaveFocus();
+    rerender(<Harness url="/blob.png" onClose={vi.fn()} />);
+    expect(screen.getByRole('link', { name: 'Baixar foto' })).toHaveFocus();
+    rerender(<Harness url="/remote.png" onClose={vi.fn()} />);
+    expect(screen.getByRole('img', { name: 'rx' })).toHaveAttribute('src', '/remote.png');
+    expect(screen.getByRole('link', { name: 'Baixar foto' })).toHaveAttribute('href', '/remote.png');
+    expect(screen.getByRole('link', { name: 'Baixar foto' })).toHaveFocus();
+  });
 });

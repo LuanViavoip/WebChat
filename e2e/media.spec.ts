@@ -1,10 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { audioFile, exeFile, oversizedPng, pdfFile, pngFile, videoFile } from './files';
-import { DESKTOP_PROJECTS, isMobileProject, isWidgetProject, openLiveChat } from './project';
+import { chatFileInput, DESKTOP_PROJECTS, isMobileProject, isWidgetProject, openLiveChat } from './project';
 
 async function attach(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
-  const input = page.locator('input[type="file"]');
-  await input.setInputFiles(file);
+  await chatFileInput(page).setInputFiles(file);
 }
 
 async function noHorizontalScroll(page: Page) {
@@ -156,6 +155,88 @@ test.describe('mídia', () => {
       return { over: over.defaultPrevented, drop: drop.defaultPrevented };
     });
     expect(prevented).toEqual({ over: true, drop: true });
+  });
+
+  test('encerrar durante upload lento não envia a mídia', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'encerrar durante upload em 1920');
+    await openLiveChat(page, testInfo, 'upload=lento');
+    await attach(page, pngFile('exame.png'));
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    await page.getByRole('button', { name: /Encerrar o Atendimento/ }).click();
+    await expect(page.getByText('Atendimento encerrado', { exact: true })).toBeVisible();
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+    await expect(async () => {
+      expect(await page.getByRole('button', { name: 'Abrir foto em tela cheia' }).count()).toBe(0);
+    }).toPass({ timeout: 8_000 });
+  });
+
+  test('widget aberto não bloqueia drop nem input de arquivo do portal', async ({ page }, testInfo) => {
+    test.skip(!isWidgetProject(testInfo), 'só no projeto widget');
+    await page.goto('/?modo=widget');
+    await page.getByRole('button', { name: /Abrir chat de atendimento/ }).click();
+    await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
+
+    const hostMainPrevented = await page.locator('.host-main').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1])], 'solto.png', { type: 'image/png' }));
+      const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      node.dispatchEvent(over);
+      node.dispatchEvent(drop);
+      return { over: over.defaultPrevented, drop: drop.defaultPrevented };
+    });
+    expect(hostMainPrevented).toEqual({ over: false, drop: false });
+    await page.locator('.host-drop').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1])], 'solto.png', { type: 'image/png' }));
+      node.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+      node.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    });
+    await expect(page.getByText('Portal recebeu solto.png')).toBeVisible();
+    await expect(page.getByRole('img', { name: /Pré-visualização/ })).toHaveCount(0);
+
+    await page.getByLabel('Anexo do portal').setInputFiles(pngFile('portal.png'));
+    await expect(page.getByText('Portal recebeu portal.png')).toBeVisible();
+    await expect(page.getByRole('img', { name: /Pré-visualização/ })).toHaveCount(0);
+
+    const chatPrevented = await page.locator('.wa-chat').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1])], 'chat.png', { type: 'image/png' }));
+      const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      node.dispatchEvent(over);
+      node.dispatchEvent(drop);
+      return { over: over.defaultPrevented, drop: drop.defaultPrevented };
+    });
+    expect(chatPrevented).toEqual({ over: true, drop: true });
+    await expect(page.getByRole('img', { name: 'Pré-visualização de chat.png' })).toBeVisible();
+  });
+
+  test('depois de fechar o widget o drop do portal deixa de ser interceptado', async ({ page }, testInfo) => {
+    test.skip(!isWidgetProject(testInfo), 'só no projeto widget');
+    await page.goto('/?modo=widget');
+    await page.getByRole('button', { name: /Abrir chat de atendimento/ }).click();
+    await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
+    await page.getByRole('button', { name: 'Fechar chat' }).click();
+    await expect(page.locator('.wa-chat')).toHaveCount(0);
+    const afterClose = await page.locator('.host-main').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1])], 'depois.png', { type: 'image/png' }));
+      const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      node.dispatchEvent(over);
+      node.dispatchEvent(drop);
+      return { over: over.defaultPrevented, drop: drop.defaultPrevented };
+    });
+    expect(afterClose).toEqual({ over: false, drop: false });
+    await page.locator('.host-drop').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1])], 'depois.png', { type: 'image/png' }));
+      node.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+      node.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    });
+    await expect(page.getByText('Portal recebeu depois.png')).toBeVisible();
   });
 
   test('arrastar e soltar abre o preview', async ({ page }, testInfo) => {
