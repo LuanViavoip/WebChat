@@ -21,6 +21,12 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 - Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
 - Assets oficiais da ViaVoip ou do WhatsApp (wordmark em texto + Lucide; sem copiar logotipos)
 
+## Etapa 1.3 — rodada 5 do PR #5
+
+- **N13** — o baseline de “não vista” no reload (N11) assume que as boas-vindas chegam **antes** do status `connected`, como o `MockTransport` faz. O contrato não garante essa ordem. Um transporte real que emita `connected` e só depois a primeira mensagem ainda pode marcar essa mensagem como “Nova mensagem” no reload sobre o histórico.
+- **N14** — coberto por teste unitário (`depois do reload no histórico, mensagem nova fica não vista`): depois do baseline, uma mensagem real que chega com o histórico aberto vira “Nova mensagem”.
+- Validação manual com leitor de tela (NVDA/VoiceOver) no badge de atividade, no anúncio `aria-live` e no aviso de demonstração — o CI só tem axe + Testing Library.
+
 ## Etapa 1.3 — rodada 4 do PR #5
 
 Correções: região `aria-live` permanente (só erro / reconexão / nova mensagem, e só com o histórico aberto); mensagens do carregamento inicial não contam como não vistas; `hadConnected` saiu do render.

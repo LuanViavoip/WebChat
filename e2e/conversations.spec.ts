@@ -209,6 +209,21 @@ test.describe('navegação mobile', () => {
     }
   });
 
+  test('enviar, voltar à lista e a resposta vira nova mensagem', async ({ page }, testInfo) => {
+    test.skip(!isMobileProject(testInfo), 'só em 390×844');
+    await page.goto('/?nome=Maria%20Silva');
+    await page.getByRole('button', { name: /ICS Pré-atendimento/ }).click();
+    await expect(page.getByLabel('Mensagem')).toBeVisible();
+    await page.getByLabel('Mensagem').fill('2');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await page.getByRole('button', { name: 'Voltar' }).click();
+    await expect(page.getByLabel('Lista de conversas')).toBeVisible();
+    await expect(page.locator('.live-activity-badge.is-unseen')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAccessibleName(/nova mensagem/i);
+    await page.getByRole('button', { name: /ICS Pré-atendimento/ }).click();
+    await expect(page.locator('.live-activity-badge.is-unseen')).toHaveCount(0);
+  });
+
   test('mostra nova mensagem quando a resposta chega com o histórico aberto', async ({ page }, testInfo) => {
     test.skip(!isMobileProject(testInfo), 'só em 390×844');
     await page.goto('/?nome=Maria%20Silva');

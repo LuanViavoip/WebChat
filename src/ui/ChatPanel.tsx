@@ -40,6 +40,7 @@ export function ChatPanel({
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = selectedConversationIdProp ?? uncontrolledId;
   const live = isLiveConversation(selectedConversationId);
+  const liveVisible = live && (compact || !isMobile || mobilePane === 'chat');
   const conversation = conversationById(selectedConversationId);
   const messages = live ? state.messages : conversation.transcript;
   const typing = live ? state.typing : { isTyping: false, actorName: '' };
@@ -50,7 +51,7 @@ export function ChatPanel({
   const seenLiveCount = useRef(0);
   const unseenBaselineReady = useRef(false);
   const unseenLive =
-    !live &&
+    !liveVisible &&
     unseenBaselineReady.current &&
     state.messages.slice(seenLiveCount.current).some((message) => message.direction !== 'client');
   const activity = liveActivity({
@@ -61,7 +62,7 @@ export function ChatPanel({
     unseen: unseenLive,
     hadConnected: hadConnected.current,
   });
-  const announcement = liveActivityAnnouncement(activity, live);
+  const announcement = liveActivityAnnouncement(activity, liveVisible);
   const pendingFocus = useRef<PendingFocus | null>(null);
   const isMobileRef = useRef(isMobile);
   const onSelectRef = useRef(onSelectConversation);
@@ -106,7 +107,14 @@ export function ChatPanel({
       document.querySelector<HTMLElement>('.chat-header')?.focus();
       return;
     }
-    document.querySelector<HTMLElement>(`[data-conversation-id="${CSS.escape(selectedConversationId)}"]`)?.focus();
+    const origin = document.querySelector<HTMLElement>(
+      `[data-conversation-id="${CSS.escape(selectedConversationId)}"]`,
+    );
+    if (origin) {
+      origin.focus();
+      return;
+    }
+    document.querySelector<HTMLElement>('.sidebar-search input')?.focus();
   }, [mobilePane, selectedConversationId]);
 
   useEffect(() => {
@@ -116,7 +124,7 @@ export function ChatPanel({
   }, [state.connection]);
 
   useEffect(() => {
-    if (live) {
+    if (liveVisible) {
       seenLiveCount.current = state.messages.length;
       unseenBaselineReady.current = true;
       return;
@@ -125,7 +133,7 @@ export function ChatPanel({
       seenLiveCount.current = state.messages.length;
       unseenBaselineReady.current = true;
     }
-  }, [live, state.messages.length, state.connection]);
+  }, [liveVisible, state.messages.length, state.connection]);
 
   function assignConversation(id: string) {
     if (!controlledRef.current) {
