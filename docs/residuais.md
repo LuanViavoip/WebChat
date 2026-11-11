@@ -21,6 +21,10 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 - Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
 - Assets oficiais da ViaVoip ou do WhatsApp (wordmark em texto + Lucide; sem copiar logotipos)
 
+## Etapa 1.3 — rodada 4 do PR #5
+
+Correções: região `aria-live` permanente (só erro / reconexão / nova mensagem, e só com o histórico aberto); mensagens do carregamento inicial não contam como não vistas; `hadConnected` saiu do render.
+
 ## Etapa 1.3 — rodada 3 do PR #5
 
 Correções: foco mobile no item de origem, mensagem não vista no histórico, item ao vivo pinado na busca, contraste com banner real, Conectando vs Reconectando, anúncio aria-live da atividade, e o workflow Playwright por digest.

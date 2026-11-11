@@ -47,12 +47,11 @@ export function ChatPanel({
   const preview = lastPreview(state.messages);
   const showBack = !compact && isMobile && mobilePane === 'chat';
   const hadConnected = useRef(false);
-  if (state.connection === 'connected') {
-    hadConnected.current = true;
-  }
   const seenLiveCount = useRef(0);
+  const unseenBaselineReady = useRef(false);
   const unseenLive =
     !live &&
+    unseenBaselineReady.current &&
     state.messages.slice(seenLiveCount.current).some((message) => message.direction !== 'client');
   const activity = liveActivity({
     error: state.error,
@@ -111,10 +110,22 @@ export function ChatPanel({
   }, [mobilePane, selectedConversationId]);
 
   useEffect(() => {
+    if (state.connection === 'connected') {
+      hadConnected.current = true;
+    }
+  }, [state.connection]);
+
+  useEffect(() => {
     if (live) {
       seenLiveCount.current = state.messages.length;
+      unseenBaselineReady.current = true;
+      return;
     }
-  }, [live, state.messages.length]);
+    if (!unseenBaselineReady.current && (state.connection === 'connected' || state.connection === 'error')) {
+      seenLiveCount.current = state.messages.length;
+      unseenBaselineReady.current = true;
+    }
+  }, [live, state.messages.length, state.connection]);
 
   function assignConversation(id: string) {
     if (!controlledRef.current) {
@@ -159,11 +170,9 @@ export function ChatPanel({
       data-mobile-pane={compact ? 'chat' : mobilePane}
       aria-label="Conversa com o ICS"
     >
-      {announcement ? (
-        <div className="sr-only" aria-live="polite" aria-atomic="true">
-          {announcement}
-        </div>
-      ) : null}
+      <div className="sr-only" aria-live="polite" aria-atomic="true" data-live-announcer>
+        {announcement}
+      </div>
       {compact ? null : (
         <Sidebar
           preview={preview}

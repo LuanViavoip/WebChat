@@ -22,7 +22,9 @@ function thread() {
 const IMPLICIT_LIVE = '[role="log"], [role="status"], [role="alert"], [role="marquee"], [role="timer"]';
 
 function liveRoles(): Array<string | null> {
-  return liveRegions(document).map((node) => node.getAttribute('role'));
+  return liveRegions(document)
+    .filter((node) => node.getAttribute('role'))
+    .map((node) => node.getAttribute('role'));
 }
 
 function botText(conversationId: string, id: string, text: string): TextMessage {
@@ -61,6 +63,14 @@ function activityBadge(): HTMLElement {
 
 function politeAnnouncements(): HTMLElement[] {
   return liveRegions(document).filter((node) => node.getAttribute('aria-live') === 'polite');
+}
+
+function activityAnnouncer(): HTMLElement {
+  const node = document.querySelector('[data-live-announcer]');
+  if (!(node instanceof HTMLElement)) {
+    throw new Error('região aria-live de atividade ausente');
+  }
+  return node;
 }
 
 async function connectScripted(transport: ScriptedTransport, welcome = 'Olá, Carla Mendes!\nComo posso ajudar?') {
@@ -273,7 +283,53 @@ describe('ChatPanel', () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
     await screen.findByText(/Como posso ajudar/);
     expect(liveRoles()).toEqual(['log']);
+    expect(activityAnnouncer()).toHaveTextContent('');
     expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
+  });
+
+  it('mantém a região aria-live montada vazia e só muda o texto no mesmo nó', async () => {
+    const user = userEvent.setup();
+    const transport = new ScriptedTransport();
+    const view = render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    const announcer = activityAnnouncer();
+    expect(announcer).toHaveAttribute('aria-live', 'polite');
+    expect(announcer).toHaveTextContent('');
+    const conversationId = await connectScripted(transport);
+    expect(view.container.querySelector('[data-live-announcer]')).toBe(announcer);
+    expect(announcer).toHaveTextContent('');
+
+    await user.type(screen.getByLabelText('Mensagem'), '2');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    const sent = transport.sent.at(-1);
+    act(() => {
+      if (sent) {
+        transport.emit({
+          type: 'status',
+          messageId: sent.clientId,
+          clientId: sent.clientId,
+          status: 'read',
+        });
+      }
+      transport.emit({
+        type: 'message',
+        message: botText(conversationId, 'reply-live', 'Você escolheu exames e resultados.'),
+      });
+    });
+    expect(await thread().findByText(/Você escolheu exames/)).toBeInTheDocument();
+    expect(view.container.querySelector('[data-live-announcer]')).toBe(announcer);
+    expect(announcer).toHaveTextContent('');
+
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: botText(conversationId, 'late-1', 'Sua escolha foi registrada.'),
+      });
+    });
+    await waitFor(() => {
+      expect(announcer).toHaveTextContent('Nova mensagem');
+    });
+    expect(view.container.querySelector('[data-live-announcer]')).toBe(announcer);
   });
 
   it('no erro de conexão o log permanece ativo e o banner é o único alerta', async () => {
@@ -494,13 +550,12 @@ describe('ChatPanel', () => {
     );
     expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
     expect(liveRoles()).toEqual(['log', 'alert']);
-    expect(politeAnnouncements()).toHaveLength(0);
+    expect(activityAnnouncer()).toHaveTextContent('');
     expect(activityBadge()).toHaveTextContent('Erro');
 
     await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(politeAnnouncements()).toHaveLength(1);
-    expect(politeAnnouncements()[0]).toHaveTextContent('Erro');
+    expect(activityAnnouncer()).toHaveTextContent('Erro');
     expect(activityBadge()).toHaveTextContent('Erro');
   });
 
@@ -514,6 +569,11 @@ describe('ChatPanel', () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
     expect(await screen.findByText(/remarcar a consulta da clínica da família/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toHaveAttribute('aria-current', 'true');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveTextContent(/Carla Mendes/);
+    });
+    expect(document.querySelector('.live-activity-badge.is-unseen')).toBeNull();
+    expect(activityAnnouncer()).toHaveTextContent('');
   });
 
   it('na lista indica reconexão da sessão ao vivo', async () => {

@@ -31,6 +31,26 @@ test.describe('histórico no desktop', () => {
     await page.reload();
     await expect(page.getByText(/remarcar a consulta da clínica da família/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Atendimento anterior/ })).toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.live-activity-badge')).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.locator('.live-activity-badge.is-unseen')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).not.toHaveAccessibleName(/nova mensagem/i);
+  });
+
+  test('a busca mantém o item ao vivo quando há erro', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
+    await page.goto('/?nome=Maria%20Silva&falha=conectar');
+    await expect(page.getByRole('alert')).toBeVisible();
+    await page.getByRole('searchbox', { name: 'Pesquisar conversa' }).fill('zzzz-inexistente');
+    await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).toBeVisible();
+    await expect(page.locator('.live-activity-badge.is-error')).toHaveText('Erro');
+    await expect(page.getByText('Nenhum resultado encontrado')).toHaveCount(0);
+  });
+
+  test('no carregamento inicial o badge diz Conectando', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
+    await page.goto('/?nome=Maria%20Silva');
+    await expect(page.locator('.live-activity-badge')).toHaveText('Conectando');
+    await expect(page.getByText('Reconectando')).toHaveCount(0);
   });
 
   test('voltar e avançar restauram a conversa certa', async ({ page }, testInfo) => {

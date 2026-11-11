@@ -62,17 +62,19 @@ export function liveActivityLabel(activity: LiveActivity): string {
 }
 
 export function liveActivityAnnouncement(activity: LiveActivity, viewingLive: boolean): string {
+  if (viewingLive) {
+    return '';
+  }
   switch (activity) {
     case 'error':
-      return viewingLive ? '' : liveActivityLabel(activity);
-    case 'idle':
-      return '';
-    case 'unseen':
-    case 'connecting':
     case 'reconnecting':
+    case 'unseen':
+      return liveActivityLabel(activity);
+    case 'idle':
     case 'sending':
     case 'typing':
-      return liveActivityLabel(activity);
+    case 'connecting':
+      return '';
     default: {
       const exhaustive: never = activity;
       return exhaustive;

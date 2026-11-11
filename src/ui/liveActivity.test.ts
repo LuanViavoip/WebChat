@@ -57,9 +57,22 @@ describe('liveActivityAnnouncement', () => {
     expect(liveActivityAnnouncement('error', false)).toBe('Erro');
   });
 
-  it('anuncia atividade e mensagem não vista uma vez', () => {
-    expect(liveActivityAnnouncement('unseen', false)).toBe('Nova mensagem');
-    expect(liveActivityAnnouncement('connecting', true)).toBe('Conectando');
+  it('com o chat ao vivo aberto não anuncia envio, digitação nem conexão inicial', () => {
+    expect(liveActivityAnnouncement('sending', true)).toBe('');
+    expect(liveActivityAnnouncement('typing', true)).toBe('');
+    expect(liveActivityAnnouncement('connecting', true)).toBe('');
+    expect(liveActivityAnnouncement('reconnecting', true)).toBe('');
+    expect(liveActivityAnnouncement('unseen', true)).toBe('');
     expect(liveActivityAnnouncement('idle', true)).toBe('');
+  });
+
+  it('com o histórico aberto anuncia só erro, reconexão e nova mensagem', () => {
+    expect(liveActivityAnnouncement('unseen', false)).toBe('Nova mensagem');
+    expect(liveActivityAnnouncement('reconnecting', false)).toBe('Reconectando');
+    expect(liveActivityAnnouncement('error', false)).toBe('Erro');
+    expect(liveActivityAnnouncement('sending', false)).toBe('');
+    expect(liveActivityAnnouncement('typing', false)).toBe('');
+    expect(liveActivityAnnouncement('connecting', false)).toBe('');
+    expect(liveActivityAnnouncement('idle', false)).toBe('');
   });
 });
