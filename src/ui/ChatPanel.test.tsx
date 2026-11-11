@@ -215,7 +215,7 @@ describe('ChatPanel', () => {
     expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
   });
 
-  it('anuncia no log uma resposta que chega depois de um erro de envio', async () => {
+  it('resposta após falha de envio entra no role=log ativo', async () => {
     const user = userEvent.setup();
     const transport = new ScriptedTransport();
     render(<ChatPanel transport={transport} patientName="Carla Mendes" />);

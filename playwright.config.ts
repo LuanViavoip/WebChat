@@ -14,7 +14,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --host 127.0.0.1 --port ${String(port)}`,
     url: `http://127.0.0.1:${String(port)}`,
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: false,
   },
   projects: [
     {
