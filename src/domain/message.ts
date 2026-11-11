@@ -56,6 +56,7 @@ export type DocumentMessage = MessageBase & {
   fileName: string;
   mimeType: string;
   url: string;
+  sizeBytes?: number;
 };
 
 export type StickerMessage = MessageBase & {
@@ -76,20 +77,20 @@ export function isTextMessage(message: ChatMessage): message is TextMessage {
   return message.type === 'text';
 }
 
-export function textOf(message: ChatMessage): string {
+export function previewOf(message: ChatMessage): string {
   switch (message.type) {
     case 'text':
       return message.text;
     case 'image':
-      return message.caption ?? '';
+      return message.caption || 'Foto';
     case 'audio':
-      return '';
+      return 'Áudio';
     case 'video':
-      return message.caption ?? '';
+      return message.caption || 'Vídeo';
     case 'document':
       return message.fileName;
     case 'sticker':
-      return '';
+      return 'Figurinha';
     default: {
       const exhaustive: never = message;
       return exhaustive;
