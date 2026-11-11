@@ -2,6 +2,7 @@ import { act, StrictMode } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { TextMessage } from '../domain/message';
+import { stubDesktopMatchMedia, stubMobileMatchMedia } from '../test/matchMedia';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
 import { ChatPanel } from './ChatPanel';
@@ -63,7 +64,9 @@ describe('ChatPanel', () => {
     expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Exames e vacinas/ })).toBeEnabled();
-    expect(screen.queryByText('Demonstração')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Demonstração')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toHaveAccessibleName(/demonstração/i);
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).not.toHaveAccessibleName(/demonstração/i);
   });
 
   it('abre o histórico somente leitura e preserva a sessão ao vivo', async () => {
@@ -76,6 +79,7 @@ describe('ChatPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
     expect(screen.getByText('Atendimento encerrado · somente leitura')).toBeInTheDocument();
+    expect(screen.getByText(/conversa fictícia para demonstração/i)).toBeInTheDocument();
     expect(screen.queryByLabelText('Mensagem')).not.toBeInTheDocument();
     expect(thread().getByText(/remarcar a consulta da clínica da família/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Atendimento anterior/ })).toHaveAttribute('aria-current', 'true');
@@ -323,4 +327,145 @@ describe('ChatPanel', () => {
     });
     expect(thread().getByText('preciso de ajuda')).toBeInTheDocument();
   });
+
+  it('preserva o rascunho ao trocar de conversa e voltar', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.type(screen.getByLabelText('Mensagem'), 'quero remarcar amanhã');
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(screen.queryByLabelText('Mensagem')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /ICS Pré-atendimento/ }));
+    expect(screen.getByLabelText('Mensagem')).toHaveValue('quero remarcar amanhã');
+  });
+
+  it('envia uma mensagem, troca de conversa e preserva o histórico ao vivo', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.type(screen.getByLabelText('Mensagem'), '2');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => {
+      expect(thread().getByText('2')).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /Exames e vacinas/ }));
+    expect(thread().getByText(/campanha de influenza/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /ICS Pré-atendimento/ }));
+    expect(thread().getByText('2')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mensagem')).toBeInTheDocument();
+  });
+
+  it('restaura a conversa no voltar e avançar do navegador', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(thread().getByText(/remarcar a consulta da clínica da família/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Exames e vacinas/ }));
+    expect(thread().getByText(/campanha de influenza/i)).toBeInTheDocument();
+
+    act(() => {
+      window.history.back();
+    });
+    expect(await screen.findByText(/remarcar a consulta da clínica da família/)).toBeInTheDocument();
+
+    act(() => {
+      window.history.forward();
+    });
+    expect(await screen.findByText(/campanha de influenza/i)).toBeInTheDocument();
+  });
+
+  it('na lista indica erro da sessão ao vivo ao trocar de conversa', async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} patientName="Carla Mendes" />,
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAccessibleName(/erro/i);
+    expect(screen.getByText('Erro')).toBeInTheDocument();
+  });
+
+  it('na lista indica envio em andamento ao trocar de conversa', async () => {
+    const user = userEvent.setup();
+    const transport = new ScriptedTransport();
+    transport.holdSend = true;
+    render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const conversationId = transport.lastSession?.conversationId ?? 'conv-web';
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: botText(conversationId, 'w1', 'Olá, Carla Mendes!\nComo posso ajudar?'),
+      });
+    });
+    await screen.findByText(/Como posso ajudar/);
+    await user.type(screen.getByLabelText('Mensagem'), 'oi');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAccessibleName(/enviando/i);
+    expect(screen.getByText('Enviando…')).toBeInTheDocument();
+  });
+
+  it('na lista indica reconexão da sessão ao vivo', async () => {
+    const user = userEvent.setup();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} patientName="Carla Mendes" />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const conversationId = transport.lastSession?.conversationId ?? 'conv-web';
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: botText(conversationId, 'w1', 'Olá, Carla Mendes!\nComo posso ajudar?'),
+      });
+    });
+    await screen.findByText(/Como posso ajudar/);
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    act(() => {
+      transport.emit({ type: 'connection', status: 'connecting' });
+    });
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveAccessibleName(/reconectando/i);
+    expect(screen.getByText('Reconectando')).toBeInTheDocument();
+  });
 });
+
+describe('ChatPanel no mobile', () => {
+  afterEach(() => {
+    stubDesktopMatchMedia();
+  });
+
+  it('move o foco para o campo ao abrir o chat e devolve ao item ao voltar', async () => {
+    stubMobileMatchMedia();
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    const liveItem = screen.getByRole('button', { name: /ICS Pré-atendimento/ });
+    liveItem.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(document.querySelector('.chat-header')).toHaveFocus();
+    });
+    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveFocus();
+    });
+  });
+
+  it('move o foco para o cabeçalho ao abrir um histórico', async () => {
+    stubMobileMatchMedia();
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    screen.getByRole('button', { name: /Atendimento anterior/ }).focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(document.querySelector('.chat-header')).toHaveFocus();
+    });
+  });
+});
+

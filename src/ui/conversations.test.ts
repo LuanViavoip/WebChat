@@ -1,4 +1,10 @@
-import { CLIENT_CONVERSATIONS, emptyConversationCopy, filterConversations, LIVE_CONVERSATION_ID } from './conversations';
+import {
+  CLIENT_CONVERSATIONS,
+  conversationItemLabel,
+  emptyConversationCopy,
+  filterConversations,
+  LIVE_CONVERSATION_ID,
+} from './conversations';
 
 describe('filterConversations', () => {
   it('não inclui conversas lidas no filtro Não lidas', () => {
@@ -22,6 +28,27 @@ describe('filterConversations', () => {
     for (const item of history) {
       expect(item.transcript.length).toBeGreaterThan(2);
     }
+  });
+
+  it('marca só o histórico simulado como demonstração', () => {
+    const live = CLIENT_CONVERSATIONS.find((item) => item.id === LIVE_CONVERSATION_ID);
+    const history = CLIENT_CONVERSATIONS.filter((item) => item.id !== LIVE_CONVERSATION_ID);
+    expect(live?.demo).toBe(false);
+    expect(history).toHaveLength(2);
+    for (const item of history) {
+      expect(item.demo).toBe(true);
+    }
+  });
+
+  it('inclui Demonstração no rótulo acessível do histórico', () => {
+    const live = CLIENT_CONVERSATIONS[0];
+    const history = CLIENT_CONVERSATIONS[1];
+    if (!live || !history) {
+      throw new Error('conversas de fixture ausentes');
+    }
+    expect(conversationItemLabel(live)).toBe('ICS Pré-atendimento');
+    expect(conversationItemLabel(history)).toBe('Atendimento anterior, Demonstração');
+    expect(conversationItemLabel(live, 'Erro')).toBe('ICS Pré-atendimento, Erro');
   });
 });
 

@@ -23,7 +23,7 @@ export function ChatHeader({
   const subtitle = readOnly ? 'Atendimento encerrado' : headerSubtitle(connection, typing);
 
   return (
-    <header className="chat-header">
+    <header className="chat-header" tabIndex={-1}>
       {onBack ? (
         <button type="button" className="icon-button header-back" aria-label="Voltar" onClick={onBack}>
           <ArrowLeft size={20} strokeWidth={1.7} aria-hidden="true" />

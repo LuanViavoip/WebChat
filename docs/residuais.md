@@ -21,6 +21,14 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 - Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
 - Assets oficiais da ViaVoip ou do WhatsApp (wordmark em texto + Lucide; sem copiar logotipos)
 
+## Etapa 1.3 — revisão Codex do PR #5
+
+Correções desta passagem (histórico fictício identificado, rascunho, history.state, atividade na lista, foco mobile, caudas e contraste computado). O que **não** entrou:
+
+- Histórico real do SM — os itens continuam mock de front, agora com rótulo explícito de demonstração
+- Persistência do rascunho entre reloads (só sobrevive à troca de conversa na mesma sessão)
+- Leitor de tela real (NVDA/VoiceOver) no badge de atividade e no aviso de demonstração
+
 ## Etapa 1.3 — o que ficou de fora
 
 - Pixel-perfect do site institucional ViaVoip (tokens e direção visual sóbria, não landing page)
@@ -29,8 +37,10 @@ Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3):
 - Contagens reais de não lidas (o filtro permanece coerente, sem badges inventados)
 - Emoji picker completo / stickers / GIF
 - Reações, encaminhar, responder, estrela, info da mensagem
-- Indicador de digitação no item da lista (só no cabeçalho/área da conversa)
 - Layout de três painéis (contato / conversa / perfil)
+- Rascunhos por conversa além da sessão ao vivo (hoje só o composer do canal ao vivo persiste ao trocar de item)
+- NVDA/VoiceOver reais no aviso de demonstração e nos badges de atividade da lista — o ambiente de CI só tem axe + Testing Library
+- `getComputedStyle` no Vitest/jsdom não resolve o cascade do `chat.css` (devolve `canvastext`); o contraste computado de erro/foco/ativo roda no Playwright (`e2e/contrast.spec.ts`)
 
 ## Ressalvas da revisão a4a6b60
 

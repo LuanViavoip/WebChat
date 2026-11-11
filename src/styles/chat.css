@@ -339,6 +339,25 @@ body:has(.page-shell) {
   place-items: center;
 }
 
+.demo-badge,
+.live-activity-badge {
+  flex-shrink: 0;
+  border-radius: 8px;
+  padding: 1px 6px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--line);
+}
+
+.live-activity-badge.is-error {
+  color: var(--danger);
+  background: #fff5f5;
+  border-color: var(--danger);
+}
+
 .conversation-empty {
   margin: 24px 16px;
   text-align: center;
@@ -405,6 +424,35 @@ body:has(.page-shell) {
 .bubble.incoming {
   background: var(--bubble-in);
   border: 1px solid var(--line);
+}
+
+.bubble.has-tail.outgoing {
+  border-top-right-radius: 0;
+}
+
+.bubble.has-tail.incoming {
+  border-top-left-radius: 0;
+}
+
+.bubble.has-tail.outgoing::after,
+.bubble.has-tail.incoming::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 13px;
+}
+
+.bubble.has-tail.outgoing::after {
+  right: -8px;
+  background: var(--bubble-out);
+  clip-path: polygon(0 0, 100% 0, 0 70%);
+}
+
+.bubble.has-tail.incoming::after {
+  left: -8px;
+  background: var(--bubble-in);
+  clip-path: polygon(0 0, 100% 0, 100% 70%);
 }
 
 .bubble-author {
@@ -604,6 +652,7 @@ body:has(.page-shell) {
 .send-fab:focus-visible,
 .chip:focus-visible,
 .bubble-action:focus-visible,
+.conversation-item:focus,
 .conversation-item:focus-visible,
 .widget-fab:focus-visible,
 .session-banner button:focus-visible {
@@ -614,6 +663,11 @@ body:has(.page-shell) {
 .sidebar-top .icon-button:focus-visible,
 .chat-header .icon-button:focus-visible {
   outline-color: var(--focus-on-dark);
+}
+
+.chat-header:focus {
+  outline: 2px solid var(--focus-on-dark);
+  outline-offset: -2px;
 }
 
 .emoji-picker {

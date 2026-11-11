@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '../domain/message';
 import { isTextMessage } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
 import { ChatHeader } from './ChatHeader';
+import { historyConversationId, historyPane, mergeHistoryState } from './chatHistory';
 import { Composer } from './Composer';
 import { conversationById, isLiveConversation, LIVE_CONVERSATION_ID } from './conversations';
+import { liveActivity } from './liveActivity';
 import { MessageList } from './MessageList';
 import { Sidebar } from './Sidebar';
 import { useChatSession } from './useChatSession';
 import { useMediaQuery } from './useMediaQuery';
 
-type ChatHistoryState = { smPane?: 'list' | 'chat' };
+type MobilePane = 'list' | 'chat';
+type PendingFocus = 'chat' | 'list';
 
 export function ChatPanel({
   transport,
@@ -29,8 +32,9 @@ export function ChatPanel({
 }) {
   const { state, send, sendMenuOption, retry, reconnect, restart } = useChatSession(transport, patientName);
   const isMobile = useMediaQuery('(max-width: 900px)');
-  const [mobilePane, setMobilePane] = useState<'list' | 'chat'>('list');
+  const [mobilePane, setMobilePane] = useState<MobilePane>('list');
   const [uncontrolledId, setUncontrolledId] = useState(LIVE_CONVERSATION_ID);
+  const [draft, setDraft] = useState('');
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = selectedConversationIdProp ?? uncontrolledId;
   const live = isLiveConversation(selectedConversationId);
@@ -40,42 +44,86 @@ export function ChatPanel({
   const disabled = state.connection !== 'connected' || state.ended;
   const preview = lastPreview(state.messages);
   const showBack = !compact && isMobile && mobilePane === 'chat';
+  const activity = liveActivity(state);
+  const pendingFocus = useRef<PendingFocus | null>(null);
+  const isMobileRef = useRef(isMobile);
+  const onSelectRef = useRef(onSelectConversation);
+  const controlledRef = useRef(controlled);
+  const historyReady = useRef(false);
+  isMobileRef.current = isMobile;
+  onSelectRef.current = onSelectConversation;
+  controlledRef.current = controlled;
 
   useEffect(() => {
     if (compact) {
       return;
     }
+    if (!historyReady.current) {
+      historyReady.current = true;
+      writeHistory(mobilePane, selectedConversationId, 'replace');
+    }
     function onPop(event: PopStateEvent) {
-      const historyState = event.state as ChatHistoryState | null;
-      setMobilePane(historyState?.smPane === 'chat' ? 'chat' : 'list');
+      const pane = historyPane(event.state);
+      const conversationId = historyConversationId(event.state);
+      if (conversationId) {
+        assignConversation(conversationId);
+      }
+      setMobilePane(pane);
+      if (isMobileRef.current) {
+        pendingFocus.current = pane === 'chat' ? 'chat' : 'list';
+      }
     }
     window.addEventListener('popstate', onPop);
     return () => {
       window.removeEventListener('popstate', onPop);
     };
-  }, [compact]);
+  }, [compact, mobilePane, selectedConversationId]);
 
-  function selectConversation(id: string) {
-    if (!controlled) {
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (!target) {
+      return;
+    }
+    pendingFocus.current = null;
+    if (target === 'chat') {
+      document.querySelector<HTMLElement>('.chat-header')?.focus();
+      return;
+    }
+    document.querySelector<HTMLElement>(`[data-conversation-id="${CSS.escape(selectedConversationId)}"]`)?.focus();
+  }, [mobilePane, selectedConversationId]);
+
+  function assignConversation(id: string) {
+    if (!controlledRef.current) {
       setUncontrolledId(id);
     }
-    onSelectConversation?.(id);
-    setMobilePane('chat');
-    if (!compact && isMobile) {
-      const current = window.history.state as ChatHistoryState | null;
-      if (current?.smPane !== 'chat') {
-        window.history.pushState({ smPane: 'chat' }, '');
+    onSelectRef.current?.(id);
+  }
+
+  function selectConversation(id: string) {
+    assignConversation(id);
+    const nextPane: MobilePane = !compact && isMobile ? 'chat' : mobilePane;
+    setMobilePane(nextPane);
+    if (!compact) {
+      const currentPane = historyPane(window.history.state);
+      const currentId = historyConversationId(window.history.state);
+      if (currentPane !== nextPane || currentId !== id) {
+        writeHistory(nextPane, id, 'push');
       }
+    }
+    if (!compact && isMobile) {
+      pendingFocus.current = 'chat';
     }
   }
 
   function backToList() {
-    const current = window.history.state as ChatHistoryState | null;
-    if (!compact && isMobile && current?.smPane === 'chat') {
+    if (!compact && isMobile && historyPane(window.history.state) === 'chat') {
       window.history.back();
       return;
     }
     setMobilePane('list');
+    if (!compact && isMobile) {
+      pendingFocus.current = 'list';
+    }
   }
 
   return (
@@ -85,7 +133,12 @@ export function ChatPanel({
       aria-label="Conversa com o ICS"
     >
       {compact ? null : (
-        <Sidebar preview={preview} selectedConversationId={selectedConversationId} onSelect={selectConversation} />
+        <Sidebar
+          preview={preview}
+          selectedConversationId={selectedConversationId}
+          liveActivity={activity}
+          onSelect={selectConversation}
+        />
       )}
       <div className="wa-chat">
         <ChatHeader
@@ -97,6 +150,11 @@ export function ChatPanel({
           {...(onClose ? { onClose } : {})}
           {...(showBack ? { onBack: backToList } : {})}
         />
+        {conversation.demo ? (
+          <div className="session-banner session-banner-demo" role="note">
+            <p>Conversa fictícia para demonstração. Não é o seu histórico clínico.</p>
+          </div>
+        ) : null}
         <MessageList
           messages={messages}
           typing={typing}
@@ -124,7 +182,7 @@ export function ChatPanel({
           </div>
         ) : null}
         {live ? (
-          <Composer onSend={send} disabled={disabled} />
+          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} />
         ) : (
           <div className="session-banner">
             <p>Atendimento encerrado · somente leitura</p>
@@ -133,6 +191,15 @@ export function ChatPanel({
       </div>
     </section>
   );
+}
+
+function writeHistory(pane: MobilePane, conversationId: string, mode: 'push' | 'replace') {
+  const next = mergeHistoryState(window.history.state, { smPane: pane, conversationId });
+  if (mode === 'push') {
+    window.history.pushState(next, '');
+    return;
+  }
+  window.history.replaceState(next, '');
 }
 
 function lastPreview(messages: ChatMessage[]): string {

@@ -43,6 +43,32 @@ test.describe('tela cheia no modo página', () => {
     expect(backgrounds.body).not.toBe(GRAY);
     expect(backgrounds.page).not.toBe(GRAY);
   });
+
+  test('preenche 900, 1024 e 3840 px sem faixa cinza', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'varia o viewport uma vez só');
+
+    for (const width of [900, 1024, 3840]) {
+      await page.setViewportSize({ width, height: 1080 });
+      await page.goto('/?nome=Maria%20Silva');
+      const shell = page.locator('.wa-shell');
+      await expect(shell).toBeVisible();
+      const box = await shell.boundingBox();
+      expect(box, `${String(width)}px`).not.toBeNull();
+      if (!box) {
+        continue;
+      }
+      expect(Math.abs(box.width - width), `${String(width)}px largura`).toBeLessThanOrEqual(1);
+      expect(Math.abs(box.height - 1080), `${String(width)}px altura`).toBeLessThanOrEqual(1);
+      expect(Math.abs(box.x)).toBeLessThanOrEqual(1);
+      const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflowX, `${String(width)}px overflow`).toBeLessThanOrEqual(1);
+      const pageBg = await page.evaluate(() => {
+        const pageShell = document.querySelector('.page-shell');
+        return pageShell ? getComputedStyle(pageShell).backgroundColor : '';
+      });
+      expect(pageBg, `${String(width)}px fundo`).not.toBe(GRAY);
+    }
+  });
 });
 
 test.describe('widget', () => {

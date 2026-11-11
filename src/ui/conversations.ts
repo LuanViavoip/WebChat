@@ -9,6 +9,7 @@ export type ConversationPreview = {
   timeLabel: string;
   unread: number;
   transcript: ChatMessage[];
+  demo: boolean;
 };
 
 const BOT: MessageAuthor = { id: 'bot-preatendimento', name: 'ICS Pré-atendimento' };
@@ -80,6 +81,14 @@ const ANTERIOR_TRANSCRIPT: ChatMessage[] = [
     '2026-11-03T13:07:05.000Z',
     'Encaminhei o pedido de remarcação. A confirmação chega neste canal quando a agenda responder.',
   ),
+  text(
+    ANTERIOR_ID,
+    'ant-5b',
+    'agent',
+    APS,
+    '2026-11-03T13:07:20.000Z',
+    'Se a unidade não tiver vaga na terça, tentamos a quarta de manhã.',
+  ),
   text(ANTERIOR_ID, 'ant-6', 'client', CLIENT, '2026-11-03T13:07:40.000Z', 'Obrigado!'),
   text(
     ANTERIOR_ID,
@@ -144,6 +153,7 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     timeLabel: 'hoje',
     unread: 0,
     transcript: [],
+    demo: false,
   },
   {
     id: ANTERIOR_ID,
@@ -152,6 +162,7 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     timeLabel: '3 nov',
     unread: 0,
     transcript: ANTERIOR_TRANSCRIPT,
+    demo: true,
   },
   {
     id: EXAMES_ID,
@@ -160,8 +171,23 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     timeLabel: 'ontem',
     unread: 0,
     transcript: EXAMES_TRANSCRIPT,
+    demo: true,
   },
 ];
+
+export function conversationItemLabel(
+  item: ConversationPreview,
+  extra?: string,
+): string {
+  const parts = [item.title];
+  if (item.demo) {
+    parts.push('Demonstração');
+  }
+  if (extra) {
+    parts.push(extra);
+  }
+  return parts.join(', ');
+}
 
 export function isLiveConversation(id: string): boolean {
   return id === LIVE_CONVERSATION_ID;

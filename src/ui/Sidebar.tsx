@@ -1,14 +1,22 @@
 import { CircleDashed, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { CLIENT_CONVERSATIONS, emptyConversationCopy, filterConversations, isLiveConversation } from './conversations';
+import {
+  CLIENT_CONVERSATIONS,
+  emptyConversationCopy,
+  filterConversations,
+  isLiveConversation,
+} from './conversations';
+import { liveActivityLabel, type LiveActivity } from './liveActivity';
 
 export function Sidebar({
   preview,
   selectedConversationId,
+  liveActivity: activity,
   onSelect,
 }: {
   preview: string;
   selectedConversationId: string;
+  liveActivity: LiveActivity;
   onSelect: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -77,11 +85,14 @@ export function Sidebar({
         <ul className="conversation-list">
           {items.map((item) => {
             const selected = item.id === selectedConversationId;
+            const live = isLiveConversation(item.id);
+            const activityLabel = live ? liveActivityLabel(activity) : '';
             return (
               <li key={item.id}>
                 <button
                   type="button"
                   className={`conversation-item${selected ? ' is-active' : ''}`}
+                  data-conversation-id={item.id}
                   {...(selected ? { 'aria-current': 'true' as const } : {})}
                   onClick={() => {
                     onSelect(item.id);
@@ -97,8 +108,14 @@ export function Sidebar({
                     </span>
                     <span className="conversation-row">
                       <span className="conversation-preview">
-                        {isLiveConversation(item.id) ? preview : item.preview}
+                        {live ? preview : item.preview}
                       </span>
+                      {item.demo ? <span className="demo-badge">Demonstração</span> : null}
+                      {live && activityLabel ? (
+                        <span className={`live-activity-badge${activity === 'error' ? ' is-error' : ''}`}>
+                          {activityLabel}
+                        </span>
+                      ) : null}
                       {item.unread > 0 ? <span className="unread-badge">{item.unread}</span> : null}
                     </span>
                   </span>
