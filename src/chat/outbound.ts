@@ -1,4 +1,4 @@
-import { acceptsCaption, type ValidAttachment } from '../domain/attachment';
+import { acceptsCaption, clampCaption, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage, MessageAuthor, MessageStatus } from '../domain/message';
 import type { OutboundPayload } from '../transport/ChatTransport';
 
@@ -117,7 +117,7 @@ export function payloadForAttachment(
   url: string,
   caption?: string,
 ): OutboundPayload {
-  const trimmed = caption?.trim();
+  const trimmed = caption ? clampCaption(caption.trim()) : undefined;
   switch (attachment.kind) {
     case 'image':
       return trimmed && acceptsCaption(attachment.kind)

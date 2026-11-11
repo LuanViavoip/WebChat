@@ -1,6 +1,9 @@
 import {
   ACCEPT_ATTRIBUTE,
+  CAPTION_MAX_LENGTH,
   MEDIA_RULES,
+  clampCaption,
+  extensionForMime,
   formatBytes,
   rejectionMessage,
   validateFiles,
@@ -213,5 +216,20 @@ describe('ACCEPT_ATTRIBUTE', () => {
       expect(ACCEPT_ATTRIBUTE).toContain(row.ext);
       expect(ACCEPT_ATTRIBUTE).toContain(row.mime);
     }
+  });
+});
+
+describe('clampCaption', () => {
+  it('corta em CAPTION_MAX_LENGTH', () => {
+    expect(clampCaption('ok')).toBe('ok');
+    expect(clampCaption('x'.repeat(CAPTION_MAX_LENGTH + 8))).toHaveLength(CAPTION_MAX_LENGTH);
+  });
+});
+
+describe('extensionForMime', () => {
+  it('usa a extensão canônica do MIME', () => {
+    expect(extensionForMime('image/png')).toBe('.png');
+    expect(extensionForMime('image/jpeg')).toBe('.jpg');
+    expect(extensionForMime('image/pjpeg')).toBe('.jpg');
   });
 });

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '../../domain/message';
 import { MediaBody } from './MediaBody';
 
@@ -23,6 +24,22 @@ describe('MediaBody', () => {
     const message: ImageMessage = { ...base, type: 'image', mimeType: 'image/png', url: '/x.png' };
     render(<MediaBody message={message} />);
     expect(screen.getByRole('img', { name: 'Foto de Você' })).toBeInTheDocument();
+  });
+
+  it('abre o visualizador com o nome de download derivado do MIME, não foto.jpg fixo', async () => {
+    const user = userEvent.setup();
+    const onOpenImage = vi.fn();
+    const png: ImageMessage = { ...base, type: 'image', mimeType: 'image/png', url: '/x.png' };
+    const { rerender } = render(<MediaBody message={png} onOpenImage={onOpenImage} />);
+    await user.click(screen.getByRole('button', { name: 'Abrir foto em tela cheia' }));
+    expect(onOpenImage.mock.calls[0]?.[0]).toMatchObject({ fileName: 'foto.png' });
+    expect(onOpenImage.mock.calls[0]?.[0].fileName).not.toBe('foto.jpg');
+
+    onOpenImage.mockClear();
+    const jpeg: ImageMessage = { ...base, type: 'image', mimeType: 'image/jpeg', url: '/x.jpg' };
+    rerender(<MediaBody message={jpeg} onOpenImage={onOpenImage} />);
+    await user.click(screen.getByRole('button', { name: 'Abrir foto em tela cheia' }));
+    expect(onOpenImage.mock.calls[0]?.[0]).toMatchObject({ fileName: 'foto.jpg' });
   });
 
   it('áudio e vídeo têm controles nativos', () => {

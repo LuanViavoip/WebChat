@@ -124,6 +124,40 @@ test.describe('mídia', () => {
     await expect(page.getByRole('button', { name: /ICS Pré-atendimento/ })).not.toHaveText(/Enviando/);
   });
 
+  test('a imagem do preview carrega de fato, não só aparece', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário em 1920');
+    await openLiveChat(page, testInfo);
+    await attach(page, pngFile('exame.png'));
+    const img = page.getByRole('img', { name: 'Pré-visualização de exame.png' });
+    await expect(img).toBeVisible();
+    await expect.poll(() => img.evaluate((node: HTMLImageElement) => node.complete)).toBe(true);
+    expect(await img.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
+  });
+
+  test('depois de Enviar no preview o foco vai para Anexar arquivo', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário em 1920');
+    await openLiveChat(page, testInfo);
+    await attach(page, pngFile('exame.png'));
+    await page.getByLabel('Legenda').press('Enter');
+    await expect(page.getByRole('button', { name: 'Abrir foto em tela cheia' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Anexar arquivo' })).toBeFocused();
+  });
+
+  test('soltar arquivo fora da área de drop não deixa o navegador abrir o arquivo', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== '1920', 'cenário em 1920');
+    await openLiveChat(page, testInfo);
+    const prevented = await page.locator('.wa-sidebar').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1])], 'foto.png', { type: 'image/png' }));
+      const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer });
+      node.dispatchEvent(over);
+      node.dispatchEvent(drop);
+      return { over: over.defaultPrevented, drop: drop.defaultPrevented };
+    });
+    expect(prevented).toEqual({ over: true, drop: true });
+  });
+
   test('arrastar e soltar abre o preview', async ({ page }, testInfo) => {
     test.skip(!(DESKTOP_PROJECTS as readonly string[]).includes(testInfo.project.name), 'drop no desktop');
     await openLiveChat(page, testInfo);

@@ -203,11 +203,20 @@ export function ChatPanel({
     }
   }
 
-  function closePreview() {
-    setPendingAttachment(null);
+  function focusAttachControl() {
     requestAnimationFrame(() => {
       document.querySelector<HTMLElement>('[aria-label="Anexar arquivo"]')?.focus();
     });
+  }
+
+  function closePreview() {
+    setPendingAttachment(null);
+    focusAttachControl();
+  }
+
+  function handleCancelUpload(id: string) {
+    cancelUpload(id);
+    focusAttachControl();
   }
 
   function backToList() {
@@ -268,7 +277,7 @@ export function ChatPanel({
           onRetry={retry}
           hidden={Boolean(pendingAttachment)}
           uploads={state.uploads}
-          onCancelUpload={cancelUpload}
+          onCancelUpload={handleCancelUpload}
           onOpenImage={(image, opener) => {
             viewerOpener.current = opener;
             setViewer(image);
@@ -324,7 +333,7 @@ export function ChatPanel({
               if (kind === 'image' || kind === 'video') {
                 setDraft('');
               }
-              setPendingAttachment(null);
+              closePreview();
             }}
           />
         ) : live ? (

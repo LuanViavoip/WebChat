@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { validateFiles } from '../../domain/attachment';
@@ -72,6 +73,56 @@ describe('AttachmentPreview', () => {
     expect(screen.getByRole('button', { name: 'Enviar' })).toHaveFocus();
     await user.keyboard('{Escape}');
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('não usa object URL já revogada no preview sob StrictMode', () => {
+    const created: string[] = [];
+    const revoked: string[] = [];
+    const originalCreate = URL.createObjectURL.bind(URL);
+    const originalRevoke = URL.revokeObjectURL.bind(URL);
+    URL.createObjectURL = (blob) => {
+      const url = originalCreate(blob);
+      created.push(url);
+      return url;
+    };
+    URL.revokeObjectURL = (url) => {
+      revoked.push(url);
+      originalRevoke(url);
+    };
+    try {
+      render(
+        <StrictMode>
+          <AttachmentPreview
+            attachment={attach('exame.png', 'image/png')}
+            initialCaption=""
+            onSend={() => {}}
+            onCancel={() => {}}
+            disabled={false}
+          />
+        </StrictMode>,
+      );
+      const img = screen.getByRole('img', { name: /Pré-visualização de exame.png/ });
+      const src = img.getAttribute('src') ?? '';
+      expect(revoked).not.toContain(src);
+      const orphan = created.filter((url) => url !== src && !revoked.includes(url));
+      expect(orphan).toEqual([]);
+    } finally {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    }
+  });
+
+  it('trunca a legenda inicial em 1024 caracteres', () => {
+    render(
+      <AttachmentPreview
+        attachment={attach('foto.png', 'image/png')}
+        initialCaption={'x'.repeat(1500)}
+        onSend={vi.fn()}
+        onCancel={vi.fn()}
+        disabled={false}
+      />,
+    );
+    expect(screen.getByLabelText('Legenda')).toHaveValue('x'.repeat(1024));
   });
 
   it('documento não mostra legenda', () => {

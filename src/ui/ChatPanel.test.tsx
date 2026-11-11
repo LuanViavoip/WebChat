@@ -20,6 +20,18 @@ function thread() {
   return within(screen.getByRole('log', { name: 'Mensagens' }));
 }
 
+function fileInput(): HTMLInputElement {
+  const input = document.querySelector('input[type="file"]');
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error('esperava input file');
+  }
+  return input;
+}
+
+function png(name = 'exame.png'): File {
+  return new File([new Uint8Array(12)], name, { type: 'image/png' });
+}
+
 const IMPLICIT_LIVE = '[role="log"], [role="status"], [role="alert"], [role="marquee"], [role="timer"]';
 
 function liveRoles(): Array<string | null> {
@@ -863,6 +875,107 @@ describe('ChatPanel mídia', () => {
     expect(screen.getByRole('region', { name: 'Pré-visualização do anexo' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
     expect(screen.queryByRole('region', { name: 'Pré-visualização do anexo' })).not.toBeInTheDocument();
+  });
+
+  it('depois de Enviar no preview o foco volta para Anexar arquivo', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    render(
+      <ChatPanel
+        transport={new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls })}
+        patientName="Carla"
+        objectUrls={urls}
+      />,
+    );
+    await screen.findByText(/Como posso ajudar/);
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toHaveFocus();
+    });
+  });
+
+  it('rascunho longo não vira legenda acima de 1024 caracteres', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const field = screen.getByLabelText('Mensagem');
+    await user.click(field);
+    await user.paste('x'.repeat(1500));
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => {
+      expect(transport.sent.length).toBeGreaterThan(0);
+    });
+    const payload = transport.sent.at(-1)?.payload;
+    const caption = payload && 'caption' in payload ? payload.caption ?? '' : '';
+    expect(caption.length).toBeLessThanOrEqual(1024);
+  });
+
+  it('Baixar no visualizador usa a extensão do arquivo, não foto.jpg', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    render(
+      <ChatPanel
+        transport={new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls })}
+        patientName="Carla"
+        objectUrls={urls}
+      />,
+    );
+    await screen.findByText(/Como posso ajudar/);
+    await user.upload(fileInput(), png('raiox.png'));
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(await screen.findByRole('button', { name: 'Abrir foto em tela cheia' }));
+    const dialog = screen.getByRole('dialog', { name: 'Foto em tela cheia' });
+    const link = within(dialog).getByRole('link', { name: 'Baixar foto' });
+    expect(link.getAttribute('download')).not.toBe('foto.jpg');
+    expect(link.getAttribute('download') ?? '').toMatch(/\.png$/);
+  });
+
+  it('cancelar o upload devolve o foco para Anexar arquivo', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(await screen.findByRole('button', { name: 'Cancelar envio de exame.png' }));
+    await waitFor(() => {
+      expect(document.activeElement).not.toBe(document.body);
+      expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toHaveFocus();
+    });
+  });
+
+  it('falha do send depois do upload → Reenviar reusa a URL remota sem novo upload', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.failSend = true;
+    render(<ChatPanel transport={transport} patientName="Carla" objectUrls={urls} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.upload(fileInput(), png());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    const resend = await screen.findByRole('button', { name: 'Reenviar mensagem' });
+    expect(transport.uploads).toHaveLength(1);
+    transport.failSend = false;
+    await user.click(resend);
+    await waitFor(() => {
+      expect(transport.sent.length).toBe(2);
+    });
+    expect(transport.uploads).toHaveLength(1);
+    const payload = transport.sent.at(-1)?.payload;
+    expect(payload && 'url' in payload ? payload.url : '').toBe('uploaded:exame.png');
+    expect(transport.sent[0]?.clientId).toBe(transport.sent[1]?.clientId);
   });
 });
 

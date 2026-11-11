@@ -115,6 +115,22 @@ const FORMAT_BY_EXT: ReadonlyMap<string, { kind: MediaKind; format: MediaFormat;
 
 export const ACCEPT_ATTRIBUTE = uniqueAcceptTokens().join(',');
 
+export const CAPTION_MAX_LENGTH = 1024;
+
+export function clampCaption(value: string): string {
+  return value.slice(0, CAPTION_MAX_LENGTH);
+}
+
+export function extensionForMime(mimeType: string): string | undefined {
+  for (const rule of Object.values(MEDIA_RULES)) {
+    const format = rule.formats.find((item) => item.mime === mimeType || item.aliases.includes(mimeType));
+    if (format) {
+      return format.ext;
+    }
+  }
+  return undefined;
+}
+
 const UNSUPPORTED_HINT =
   'Envie foto (JPG, PNG), vídeo (MP4, 3GP), áudio (MP3, M4A, AAC, AMR, OGG) ou documento (PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT).';
 

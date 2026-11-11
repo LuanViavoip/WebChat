@@ -67,4 +67,36 @@ describe('useFileDrop', () => {
     fireEvent.dragEnter(target, { dataTransfer: dataTransfer([], ['text/plain']) });
     expect(target).toHaveTextContent('idle');
   });
+
+  it('soltar arquivo fora da zona impede a navegação e não aceita o arquivo', () => {
+    const onFiles = vi.fn();
+    render(
+      <div>
+        <DropTarget enabled onFiles={onFiles} />
+        <aside data-testid="sidebar">fora</aside>
+      </div>,
+    );
+    const prevented = dispatchFileDrag(screen.getByTestId('sidebar'));
+    expect(prevented).toEqual({ over: true, drop: true });
+    expect(onFiles).not.toHaveBeenCalled();
+  });
+
+  it('com a zona desligada ainda bloqueia o drop no documento', () => {
+    const onFiles = vi.fn();
+    render(<DropTarget enabled={false} onFiles={onFiles} />);
+    const prevented = dispatchFileDrag(screen.getByTestId('drop'));
+    expect(prevented).toEqual({ over: true, drop: true });
+    expect(onFiles).not.toHaveBeenCalled();
+  });
 });
+
+function dispatchFileDrag(node: Element): { over: boolean; drop: boolean } {
+  const transfer = dataTransfer([new File([new Uint8Array([1])], 'foto.png', { type: 'image/png' })]);
+  const over = new Event('dragover', { bubbles: true, cancelable: true });
+  const drop = new Event('drop', { bubbles: true, cancelable: true });
+  Object.defineProperty(over, 'dataTransfer', { value: transfer });
+  Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+  node.dispatchEvent(over);
+  node.dispatchEvent(drop);
+  return { over: over.defaultPrevented, drop: drop.defaultPrevented };
+}

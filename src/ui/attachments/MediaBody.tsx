@@ -1,5 +1,6 @@
 import type { UploadView } from '../../chat/uploads';
-import type { ChatMessage, TextMessage } from '../../domain/message';
+import { extensionForMime } from '../../domain/attachment';
+import type { ChatMessage, ImageMessage, TextMessage } from '../../domain/message';
 import { DocumentCard } from './DocumentCard';
 import { UploadStatus } from './UploadStatus';
 
@@ -49,7 +50,7 @@ function renderMedia(
             className="bubble-image-button"
             aria-label="Abrir foto em tela cheia"
             onClick={(event) => {
-              onOpenImage?.({ url: message.url, alt, fileName: 'foto.jpg' }, event.currentTarget);
+              onOpenImage?.({ url: message.url, alt, fileName: imageDownloadName(message) }, event.currentTarget);
             }}
           >
             <img className="bubble-image" src={message.url} alt={alt} loading="lazy" />
@@ -93,6 +94,11 @@ function renderMedia(
       return exhaustive;
     }
   }
+}
+
+function imageDownloadName(message: ImageMessage): string {
+  const ext = extensionForMime(message.mimeType);
+  return ext ? `foto${ext}` : 'foto';
 }
 
 function uploadFileName(message: Exclude<ChatMessage, TextMessage>, upload?: UploadView): string {

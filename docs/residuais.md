@@ -90,3 +90,13 @@ Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (s
 - **R13** Bot do mock não responde a mídia.
 - **R14** Viewer no widget cobre a página hospedeira (é modal).
 - **R15** Índice de aliases e pendências P2 de integração real.
+
+## Etapa 2 — QA do PR #6 (não são bugs)
+
+Limitações conferidas na revisão independente do head `3be32f7`. Não entram como correção.
+
+- **Tab no visualizador:** a ordem é Fechar → Baixar → chrome do navegador → Fechar. O fundo fica `inert` porque o dialog usa `showModal`. É o comportamento nativo do Chrome e está aceitável.
+- **Clique na própria foto:** clicar em (5,5) não fecha (é a barra superior). Clicar na imagem fecha, porque o stage tem `pointer-events: none`. UX menor.
+- **Falha de upload em outra conversa:** não há indicador na sidebar, porque a falha de mídia não seta `state.error`. Escolha do desenho.
+- **Lista oculta com o preview aberto:** respostas do bot nesse intervalo não ficam visíveis nem são anunciadas até fechar o preview.
+- **Factory injetável:** o `AttachmentPreview` não recebe a factory de `objectUrls` (`useObjectUrl` usa o default). Desvio pequeno do desenho, só afeta a costura de teste.

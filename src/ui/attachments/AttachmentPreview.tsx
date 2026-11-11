@@ -1,6 +1,12 @@
 import { SendHorizontal, X } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { acceptsCaption, formatBytes, type ValidAttachment } from '../../domain/attachment';
+import {
+  CAPTION_MAX_LENGTH,
+  acceptsCaption,
+  clampCaption,
+  formatBytes,
+  type ValidAttachment,
+} from '../../domain/attachment';
 import { DocumentCard } from './DocumentCard';
 import { useObjectUrl } from './useObjectUrl';
 
@@ -18,7 +24,7 @@ export function AttachmentPreview({
   disabled: boolean;
 }) {
   const captionEnabled = acceptsCaption(attachment.kind);
-  const [caption, setCaption] = useState(initialCaption);
+  const [caption, setCaption] = useState(() => clampCaption(initialCaption));
   const url = useObjectUrl(attachment.file);
   const captionRef = useRef<HTMLTextAreaElement>(null);
   const sendRef = useRef<HTMLButtonElement>(null);
@@ -81,7 +87,7 @@ export function AttachmentPreview({
               <textarea
                 ref={captionRef}
                 value={caption}
-                maxLength={1024}
+                maxLength={CAPTION_MAX_LENGTH}
                 rows={1}
                 disabled={disabled}
                 placeholder="Adicione uma legenda"

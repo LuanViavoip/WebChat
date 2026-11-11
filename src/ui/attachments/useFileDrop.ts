@@ -9,6 +9,21 @@ export function useFileDrop(
   const onFiles = options.onFiles;
 
   useEffect(() => {
+    function preventFileNavigation(event: DragEvent) {
+      if (!event.dataTransfer?.types.includes('Files')) {
+        return;
+      }
+      event.preventDefault();
+    }
+    window.addEventListener('dragover', preventFileNavigation);
+    window.addEventListener('drop', preventFileNavigation);
+    return () => {
+      window.removeEventListener('dragover', preventFileNavigation);
+      window.removeEventListener('drop', preventFileNavigation);
+    };
+  }, []);
+
+  useEffect(() => {
     const node = target.current;
     if (!node) {
       return;
