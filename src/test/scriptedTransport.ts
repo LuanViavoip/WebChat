@@ -1,3 +1,4 @@
+import { UploadCanceledError, UploadFailedError } from '../transport/abort';
 import type {
   ChatEvent,
   ChatEventHandler,
@@ -5,6 +6,8 @@ import type {
   ConnectSession,
   SendRequest,
   TransportStatus,
+  UploadedMedia,
+  UploadRequest,
 } from '../transport/ChatTransport';
 
 type HeldSend = {
@@ -13,14 +16,24 @@ type HeldSend = {
   reject: (error: Error) => void;
 };
 
+type HeldUpload = {
+  request: UploadRequest;
+  resolve: (media: UploadedMedia) => void;
+  reject: (error: Error) => void;
+};
+
 export class ScriptedTransport implements ChatTransport {
   readonly sent: SendRequest[] = [];
+  readonly uploads: UploadRequest[] = [];
   lastSession: ConnectSession | undefined;
   failConnect = false;
   failSend = false;
   holdSend = false;
   holdConnect = false;
+  holdUpload = false;
+  failUpload = false;
   private readonly held: HeldSend[] = [];
+  private readonly heldUploads: HeldUpload[] = [];
   private connectHeld: { resolve: () => void } | undefined;
   private status: TransportStatus = 'disconnected';
   private readonly handlers = new Set<ChatEventHandler>();
@@ -84,6 +97,42 @@ export class ScriptedTransport implements ChatTransport {
       return Promise.reject(new Error('Falha ao enviar'));
     }
     return Promise.resolve();
+  }
+
+  upload(request: UploadRequest): Promise<UploadedMedia> {
+    this.uploads.push(request);
+    if (request.signal.aborted) {
+      return Promise.reject(new UploadCanceledError());
+    }
+    if (this.holdUpload) {
+      return new Promise((resolve, reject) => {
+        this.heldUploads.push({ request, resolve, reject });
+        request.signal.addEventListener(
+          'abort',
+          () => {
+            reject(new UploadCanceledError());
+          },
+          { once: true },
+        );
+      });
+    }
+    if (this.failUpload) {
+      return Promise.reject(new UploadFailedError('Falha no upload simulado'));
+    }
+    return Promise.resolve({ url: `uploaded:${request.fileName}` });
+  }
+
+  progressUpload(index: number, loaded: number): void {
+    const request = this.uploads[index];
+    request?.onProgress({ loaded, total: request.file.size });
+  }
+
+  resolveUpload(index: number, url: string): void {
+    this.heldUploads[index]?.resolve({ url });
+  }
+
+  rejectUpload(index: number, error: Error = new UploadFailedError('Falha no upload simulado')): void {
+    this.heldUploads[index]?.reject(error);
   }
 
   rejectHeld(error: Error = new Error('Falha tardia de envio')): void {

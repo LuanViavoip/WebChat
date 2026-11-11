@@ -1,3 +1,4 @@
+import { acceptsCaption, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage, MessageAuthor, MessageStatus } from '../domain/message';
 import type { OutboundPayload } from '../transport/ChatTransport';
 
@@ -43,14 +44,19 @@ export function messageFromPayload(
       }
       return message;
     }
-    case 'document':
-      return {
+    case 'document': {
+      const message: ChatMessage = {
         ...base,
         type: 'document',
         fileName: payload.fileName,
         mimeType: payload.mimeType,
         url: payload.url,
       };
+      if (payload.sizeBytes !== undefined) {
+        return { ...message, sizeBytes: payload.sizeBytes };
+      }
+      return message;
+    }
     case 'sticker':
       return { ...base, type: 'sticker', mimeType: payload.mimeType, url: payload.url };
     default: {
@@ -85,17 +91,54 @@ export function payloadFromMessage(message: ChatMessage): OutboundPayload {
       }
       return payload;
     }
-    case 'document':
-      return {
+    case 'document': {
+      const payload: OutboundPayload = {
         type: 'document',
         fileName: message.fileName,
         mimeType: message.mimeType,
         url: message.url,
       };
+      if (message.sizeBytes !== undefined) {
+        return { ...payload, sizeBytes: message.sizeBytes };
+      }
+      return payload;
+    }
     case 'sticker':
       return { type: 'sticker', mimeType: message.mimeType, url: message.url };
     default: {
       const exhaustive: never = message;
+      return exhaustive;
+    }
+  }
+}
+
+export function payloadForAttachment(
+  attachment: ValidAttachment,
+  url: string,
+  caption?: string,
+): OutboundPayload {
+  const trimmed = caption?.trim();
+  switch (attachment.kind) {
+    case 'image':
+      return trimmed && acceptsCaption(attachment.kind)
+        ? { type: 'image', mimeType: attachment.mimeType, url, caption: trimmed }
+        : { type: 'image', mimeType: attachment.mimeType, url };
+    case 'video':
+      return trimmed && acceptsCaption(attachment.kind)
+        ? { type: 'video', mimeType: attachment.mimeType, url, caption: trimmed }
+        : { type: 'video', mimeType: attachment.mimeType, url };
+    case 'audio':
+      return { type: 'audio', mimeType: attachment.mimeType, url };
+    case 'document':
+      return {
+        type: 'document',
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        url,
+        sizeBytes: attachment.sizeBytes,
+      };
+    default: {
+      const exhaustive: never = attachment.kind;
       return exhaustive;
     }
   }

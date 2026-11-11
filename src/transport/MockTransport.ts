@@ -1,5 +1,6 @@
-import type { MessageAuthor, TextMessage } from '../domain/message';
-import { isSessionAborted, SessionAbortedError } from './abort';
+import type { ChatMessage, MessageAuthor, TextMessage } from '../domain/message';
+import { messageFromPayload } from '../chat/outbound';
+import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from './abort';
 import type {
   ChatEvent,
   ChatEventHandler,
@@ -7,7 +8,10 @@ import type {
   ConnectSession,
   SendRequest,
   TransportStatus,
+  UploadedMedia,
+  UploadRequest,
 } from './ChatTransport';
+import { browserObjectUrls, type ObjectUrlFactory } from './objectUrls';
 import { PRE_ATENDIMENTO_MENU, replyForChoice, welcomeText } from './preAtendimento';
 
 export type MockDelays = {
@@ -16,7 +20,10 @@ export type MockDelays = {
   deliveredMs: number;
   readMs: number;
   replyMs: number;
+  uploadChunkMs: number;
 };
+
+export type MockUploadFailure = 'never' | 'once' | 'always';
 
 export type MockTransportOptions = {
   delays?: Partial<MockDelays>;
@@ -24,6 +31,9 @@ export type MockTransportOptions = {
   createId?: () => string;
   failConnect?: boolean;
   failSend?: boolean;
+  failUpload?: MockUploadFailure;
+  uploadChunks?: number;
+  objectUrls?: ObjectUrlFactory;
 };
 
 const DEFAULT_DELAYS: MockDelays = {
@@ -32,17 +42,20 @@ const DEFAULT_DELAYS: MockDelays = {
   deliveredMs: 280,
   readMs: 520,
   replyMs: 700,
+  uploadChunkMs: 150,
 };
 
 const BOT: MessageAuthor = { id: 'bot-preatendimento', name: 'ICS Pré-atendimento' };
-const CLIENT: MessageAuthor = { id: 'client', name: 'Você' };
 
 export class MockTransport implements ChatTransport {
   private readonly delays: MockDelays;
   private readonly now: () => string;
   private readonly createId: () => string;
+  private readonly uploadChunks: number;
+  private readonly objectUrls: ObjectUrlFactory;
   failConnect: boolean;
   failSend: boolean;
+  failUpload: MockUploadFailure;
   private readonly handlers = new Set<ChatEventHandler>();
   private readonly timers = new Set<ReturnType<typeof setTimeout>>();
   private abort = new AbortController();
@@ -55,12 +68,17 @@ export class MockTransport implements ChatTransport {
   private welcomeGate: Promise<void> = Promise.resolve();
   private unlockWelcome: (() => void) | undefined;
   private idSeq = 0;
+  private readonly uploadAttempts = new Map<string, number>();
+  private readonly remoteUrls: string[] = [];
 
   constructor(options: MockTransportOptions = {}) {
     this.delays = { ...DEFAULT_DELAYS, ...options.delays };
     this.now = options.now ?? (() => new Date().toISOString());
     this.failConnect = options.failConnect ?? false;
     this.failSend = options.failSend ?? false;
+    this.failUpload = options.failUpload ?? 'never';
+    this.uploadChunks = options.uploadChunks ?? 5;
+    this.objectUrls = options.objectUrls ?? browserObjectUrls;
     this.createId =
       options.createId ??
       (() => {
@@ -105,6 +123,7 @@ export class MockTransport implements ChatTransport {
 
   disconnect(): void {
     this.abortPending();
+    this.revokeRemoteUrls();
     this.setStatus('disconnected');
   }
 
@@ -118,6 +137,44 @@ export class MockTransport implements ChatTransport {
     return this.whenReady().then(() => this.dispatchSend(request));
   }
 
+  upload(request: UploadRequest): Promise<UploadedMedia> {
+    if (this.status === 'disconnected' || this.status === 'error') {
+      return Promise.reject(new Error('Não conectado'));
+    }
+    if (this.status === 'connecting') {
+      return this.whenReady().then(() => this.runUpload(request));
+    }
+    return this.runUpload(request);
+  }
+
+  private async runUpload(request: UploadRequest): Promise<UploadedMedia> {
+    if (this.status !== 'connected') {
+      throw new Error('Não conectado');
+    }
+    const epoch = this.epoch;
+    const total = request.file.size;
+    const chunks = Math.max(1, this.uploadChunks);
+    const attempt = (this.uploadAttempts.get(request.clientId) ?? 0) + 1;
+    this.uploadAttempts.set(request.clientId, attempt);
+    const failAt = Math.ceil(chunks / 2);
+    const shouldFail =
+      this.failUpload === 'always' || (this.failUpload === 'once' && attempt === 1);
+    for (let step = 1; step <= chunks; step += 1) {
+      await this.wait(this.delays.uploadChunkMs, request.signal);
+      this.guard(epoch);
+      if (request.signal.aborted) {
+        throw new UploadCanceledError();
+      }
+      request.onProgress({ loaded: Math.round((total * step) / chunks), total });
+      if (shouldFail && step === failAt) {
+        throw new UploadFailedError('Falha no upload simulado');
+      }
+    }
+    const url = this.objectUrls.create(request.file);
+    this.remoteUrls.push(url);
+    return { url };
+  }
+
   private dispatchSend(request: SendRequest): Promise<void> {
     if (this.status !== 'connected') {
       return Promise.reject(new Error('Não conectado'));
@@ -125,38 +182,23 @@ export class MockTransport implements ChatTransport {
     if (this.failSend) {
       return Promise.reject(new Error('Falha ao enviar'));
     }
-    switch (request.payload.type) {
-      case 'text':
-        break;
-      case 'image':
-      case 'audio':
-      case 'video':
-      case 'document':
-      case 'sticker':
-        this.emit({
-          type: 'status',
-          messageId: request.clientId,
-          clientId: request.clientId,
-          status: 'error',
-        });
-        return Promise.reject(new Error('Mídia ainda não suportada nesta etapa'));
-      default: {
-        const exhaustive: never = request.payload;
-        return exhaustive;
-      }
-    }
-    const text = request.payload.text.trim();
-    if (!text) {
+    if (request.payload.type === 'text' && !request.payload.text.trim()) {
       return Promise.resolve();
     }
     const epoch = this.epoch;
-    const message = this.clientText(text, request.clientId);
+    const message = messageFromPayload(
+      request.clientId,
+      this.conversationId,
+      request.payload,
+      this.now(),
+      'sending',
+    );
     this.emit({ type: 'message', message });
-    void this.progressClient(message, text, epoch);
+    void this.progressClient(message, epoch);
     return Promise.resolve();
   }
 
-  private async progressClient(message: TextMessage, text: string, epoch: number): Promise<void> {
+  private async progressClient(message: ChatMessage, epoch: number): Promise<void> {
     try {
       await this.wait(this.delays.sentMs);
       this.guard(epoch);
@@ -167,10 +209,14 @@ export class MockTransport implements ChatTransport {
       await this.wait(this.delays.readMs);
       this.guard(epoch);
       this.emitStatus(message.id, message.clientId, 'read');
-      if (this.ended) {
+      if (this.ended || message.type !== 'text') {
         return;
       }
-      this.botQueue = this.botQueue.then(() => this.replyAsBot(text, epoch), () => this.replyAsBot(text, epoch));
+      const text = message.text;
+      this.botQueue = this.botQueue.then(
+        () => this.replyAsBot(text, epoch),
+        () => this.replyAsBot(text, epoch),
+      );
       await this.botQueue;
     } catch (error) {
       if (isSessionAborted(error)) {
@@ -214,20 +260,6 @@ export class MockTransport implements ChatTransport {
     await this.wait(this.delays.replyMs);
     this.guard(epoch);
     emit();
-  }
-
-  private clientText(text: string, clientId: string): TextMessage {
-    return {
-      id: clientId,
-      conversationId: this.conversationId,
-      clientId,
-      direction: 'client',
-      author: CLIENT,
-      timestamp: this.now(),
-      status: 'sending',
-      type: 'text',
-      text,
-    };
   }
 
   private botText(text: string, menu?: TextMessage['menu']): TextMessage {
@@ -277,6 +309,8 @@ export class MockTransport implements ChatTransport {
 
   private resetSession(): void {
     this.abortPending();
+    this.revokeRemoteUrls();
+    this.uploadAttempts.clear();
     this.epoch += 1;
     this.abort = new AbortController();
     this.botQueue = Promise.resolve();
@@ -295,6 +329,13 @@ export class MockTransport implements ChatTransport {
     this.botQueue = Promise.resolve();
   }
 
+  private revokeRemoteUrls(): void {
+    for (const url of this.remoteUrls) {
+      this.objectUrls.revoke(url);
+    }
+    this.remoteUrls.length = 0;
+  }
+
   private whenReady(): Promise<void> {
     if (this.status === 'connected') {
       return Promise.resolve();
@@ -311,27 +352,39 @@ export class MockTransport implements ChatTransport {
     }
   }
 
-  private wait(ms: number): Promise<void> {
+  private wait(ms: number, extra?: AbortSignal): Promise<void> {
     if (this.abort.signal.aborted) {
       return Promise.reject(new SessionAbortedError());
+    }
+    if (extra?.aborted) {
+      return Promise.reject(new UploadCanceledError());
     }
     if (ms <= 0) {
       return Promise.resolve();
     }
     return new Promise((resolve, reject) => {
       const { signal } = this.abort;
-      const onAbort = () => {
+      const cleanup = () => {
         clearTimeout(timer);
         this.timers.delete(timer);
+        signal.removeEventListener('abort', onSessionAbort);
+        extra?.removeEventListener('abort', onCancel);
+      };
+      const onSessionAbort = () => {
+        cleanup();
         reject(new SessionAbortedError());
       };
+      const onCancel = () => {
+        cleanup();
+        reject(new UploadCanceledError());
+      };
       const timer = setTimeout(() => {
-        signal.removeEventListener('abort', onAbort);
-        this.timers.delete(timer);
+        cleanup();
         resolve();
       }, ms);
       this.timers.add(timer);
-      signal.addEventListener('abort', onAbort, { once: true });
+      signal.addEventListener('abort', onSessionAbort, { once: true });
+      extra?.addEventListener('abort', onCancel, { once: true });
     });
   }
 }

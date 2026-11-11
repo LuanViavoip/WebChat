@@ -1,7 +1,9 @@
-import { ScriptedTransport } from '../test/scriptedTransport';
+import { validateFiles } from '../domain/attachment';
 import type { ChatMessage, TextMessage } from '../domain/message';
-import { ChatSession } from './ChatSession';
+import { createFakeObjectUrls } from '../test/fakeObjectUrls';
+import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
+import { ChatSession } from './ChatSession';
 
 const instant = {
   typingMs: 0,
@@ -219,4 +221,274 @@ describe('ChatSession', () => {
     });
     expect(session.getState().messages).toHaveLength(0);
   });
+
+  it('sendAttachment sobe, troca a URL, envia e chega a lida', async () => {
+    const urls = createFakeObjectUrls();
+    const session = new ChatSession(
+      new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls }),
+      { createId: () => 'img-1', objectUrls: urls },
+    );
+    await session.start('João');
+    const createdBefore = urls.created.length;
+    await session.sendAttachment(mustAttach('rx.png', 'image/png', 40), 'exame');
+    const image = session.getState().messages.find((message) => message.type === 'image');
+    expect(image?.status).toBe('read');
+    expect(image?.type).toBe('image');
+    if (image?.type !== 'image') {
+      throw new Error('esperava imagem');
+    }
+    expect(image.caption).toBe('exame');
+    expect(image.url).toMatch(/^blob:fake\//);
+    expect(session.getState().uploads).toEqual({});
+    expect(urls.revoked).toContain(urls.created[createdBefore]);
+  });
+
+  it('insere otimista com preview e progresso só quando o percentual inteiro muda', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('rx.png', 'image/png', 100));
+    const optimistic = session.getState().messages.find((message) => message.type === 'image');
+    expect(optimistic?.status).toBe('sending');
+    expect(optimistic?.type).toBe('image');
+    if (optimistic?.type !== 'image') {
+      throw new Error('esperava imagem');
+    }
+    expect(optimistic.url).toBe('blob:fake/1');
+    expect(session.getState().uploads['img-1']).toMatchObject({
+      phase: 'uploading',
+      loaded: 0,
+      total: 100,
+    });
+    let emits = 0;
+    session.subscribe(() => {
+      emits += 1;
+    });
+    transport.progressUpload(0, 20);
+    transport.progressUpload(0, 20);
+    expect(session.getState().uploads['img-1']).toMatchObject({ loaded: 20 });
+    transport.resolveUpload(0, 'blob:remote/1');
+    await sending;
+    expect(emits).toBeGreaterThan(0);
+  });
+
+  it('falha de upload marca erro na bolha sem state.error', async () => {
+    const transport = new ScriptedTransport();
+    transport.failUpload = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    expect(session.getState().messages.find((message) => message.type === 'image')?.status).toBe('error');
+    expect(session.getState().uploads['img-1']?.phase).toBe('failed');
+    expect(session.getState().error).toBeNull();
+    expect(transport.sent).toHaveLength(0);
+  });
+
+  it('retry depois de falha de upload sobe o mesmo arquivo e o mesmo clientId', async () => {
+    const transport = new ScriptedTransport();
+    transport.failUpload = true;
+    const file = new File([new Uint8Array(12)], 'exame.png', { type: 'image/png' });
+    const attachment = mustFile(file);
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    await session.sendAttachment(attachment);
+    transport.failUpload = false;
+    await session.retry('img-1');
+    expect(transport.uploads).toHaveLength(2);
+    expect(transport.uploads[1]?.clientId).toBe('img-1');
+    expect(transport.uploads[1]?.file).toBe(file);
+    expect(transport.uploads[0]?.file).toBe(file);
+    expect(session.getState().uploads).toEqual({});
+    expect(transport.sent[0]?.clientId).toBe('img-1');
+    expect(transport.sent[0]?.payload).toMatchObject({ type: 'image', url: 'uploaded:exame.png' });
+  });
+
+  it('retry depois de falha do send reusa a URL remota sem novo upload', async () => {
+    const transport = new ScriptedTransport();
+    transport.failSend = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12), 'rx');
+    expect(transport.uploads).toHaveLength(1);
+    expect(session.getState().error).toMatch(/enviar/i);
+    transport.failSend = false;
+    await session.retry('img-1');
+    expect(transport.uploads).toHaveLength(1);
+    expect(transport.sent).toHaveLength(2);
+    expect(transport.sent[1]?.payload).toMatchObject({
+      type: 'image',
+      url: 'uploaded:exame.png',
+      caption: 'rx',
+    });
+  });
+
+  it('cancelUpload remove a mensagem e revoga o preview', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
+    session.cancelUpload('img-1');
+    expect(transport.uploads[0]?.signal.aborted).toBe(true);
+    expect(session.getState().messages.some((message) => message.type === 'image')).toBe(false);
+    expect(session.getState().uploads).toEqual({});
+    expect(urls.revoked).toContain('blob:fake/1');
+    await sending;
+  });
+
+  it('cancelUpload em failed também remove', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.failUpload = true;
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    await session.start('João', 'c1');
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    session.cancelUpload('img-1');
+    expect(session.getState().messages.some((message) => message.type === 'image')).toBe(false);
+    expect(urls.revoked).toContain('blob:fake/1');
+  });
+
+  it('cancelUpload sem entrada é no-op', async () => {
+    const session = new ChatSession(new ScriptedTransport(), { objectUrls: createFakeObjectUrls() });
+    await session.start('João', 'c1');
+    session.cancelUpload('inexistente');
+    expect(session.getState().messages).toHaveLength(0);
+  });
+
+  it('ignora progresso e resolução de tentativa antiga', async () => {
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    const first = session.sendAttachment(mustAttach('exame.png', 'image/png', 100));
+    transport.rejectUpload(0, new Error('falha 1'));
+    await first;
+    transport.holdUpload = true;
+    const second = session.retry('img-1');
+    transport.progressUpload(0, 80);
+    expect(session.getState().uploads['img-1']).toMatchObject({ phase: 'uploading', loaded: 0 });
+    transport.resolveUpload(1, 'blob:remote/2');
+    await second;
+    expect(session.getState().uploads).toEqual({});
+  });
+
+  it('start e stop durante upload abortam, revogam e esvaziam uploads', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    await session.start('João', 'c2');
+    expect(session.getState().uploads).toEqual({});
+    expect(urls.revoked.length).toBeGreaterThan(0);
+    await sending;
+
+    transport.holdUpload = true;
+    const again = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    session.stop();
+    expect(session.getState().uploads).toEqual({});
+    await again;
+  });
+
+  it('reconnect não derruba upload em andamento', async () => {
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    await session.reconnect();
+    expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
+    transport.resolveUpload(0, 'blob:remote/1');
+    await sending;
+    expect(transport.sent[0]?.payload).toMatchObject({ type: 'image', url: 'blob:remote/1' });
+  });
+
+  it('ended torna sendAttachment no-op', async () => {
+    const transport = new ScriptedTransport();
+    const session = new ChatSession(transport, { objectUrls: createFakeObjectUrls() });
+    await session.start('João', 'c1');
+    transport.emit({ type: 'ended', conversationId: 'c1' });
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    expect(transport.uploads).toHaveLength(0);
+  });
+
+  it('ignora rejeição tardia de retry depois de stop', async () => {
+    const transport = new ScriptedTransport();
+    transport.failSend = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    transport.failSend = false;
+    transport.holdSend = true;
+    const retrying = session.retry('img-1');
+    session.stop();
+    transport.rejectHeld();
+    await retrying;
+    expect(session.getState().error).toBeNull();
+  });
+
+  it('nunca mantém upload com status sent/delivered/read', async () => {
+    const session = new ChatSession(
+      new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: createFakeObjectUrls() }),
+      { createId: () => 'img-1', objectUrls: createFakeObjectUrls() },
+    );
+    await session.start('João');
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    const image = session.getState().messages.find((message) => message.type === 'image');
+    expect(image?.status).toBe('read');
+    expect(session.getState().uploads).toEqual({});
+  });
+
+  it('documento envia fileName e sizeBytes; áudio não leva legenda', async () => {
+    const transport = new ScriptedTransport();
+    const session = new ChatSession(transport, {
+      createId: () => 'doc-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    await session.sendAttachment(mustAttach('guia.pdf', 'application/pdf', 80), 'ignorada');
+    expect(transport.sent[0]?.payload).toEqual({
+      type: 'document',
+      fileName: 'guia.pdf',
+      mimeType: 'application/pdf',
+      url: 'uploaded:guia.pdf',
+      sizeBytes: 80,
+    });
+  });
 });
+
+function mustAttach(name: string, type: string, size: number) {
+  return mustFile(new File([new Uint8Array(size)], name, { type }));
+}
+
+function mustFile(file: File) {
+  const result = validateFiles([file]);
+  if (!result?.ok) {
+    throw new Error('anexo inválido no teste');
+  }
+  return result.attachment;
+}
+
