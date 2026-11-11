@@ -17,10 +17,21 @@ if (!root) {
 const params = new URLSearchParams(window.location.search);
 const patientName = params.get('nome')?.trim() || 'Maria Silva';
 const mode: AppMode = params.get('modo') === 'widget' ? 'widget' : 'page';
-const failConnect = params.get('falha') === 'conectar';
+const falha = params.get('falha');
+const failConnect = falha === 'conectar';
+const failUpload = falha === 'upload' ? 'once' : 'never';
+const slowUpload = params.get('upload') === 'lento';
 
 createRoot(root).render(
   <StrictMode>
-    <App transport={new MockTransport({ failConnect })} patientName={patientName} mode={mode} />
+    <App
+      transport={new MockTransport({
+        failConnect,
+        failUpload,
+        ...(slowUpload ? { delays: { uploadChunkMs: 800 }, uploadChunks: 5 } : {}),
+      })}
+      patientName={patientName}
+      mode={mode}
+    />
   </StrictMode>,
 );

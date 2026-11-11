@@ -105,4 +105,6 @@ export const USED_CONTRAST_PAIRS: ContrastPair[] = [
   { name: 'lima no ink', foreground: '#A3E635', background: '#0F1B3D', minimum: 3 },
   { name: 'badge de não lidas', foreground: '#FFFFFF', background: '#2E5BFF', minimum: 4.5 },
   { name: 'erro em faixa', foreground: '#B42318', background: '#FFF5F5', minimum: 4.5 },
+  { name: 'texto em card de documento', foreground: '#0F1B3D', background: '#F5F7FF', minimum: 4.5 },
+  { name: 'progresso no balão enviado', foreground: '#1E3FCC', background: '#EEF2FF', minimum: 3 },
 ];

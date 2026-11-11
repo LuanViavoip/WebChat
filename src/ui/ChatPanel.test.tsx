@@ -1,7 +1,8 @@
 import { act, StrictMode } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { TextMessage } from '../domain/message';
+import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { stubDesktopMatchMedia, stubMobileMatchMedia } from '../test/matchMedia';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
@@ -204,7 +205,7 @@ describe('ChatPanel', () => {
     expect(welcome).toHaveAccessibleName(/Carla Mendes/);
     expect(within(welcome).getByLabelText('Opções do atendimento')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Primeira vez/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Anexar (em breve)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toBeEnabled();
   });
 
   it('sobrevive ao StrictMode sem duplicar o menu de boas-vindas', async () => {
@@ -781,6 +782,87 @@ describe('ChatPanel no mobile', () => {
     await waitFor(() => {
       expect(screen.queryByText(/nova mensagem no ics pré-atendimento/i)).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('ChatPanel mídia', () => {
+  beforeEach(() => {
+    stubDesktopMatchMedia();
+  });
+
+  it('anexa PNG válido, envia com legenda e mostra Foto na sidebar', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    render(
+      <ChatPanel
+        transport={new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls })}
+        patientName="Carla Mendes"
+        objectUrls={urls}
+      />,
+    );
+    await screen.findByText(/Como posso ajudar/);
+    const input = document.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('esperava input file');
+    }
+    await user.upload(input, new File([new Uint8Array(12)], 'foto.png', { type: 'image/png' }));
+    expect(screen.getByRole('region', { name: 'Pré-visualização do anexo' })).toBeInTheDocument();
+    expect(screen.queryByRole('log', { name: 'Mensagens' })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Legenda'), 'minha foto');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await thread().findByText('minha foto')).toBeInTheDocument();
+    expect(thread().getByRole('img', { name: 'minha foto' })).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Lida')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /ICS Pré-atendimento/ })).toHaveTextContent('minha foto');
+  });
+
+  it('arquivo inválido mostra alerta e Fechar remove', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    const input = document.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('esperava input file');
+    }
+    fireEvent.change(input, {
+      target: { files: [new File([new Uint8Array(8)], 'virus.exe', { type: 'application/octet-stream' })] },
+    });
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Formato não suportado: virus.exe/);
+    await user.click(screen.getByRole('button', { name: 'Fechar' }));
+    expect(screen.queryByText(/Formato não suportado/)).not.toBeInTheDocument();
+  });
+
+  it('histórico somente leitura não tem clipe', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} patientName="Carla Mendes" />);
+    await screen.findByText(/Como posso ajudar/);
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(await screen.findByText('Atendimento encerrado · somente leitura')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anexar arquivo' })).not.toBeInTheDocument();
+  });
+
+  it('trocar de conversa com o preview aberto descarta o anexo', async () => {
+    const user = userEvent.setup();
+    const urls = createFakeObjectUrls();
+    render(
+      <ChatPanel
+        transport={new MockTransport({ delays: instant, objectUrls: urls })}
+        patientName="Carla Mendes"
+        objectUrls={urls}
+      />,
+    );
+    await screen.findByText(/Como posso ajudar/);
+    const input = document.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('esperava input file');
+    }
+    await user.upload(input, new File([new Uint8Array(12)], 'foto.png', { type: 'image/png' }));
+    expect(screen.getByRole('region', { name: 'Pré-visualização do anexo' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Atendimento anterior/ }));
+    expect(screen.queryByRole('region', { name: 'Pré-visualização do anexo' })).not.toBeInTheDocument();
   });
 });
 
