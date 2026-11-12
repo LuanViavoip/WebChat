@@ -2,6 +2,7 @@ import { validateFiles } from '../domain/attachment';
 import type { ChatMessage, TextMessage } from '../domain/message';
 import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { ScriptedTransport } from '../test/scriptedTransport';
+import { SessionAbortedError } from '../transport/abort';
 import { MockTransport } from '../transport/MockTransport';
 import { ChatSession } from './ChatSession';
 
@@ -430,6 +431,52 @@ describe('ChatSession', () => {
     });
     await session.start('João', 'c2');
     expect(urls.revoked).toContain(remoteUrl);
+  });
+
+  it('SessionAbortedError no upload sem ended não deixa a bolha em enviando', async () => {
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    expect(session.getState().messages.find((message) => message.type === 'image')?.status).toBe('sending');
+    transport.rejectUpload(0, new SessionAbortedError());
+    await sending;
+    expect(session.getState().ended).toBe(false);
+    const image = session.getState().messages.find((message) => message.type === 'image');
+    expect(image).toBeDefined();
+    expect(image?.status).toBe('error');
+    expect(session.getState().uploads['img-1']?.phase).toBe('failed');
+  });
+
+  it('connect do mock durante o upload não deixa a bolha em enviando', async () => {
+    vi.useFakeTimers();
+    const urls = createFakeObjectUrls();
+    const transport = new MockTransport({
+      delays: { ...instant, uploadChunkMs: 20 },
+      uploadChunks: 5,
+      objectUrls: urls,
+    });
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    const starting = session.start('João', 'c1');
+    await vi.runAllTimersAsync();
+    await starting;
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    await vi.advanceTimersByTimeAsync(20);
+    expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
+    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'João' });
+    await vi.runAllTimersAsync();
+    await sending;
+    await reconnecting;
+    expect(session.getState().ended).toBe(false);
+    const image = session.getState().messages.find((message) => message.type === 'image');
+    expect(image).toBeDefined();
+    expect(image?.status).toBe('error');
+    expect(session.getState().uploads['img-1']?.phase).toBe('failed');
+    vi.useRealTimers();
   });
 
   it('reconnect não derruba upload em andamento', async () => {

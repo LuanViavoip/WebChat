@@ -248,7 +248,10 @@ export class ChatSession {
       this.emit();
       await this.dispatchSend(clientId, payloadForAttachment(attachment, url, caption));
     } catch (error) {
-      if (isUploadCanceled(error) || isSessionAborted(error)) {
+      if (isUploadCanceled(error)) {
+        return;
+      }
+      if (isSessionAborted(error) && this.ended) {
         return;
       }
       const current = this.uploads.get(clientId);
