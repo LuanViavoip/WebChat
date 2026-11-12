@@ -452,7 +452,28 @@ describe('ChatSession', () => {
     expect(session.getState().uploads['img-1']?.phase).toBe('failed');
   });
 
-  it('connect do mock durante o upload não deixa a bolha em enviando', async () => {
+  it('retry após SessionAbortedError sem ended não duplica a mensagem e reusa o clientId', async () => {
+    const transport = new ScriptedTransport();
+    transport.holdUpload = true;
+    const session = new ChatSession(transport, {
+      createId: () => 'img-1',
+      objectUrls: createFakeObjectUrls(),
+    });
+    await session.start('João', 'c1');
+    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    transport.rejectUpload(0, new SessionAbortedError());
+    await sending;
+    expect(session.getState().messages.filter((message) => message.type === 'image')).toHaveLength(1);
+    transport.holdUpload = false;
+    await session.retry('img-1');
+    expect(session.getState().messages.filter((message) => message.type === 'image')).toHaveLength(1);
+    expect(transport.uploads).toHaveLength(2);
+    expect(transport.uploads[1]?.clientId).toBe('img-1');
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]?.clientId).toBe('img-1');
+  });
+
+  it('connect do mock na mesma conversa durante o upload deixa a bolha chegar a enviada', async () => {
     vi.useFakeTimers();
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({
@@ -474,8 +495,8 @@ describe('ChatSession', () => {
     expect(session.getState().ended).toBe(false);
     const image = session.getState().messages.find((message) => message.type === 'image');
     expect(image).toBeDefined();
-    expect(image?.status).toBe('error');
-    expect(session.getState().uploads['img-1']?.phase).toBe('failed');
+    expect(image?.status).toBe('read');
+    expect(session.getState().uploads).toEqual({});
     vi.useRealTimers();
   });
 

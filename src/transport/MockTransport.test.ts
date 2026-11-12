@@ -451,5 +451,57 @@ describe('MockTransport', () => {
     transport.disconnect();
     expect(urls.revoked).toContain(uploaded.url);
   });
+
+  it('connect na mesma conversa durante o upload deixa o upload concluir', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { ...instant, uploadChunkMs: 20 },
+      uploadChunks: 5,
+      objectUrls: createFakeObjectUrls(),
+    });
+    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await connecting;
+    const uploading = transport.upload({
+      clientId: 'up-1',
+      file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
+      fileName: 'foto.png',
+      mimeType: 'image/png',
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(20);
+    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await expect(uploading).resolves.toMatchObject({ url: expect.stringMatching(/^blob:fake\//) });
+    await reconnecting;
+    vi.useRealTimers();
+  });
+
+  it('connect em outra conversa durante o upload aborta o upload', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { ...instant, uploadChunkMs: 20 },
+      uploadChunks: 5,
+      objectUrls: createFakeObjectUrls(),
+    });
+    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await connecting;
+    const uploading = transport.upload({
+      clientId: 'up-1',
+      file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
+      fileName: 'foto.png',
+      mimeType: 'image/png',
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(20);
+    const switching = transport.connect({ conversationId: 'c2', patientName: 'Ana' });
+    await expect(uploading).rejects.toBeInstanceOf(SessionAbortedError);
+    await vi.runAllTimersAsync();
+    await switching;
+    vi.useRealTimers();
+  });
 });
 

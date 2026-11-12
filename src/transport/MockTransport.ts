@@ -100,9 +100,12 @@ export class MockTransport implements ChatTransport {
 
   async connect(session: ConnectSession): Promise<void> {
     const previousConversationId = this.conversationId;
-    this.resetSession();
-    if (previousConversationId && previousConversationId !== session.conversationId) {
-      this.revokeConversationUrls(previousConversationId);
+    const sameConversation = previousConversationId !== '' && previousConversationId === session.conversationId;
+    if (!sameConversation) {
+      this.resetSession();
+      if (previousConversationId) {
+        this.revokeConversationUrls(previousConversationId);
+      }
     }
     this.conversationId = session.conversationId;
     this.patientName = session.patientName;
