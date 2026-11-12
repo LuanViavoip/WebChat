@@ -407,6 +407,31 @@ describe('ChatSession', () => {
     await again;
   });
 
+  it('reconectar com histórico não revoga a URL remota da mídia já enviada', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new MockTransport({
+      delays: { ...instant, uploadChunkMs: 0 },
+      objectUrls: urls,
+    });
+    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
+    await session.start('João', 'c1');
+    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
+    const image = session.getState().messages.find((message) => message.type === 'image');
+    expect(image?.type).toBe('image');
+    if (image?.type !== 'image') {
+      throw new Error('esperava imagem');
+    }
+    const remoteUrl = image.url;
+    expect(urls.revoked).not.toContain(remoteUrl);
+    await transport.connect({ conversationId: 'c1', patientName: 'João' });
+    expect(urls.revoked).not.toContain(remoteUrl);
+    expect(session.getState().messages.find((message) => message.type === 'image')).toMatchObject({
+      url: remoteUrl,
+    });
+    await session.start('João', 'c2');
+    expect(urls.revoked).toContain(remoteUrl);
+  });
+
   it('reconnect não derruba upload em andamento', async () => {
     const transport = new ScriptedTransport();
     transport.holdUpload = true;

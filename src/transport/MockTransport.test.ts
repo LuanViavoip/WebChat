@@ -432,5 +432,24 @@ describe('MockTransport', () => {
     await transport.connect({ conversationId: 'c2', patientName: 'Ana' });
     expect(urls.revoked).toEqual(['blob:fake/1']);
   });
+
+  it('reconectar na mesma conversa não revoga URLs de mídia já entregues', async () => {
+    const urls = createFakeObjectUrls();
+    const transport = new MockTransport({ delays: instant, objectUrls: urls });
+    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const uploaded = await transport.upload({
+      clientId: 'up-1',
+      file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
+      fileName: 'foto.png',
+      mimeType: 'image/png',
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+    expect(uploaded.url).toBe('blob:fake/1');
+    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    expect(urls.revoked).not.toContain(uploaded.url);
+    transport.disconnect();
+    expect(urls.revoked).toContain(uploaded.url);
+  });
 });
 

@@ -69,7 +69,7 @@ export class MockTransport implements ChatTransport {
   private unlockWelcome: (() => void) | undefined;
   private idSeq = 0;
   private readonly uploadAttempts = new Map<string, number>();
-  private readonly remoteUrls: string[] = [];
+  private readonly remoteUrlsByConversation = new Map<string, string[]>();
 
   constructor(options: MockTransportOptions = {}) {
     this.delays = { ...DEFAULT_DELAYS, ...options.delays };
@@ -99,7 +99,11 @@ export class MockTransport implements ChatTransport {
   }
 
   async connect(session: ConnectSession): Promise<void> {
+    const previousConversationId = this.conversationId;
     this.resetSession();
+    if (previousConversationId && previousConversationId !== session.conversationId) {
+      this.revokeConversationUrls(previousConversationId);
+    }
     this.conversationId = session.conversationId;
     this.patientName = session.patientName;
     this.ended = false;
@@ -171,7 +175,9 @@ export class MockTransport implements ChatTransport {
       }
     }
     const url = this.objectUrls.create(request.file);
-    this.remoteUrls.push(url);
+    const urls = this.remoteUrlsByConversation.get(this.conversationId) ?? [];
+    urls.push(url);
+    this.remoteUrlsByConversation.set(this.conversationId, urls);
     return { url };
   }
 
@@ -309,7 +315,6 @@ export class MockTransport implements ChatTransport {
 
   private resetSession(): void {
     this.abortPending();
-    this.revokeRemoteUrls();
     this.uploadAttempts.clear();
     this.epoch += 1;
     this.abort = new AbortController();
@@ -330,10 +335,20 @@ export class MockTransport implements ChatTransport {
   }
 
   private revokeRemoteUrls(): void {
-    for (const url of this.remoteUrls) {
+    for (const conversationId of [...this.remoteUrlsByConversation.keys()]) {
+      this.revokeConversationUrls(conversationId);
+    }
+  }
+
+  private revokeConversationUrls(conversationId: string): void {
+    const urls = this.remoteUrlsByConversation.get(conversationId);
+    if (!urls) {
+      return;
+    }
+    for (const url of urls) {
       this.objectUrls.revoke(url);
     }
-    this.remoteUrls.length = 0;
+    this.remoteUrlsByConversation.delete(conversationId);
   }
 
   private whenReady(): Promise<void> {
