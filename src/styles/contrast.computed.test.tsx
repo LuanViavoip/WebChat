@@ -3,24 +3,21 @@ import { MockTransport } from '../transport/MockTransport';
 import { ChatPanel } from '../ui/ChatPanel';
 
 const instant = {
-  typingMs: 0,
+  connectMs: 0,
   sentMs: 0,
   deliveredMs: 0,
   readMs: 0,
-  replyMs: 0,
 };
 
 describe('estados representativos de contraste', () => {
   it('renderiza erro, item ativo e foco para o e2e de estilos computados', async () => {
-    render(<ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} patientName="Carla" />);
+    render(<ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} />);
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveClass('session-banner-error');
 
-    const active = screen.getByRole('button', { name: /ICS Pré-atendimento/ });
+    const active = screen.getByRole('button', { name: /Conversa de teste/ });
     expect(active).toHaveClass('is-active');
-
-    const history = screen.getByRole('button', { name: /Atendimento anterior/ });
-    history.focus();
-    expect(history).toHaveFocus();
+    active.focus();
+    expect(active).toHaveFocus();
   });
 });

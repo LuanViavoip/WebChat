@@ -32,12 +32,10 @@ export type ChatEvent =
   | { type: 'message'; message: ChatMessage }
   | { type: 'status'; messageId: string; clientId?: string; status: MessageStatus }
   | { type: 'typing'; conversationId: string; actor: MessageAuthor; isTyping: boolean }
-  | { type: 'connection'; status: TransportStatus }
-  | { type: 'ended'; conversationId: string };
+  | { type: 'connection'; status: TransportStatus };
 
 export type ConnectSession = {
   conversationId: string;
-  patientName: string;
 };
 
 export type ChatEventHandler = (event: ChatEvent) => void;

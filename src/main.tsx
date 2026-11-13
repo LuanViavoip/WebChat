@@ -5,7 +5,7 @@ import '@fontsource/space-grotesk/latin-600.css';
 import '@fontsource/space-grotesk/latin-700.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App, type AppMode } from './App';
+import { App } from './App';
 import { MockTransport } from './transport/MockTransport';
 import './styles/chat.css';
 
@@ -15,23 +15,34 @@ if (!root) {
 }
 
 const params = new URLSearchParams(window.location.search);
-const patientName = params.get('nome')?.trim() || 'Maria Silva';
-const mode: AppMode = params.get('modo') === 'widget' ? 'widget' : 'page';
 const falha = params.get('falha');
+const conexao = params.get('conexao');
 const failConnect = falha === 'conectar';
 const failUpload = falha === 'upload' ? 'once' : 'never';
 const slowUpload = params.get('upload') === 'lento';
+const slowConnect = conexao === 'lenta';
+const holdConnect = conexao === 'segurar';
+
+const transport = new MockTransport({
+  failConnect,
+  failUpload,
+  holdConnect,
+  delays: {
+    ...(slowConnect ? { connectMs: 450 } : {}),
+    ...(slowUpload ? { uploadChunkMs: 800 } : {}),
+  },
+  ...(slowUpload ? { uploadChunks: 5 } : {}),
+});
+
+if (holdConnect) {
+  const hooks = window as Window & { __releaseConnect?: () => void };
+  hooks.__releaseConnect = () => {
+    transport.releaseConnect();
+  };
+}
 
 createRoot(root).render(
   <StrictMode>
-    <App
-      transport={new MockTransport({
-        failConnect,
-        failUpload,
-        ...(slowUpload ? { delays: { uploadChunkMs: 800 }, uploadChunks: 5 } : {}),
-      })}
-      patientName={patientName}
-      mode={mode}
-    />
+    <App transport={transport} />
   </StrictMode>,
 );

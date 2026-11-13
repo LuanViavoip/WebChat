@@ -165,9 +165,9 @@ body:has(.page-shell) {
   flex-shrink: 0;
 }
 
-.avatar-ics {
+.avatar-contact {
   background: var(--accent-strong);
-  color: #fff;
+  color: var(--header-fg);
 }
 
 .header-identity {
@@ -340,7 +340,6 @@ body:has(.page-shell) {
   place-items: center;
 }
 
-.demo-badge,
 .live-activity-badge {
   flex-shrink: 0;
   border-radius: 8px;
@@ -526,38 +525,6 @@ body:has(.page-shell) {
   text-decoration: underline;
 }
 
-.bubble-actions {
-  display: flex;
-  flex-direction: column;
-  margin: 8px -10px -6px;
-  border-top: 1px solid var(--line);
-}
-
-.bubble-action {
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  background: transparent;
-  color: var(--accent-strong);
-  padding: 10px 12px;
-  font-size: 14px;
-  text-align: center;
-  cursor: pointer;
-}
-
-.bubble-action:last-child {
-  border-bottom: 0;
-}
-
-.bubble-action:hover:not(:disabled),
-.bubble-action:focus-visible {
-  background: var(--surface-soft);
-}
-
-.bubble-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .session-banner {
   display: flex;
   align-items: center;
@@ -590,11 +557,6 @@ body:has(.page-shell) {
 .session-banner-error {
   background: #fff5f5;
   color: var(--danger);
-}
-
-.session-banner-unseen {
-  background: var(--vv-blue-50);
-  color: var(--accent-strong);
 }
 
 .session-banner-error button {
@@ -677,10 +639,8 @@ body:has(.page-shell) {
 .icon-button:focus-visible,
 .send-fab:focus-visible,
 .chip:focus-visible,
-.bubble-action:focus-visible,
 .conversation-item:focus,
 .conversation-item:focus-visible,
-.widget-fab:focus-visible,
 .session-banner button:focus-visible,
 .bubble-image-button:focus-visible,
 .doc-card-download:focus-visible,
@@ -726,103 +686,6 @@ body:has(.page-shell) {
 .emoji-button:focus-visible,
 .emoji-button-active {
   background: var(--surface-soft);
-}
-
-.host-page {
-  min-height: 100%;
-  background: var(--surface-soft);
-}
-
-.host-header {
-  background: var(--header-bg);
-  color: var(--header-fg);
-  padding: 12px 18px;
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-
-.host-main {
-  padding: 24px 18px;
-  max-width: 720px;
-}
-
-.host-main h2 {
-  margin-top: 0;
-  font-family: var(--font-display);
-  color: var(--text);
-}
-
-.host-main p {
-  color: var(--text-secondary);
-}
-
-.host-file {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 16px 0 0;
-  color: var(--text);
-  font-family: var(--font-display);
-  font-weight: 600;
-}
-
-.host-file input {
-  font-family: var(--font-body);
-  color: var(--text);
-}
-
-.host-drop {
-  margin-top: 16px;
-  padding: 18px;
-  min-height: 72px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text-secondary);
-}
-
-.widget-root {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-}
-
-.widget-frame {
-  width: min(380px, calc(100vw - 24px));
-  height: min(640px, calc(100vh - 96px));
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  background: var(--surface);
-}
-
-.wa-compact,
-.widget-frame .wa-shell {
-  width: 100%;
-  height: 100%;
-}
-
-.wa-compact .wa-sidebar {
-  display: none;
-}
-
-.widget-fab {
-  background: var(--accent-grad);
-  color: #fff;
-  border: 0;
-  border-radius: var(--radius-pill);
-  padding: 12px 16px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: var(--shadow);
 }
 
 .bubble-media {
@@ -1014,11 +877,11 @@ body:has(.page-shell) {
 }
 
 @media (max-width: 900px) {
-  .page-shell .wa-shell:not(.wa-compact) {
+  .page-shell .wa-shell {
     flex-direction: column;
   }
 
-  .page-shell .wa-shell:not(.wa-compact) .wa-sidebar {
+  .page-shell .wa-shell .wa-sidebar {
     width: 100%;
     min-width: 0;
     max-width: none;
@@ -1027,11 +890,11 @@ body:has(.page-shell) {
     display: flex;
   }
 
-  .page-shell .wa-shell:not(.wa-compact)[data-mobile-pane='list'] .wa-chat {
+  .page-shell .wa-shell[data-mobile-pane='list'] .wa-chat {
     display: none;
   }
 
-  .page-shell .wa-shell:not(.wa-compact)[data-mobile-pane='chat'] .wa-sidebar {
+  .page-shell .wa-shell[data-mobile-pane='chat'] .wa-sidebar {
     display: none;
   }
 

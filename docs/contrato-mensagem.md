@@ -8,9 +8,9 @@ Este documento descreve o formato **interno** do ChatWeb. Ainda não há acesso 
 | --- | --- | --- |
 | `id` | string | Identificador da mensagem. No envio do cliente, começa igual ao `clientId`. |
 | `clientId` | string (opcional) | Id estável gerado **no cliente** antes do round-trip. Confirmações de status correlacionam por `clientId` ou `id`. |
-| `conversationId` | string | Conversa / ticket. Novo id a cada `start()`. |
-| `direction` | `client` \| `agent` \| `bot` \| `system` | Quem originou. No cliente web, `client` alinha à direita. |
-| `author` | `{ id, name }` | Exibição. Bot de pré-atendimento: `ICS Pré-atendimento`. |
+| `conversationId` | string | Conversa / ticket. A UI inicia a sessão com o id fixo `conversa-teste`. `start(id)` inicia uma sessão e limpa as mensagens; sem argumento, `start()` gera um novo id. Para reconectar preservando o histórico, use `reconnect()`. O mock preserva as URLs de mídia ao reconectar na mesma conversa e as revoga ao mudar de conversa ou desconectar. |
+| `direction` | `client` \| `agent` \| `system` | Quem originou. No cliente web, `client` alinha à direita. `authorId` entra na Etapa 4. |
+| `author` | `{ id, name }` | Exibição. |
 | `timestamp` | string ISO-8601 | Relógio do emissor. |
 | `status` | `sending` \| `sent` \| `delivered` \| `read` \| `error` | Ticks estilo WhatsApp. Só avança (`sending→sent→delivered→read`); `error` pode aplicar a qualquer momento. Status que chega antes da mensagem fica pendente. |
 | `type` | união discriminada | Ver abaixo. |
@@ -87,11 +87,10 @@ União discriminada. Etapa 1 implementou `text`; **Etapa 2 implementa `image`, `
 {
   type: 'text'
   text: string
-  menu?: { key: string; label: string }[]
 }
 ```
 
-`menu` é extensão do ChatWeb. Clique envia o `key` como texto. Após encerrar (`0`), o último bot **não** carrega menu: composer e chips desligam até **Iniciar novo atendimento**.
+O mock da Etapa 3 **não** responde automaticamente. Ticks: `sending → sent → delivered → read`.
 
 ### `image` / `video`
 
@@ -123,7 +122,8 @@ União discriminada. Etapa 1 implementou `text`; **Etapa 2 implementa `image`, `
 - `message` — mensagem normalizada (replay deve ser idempotente por `id`/`clientId`)
 - `status` — `{ messageId, clientId?, status }`
 - `typing` — indicador de digitação
-- `ended` — atendimento encerrado nesta conversa
+
+`connect({ conversationId })` não leva `patientName`. Enquanto o status é `connecting`, `send`/`upload` esperam o `readyGate`.
 
 Implementação atual: `MockTransport`. Uma implementação SM/WhatsApp deve respeitar a mesma interface, inclusive abortar waits ao `disconnect` e ignorar eventos de época anterior.
 

@@ -13,31 +13,9 @@ describe('filterConversations', () => {
     expect(CLIENT_CONVERSATIONS.every((item) => item.unread === 0)).toBe(true);
   });
 
-  it('mostra as três conversas no filtro Tudo', () => {
+  it('mostra a conversa de teste no filtro Tudo', () => {
     const all = filterConversations(CLIENT_CONVERSATIONS, '', 'all', 'preview');
-    expect(all.map((item) => item.title)).toEqual([
-      'ICS Pré-atendimento',
-      'Atendimento anterior',
-      'Exames e vacinas',
-    ]);
-  });
-
-  it('cada conversa de histórico tem transcrição mock', () => {
-    const history = CLIENT_CONVERSATIONS.filter((item) => item.id !== LIVE_CONVERSATION_ID);
-    expect(history).toHaveLength(2);
-    for (const item of history) {
-      expect(item.transcript.length).toBeGreaterThan(2);
-    }
-  });
-
-  it('marca só o histórico simulado como demonstração', () => {
-    const live = CLIENT_CONVERSATIONS.find((item) => item.id === LIVE_CONVERSATION_ID);
-    const history = CLIENT_CONVERSATIONS.filter((item) => item.id !== LIVE_CONVERSATION_ID);
-    expect(live?.demo).toBe(false);
-    expect(history).toHaveLength(2);
-    for (const item of history) {
-      expect(item.demo).toBe(true);
-    }
+    expect(all.map((item) => item.title)).toEqual(['Conversa de teste']);
   });
 
   it('mantém a conversa ao vivo quando a busca não casa e ela está pinada', () => {

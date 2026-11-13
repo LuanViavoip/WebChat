@@ -16,53 +16,44 @@ function sendText(transport: ChatTransport, text: string, clientId: string) {
 }
 
 const instant = {
-  typingMs: 0,
+  connectMs: 0,
   sentMs: 0,
   deliveredMs: 0,
   readMs: 0,
-  replyMs: 0,
 };
 
 describe('MockTransport', () => {
-  it('conecta e envia boas-vindas com nome e menu numerado', async () => {
+  it('conecta e envia connecting → connected sem mensagem', async () => {
     const transport = new MockTransport({ delays: instant });
     const events = collect(transport);
 
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana Souza' });
+    await transport.connect({ conversationId: 'c1' });
 
-    const messages = events.filter((event) => event.type === 'message');
-    expect(messages).toHaveLength(1);
-    const welcome = messages[0];
-    expect(welcome?.type).toBe('message');
-    if (welcome?.type !== 'message' || welcome.message.type !== 'text') {
-      throw new Error('esperava mensagem de texto');
-    }
-    expect(welcome.message.direction).toBe('bot');
-    expect(welcome.message.text).toContain('Ana Souza');
-    expect(welcome.message.text).toContain('Como posso ajudar? Por favor, digite o número da opção:');
-    expect(welcome.message.text).toContain('1 Primeira vez / Orientação');
-    expect(welcome.message.text).toContain('0 Encerrar o Atendimento');
-    expect(welcome.message.menu?.map((option) => option.key)).toEqual(['1', '2', '3', '4', '0']);
+    expect(events.map((event) => event.type)).toEqual(['connection', 'connection']);
+    expect(events[0]).toMatchObject({ type: 'connection', status: 'connecting' });
+    expect(events[1]).toMatchObject({ type: 'connection', status: 'connected' });
+    expect(events.filter((event) => event.type === 'message')).toHaveLength(0);
+    expect(transport.getStatus()).toBe('connected');
   });
 
-  it('emite indicador de digitação antes da mensagem do bot', async () => {
-    const transport = new MockTransport({ delays: instant });
-    const events = collect(transport);
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    const types = events.map((event) => event.type);
-    expect(types).toEqual(['connection', 'typing', 'typing', 'message', 'connection']);
-    expect(events[1]).toMatchObject({ type: 'typing', isTyping: true });
-    expect(events[2]).toMatchObject({ type: 'typing', isTyping: false });
-    expect(events[4]).toMatchObject({ type: 'connection', status: 'connected' });
+  it('holdConnect mantém connecting até releaseConnect', async () => {
+    const transport = new MockTransport({ delays: instant, holdConnect: true });
+    const connecting = transport.connect({ conversationId: 'c1' });
+    await vi.waitFor(() => {
+      expect(transport.getStatus()).toBe('connecting');
+    });
+    transport.releaseConnect();
+    await connecting;
+    expect(transport.getStatus()).toBe('connected');
   });
 
-  it('progredir status da mensagem do cliente: enviando → enviado → entregue → lido', async () => {
+  it('send de texto progride até read e nenhuma mensagem de outro autor chega', async () => {
     const transport = new MockTransport({ delays: instant });
     const events = collect(transport);
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     events.length = 0;
 
-    await sendText(transport, '1', 'local-1');
+    await sendText(transport, 'oi', 'local-1');
     await vi.waitFor(() => {
       expect(events.filter((event) => event.type === 'status')).toHaveLength(3);
     });
@@ -75,52 +66,52 @@ describe('MockTransport', () => {
     expect(client.message.id).toBe('local-1');
     expect(client.message.status).toBe('sending');
 
-    const statuses = events
-      .filter((event) => event.type === 'status')
-      .map((event) => event.status);
+    const statuses = events.filter((event) => event.type === 'status').map((event) => event.status);
     expect(statuses).toEqual(['sent', 'delivered', 'read']);
+    expect(events.filter((event) => event.type === 'message')).toHaveLength(1);
+    expect(
+      events.some((event) => event.type === 'message' && event.message.direction !== 'client'),
+    ).toBe(false);
   });
 
-  it('responde a opção do menu com atraso configurável', async () => {
+  it('send em connecting espera o readyGate e entrega uma vez', async () => {
     vi.useFakeTimers();
     const transport = new MockTransport({
-      delays: { typingMs: 5, sentMs: 5, deliveredMs: 5, readMs: 5, replyMs: 5 },
+      delays: { connectMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0 },
     });
     const events = collect(transport);
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const connecting = transport.connect({ conversationId: 'c1' });
+    const sending = sendText(transport, 'oi', 'early');
+    await vi.advanceTimersByTimeAsync(20);
+    expect(events.filter((event) => event.type === 'message')).toHaveLength(0);
+
     await vi.runAllTimersAsync();
     await connecting;
-    events.length = 0;
-
-    const sending = sendText(transport, '4', 'local-4');
     await sending;
-    await vi.runAllTimersAsync();
 
-    const bot = events.find((event) => event.type === 'message' && event.message.direction === 'bot');
-    expect(bot?.type).toBe('message');
-    if (bot?.type !== 'message' || bot.message.type !== 'text') {
-      throw new Error('esperava resposta do bot');
-    }
-    expect(bot.message.text).toContain('Agendamentos');
+    const messages = events.filter((event) => event.type === 'message');
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.type === 'message' && messages[0].message.id).toBe('early');
     vi.useRealTimers();
   });
 
   it('após disconnect durante timers, reconecta e envia de novo', async () => {
     vi.useFakeTimers();
     const transport = new MockTransport({
-      delays: { typingMs: 400, sentMs: 200, deliveredMs: 200, readMs: 200, replyMs: 400 },
+      delays: { connectMs: 400, sentMs: 200, deliveredMs: 200, readMs: 200 },
     });
     const events = collect(transport);
-    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const first = transport.connect({ conversationId: 'c1' });
     await vi.advanceTimersByTimeAsync(100);
     transport.disconnect();
     await expect(first).rejects.toThrow();
     events.length = 0;
 
-    const second = transport.connect({ conversationId: 'c2', patientName: 'Ana' });
+    const second = transport.connect({ conversationId: 'c2' });
     await vi.runAllTimersAsync();
     await second;
-    expect(events.some((event) => event.type === 'message')).toBe(true);
+    expect(events.filter((event) => event.type === 'message')).toHaveLength(0);
+    expect(transport.getStatus()).toBe('connected');
 
     events.length = 0;
     await sendText(transport, '2', 'after-reconnect');
@@ -132,13 +123,13 @@ describe('MockTransport', () => {
     vi.useRealTimers();
   });
 
-  it('mostra envios rápidos na hora e serializa só o bot', async () => {
+  it('mostra envios rápidos na hora e não responde automaticamente', async () => {
     vi.useFakeTimers();
     const transport = new MockTransport({
-      delays: { typingMs: 50, sentMs: 50, deliveredMs: 50, readMs: 50, replyMs: 50 },
+      delays: { connectMs: 0, sentMs: 50, deliveredMs: 50, readMs: 50 },
     });
     const events = collect(transport);
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const connecting = transport.connect({ conversationId: 'c1' });
     await vi.runAllTimersAsync();
     await connecting;
     events.length = 0;
@@ -151,33 +142,7 @@ describe('MockTransport', () => {
     expect(clientIds).toEqual(['a', 'b']);
 
     await vi.runAllTimersAsync();
-    const bots = events.filter((event) => event.type === 'message' && event.message.direction === 'bot');
-    expect(bots).toHaveLength(2);
-    vi.useRealTimers();
-  });
-
-  it('enfileira envio do usuário até as boas-vindas terminarem', async () => {
-    vi.useFakeTimers();
-    const transport = new MockTransport({
-      delays: { typingMs: 40, sentMs: 10, deliveredMs: 10, readMs: 10, replyMs: 40 },
-    });
-    const events = collect(transport);
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    const sending = sendText(transport, '1', 'early');
-    await vi.advanceTimersByTimeAsync(20);
-    const earlyMessages = events.filter((event) => event.type === 'message');
-    expect(earlyMessages).toHaveLength(0);
-
-    await vi.runAllTimersAsync();
-    await connecting;
-    await sending;
-
-    const texts = events
-      .filter((event) => event.type === 'message' && event.message.type === 'text')
-      .map((event) => (event.type === 'message' && event.message.type === 'text' ? event.message.text : ''));
-    expect(texts[0]).toContain('Como posso ajudar');
-    expect(texts[1]).toBe('1');
-    expect(texts[2]).toContain('Primeira vez');
+    expect(events.filter((event) => event.type === 'message')).toHaveLength(2);
     vi.useRealTimers();
   });
 
@@ -189,9 +154,7 @@ describe('MockTransport', () => {
       uploadChunks: 5,
       objectUrls: urls,
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await connecting;
+    await transport.connect({ conversationId: 'c1' });
 
     const file = new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' });
     const progress: UploadProgress[] = [];
@@ -227,9 +190,7 @@ describe('MockTransport', () => {
       failUpload: 'once',
       objectUrls: createFakeObjectUrls(),
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await connecting;
+    await transport.connect({ conversationId: 'c1' });
     const file = new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' });
     const firstProgress: UploadProgress[] = [];
     const first = expect(
@@ -271,7 +232,7 @@ describe('MockTransport', () => {
       failUpload: 'always',
       objectUrls: createFakeObjectUrls(),
     });
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     const file = new File([new Uint8Array(10)], 'foto.png', { type: 'image/png' });
     await expect(
       transport.upload({
@@ -291,9 +252,7 @@ describe('MockTransport', () => {
       delays: { ...instant, uploadChunkMs: 20 },
       objectUrls: createFakeObjectUrls(),
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await connecting;
+    await transport.connect({ conversationId: 'c1' });
     const controller = new AbortController();
     const progress: UploadProgress[] = [];
     const uploading = transport.upload({
@@ -321,9 +280,7 @@ describe('MockTransport', () => {
       delays: { ...instant, uploadChunkMs: 20 },
       objectUrls: createFakeObjectUrls(),
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await connecting;
+    await transport.connect({ conversationId: 'c1' });
     const uploading = transport.upload({
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
@@ -337,7 +294,7 @@ describe('MockTransport', () => {
     vi.useRealTimers();
   });
 
-  it('upload desconectado rejeita e em connecting espera as boas-vindas', async () => {
+  it('upload desconectado rejeita e em connecting espera o readyGate', async () => {
     const disconnected = new MockTransport({ delays: instant, objectUrls: createFakeObjectUrls() });
     await expect(
       disconnected.upload({
@@ -352,10 +309,10 @@ describe('MockTransport', () => {
 
     vi.useFakeTimers();
     const transport = new MockTransport({
-      delays: { typingMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 40, uploadChunkMs: 0 },
+      delays: { connectMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, uploadChunkMs: 0 },
       objectUrls: createFakeObjectUrls(),
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const connecting = transport.connect({ conversationId: 'c1' });
     const uploading = transport.upload({
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
@@ -371,10 +328,10 @@ describe('MockTransport', () => {
     vi.useRealTimers();
   });
 
-  it('send de imagem ecoa sem resposta do bot e progride os ticks', async () => {
+  it('send de imagem ecoa sem resposta automática e progride os ticks', async () => {
     const transport = new MockTransport({ delays: instant });
     const events = collect(transport);
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     events.length = 0;
     await transport.send({
       clientId: 'img-1',
@@ -390,13 +347,13 @@ describe('MockTransport', () => {
     }
     expect(client.message.id).toBe('img-1');
     expect(client.message.caption).toBe('rx');
-    expect(events.some((event) => event.type === 'message' && event.message.direction === 'bot')).toBe(false);
+    expect(events.filter((event) => event.type === 'message')).toHaveLength(1);
   });
 
   it('send de documento preserva fileName e sizeBytes', async () => {
     const transport = new MockTransport({ delays: instant });
     const events = collect(transport);
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     await transport.send({
       clientId: 'doc-1',
       payload: {
@@ -419,7 +376,7 @@ describe('MockTransport', () => {
   it('resetSession no novo connect revoga as URLs do mock', async () => {
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({ delays: instant, objectUrls: urls });
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     await transport.upload({
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
@@ -429,14 +386,14 @@ describe('MockTransport', () => {
       onProgress: () => {},
     });
     expect(urls.created).toEqual(['blob:fake/1']);
-    await transport.connect({ conversationId: 'c2', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c2' });
     expect(urls.revoked).toEqual(['blob:fake/1']);
   });
 
   it('reconectar na mesma conversa não revoga URLs de mídia já entregues', async () => {
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({ delays: instant, objectUrls: urls });
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     const uploaded = await transport.upload({
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
@@ -446,7 +403,7 @@ describe('MockTransport', () => {
       onProgress: () => {},
     });
     expect(uploaded.url).toBe('blob:fake/1');
-    await transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await transport.connect({ conversationId: 'c1' });
     expect(urls.revoked).not.toContain(uploaded.url);
     transport.disconnect();
     expect(urls.revoked).toContain(uploaded.url);
@@ -459,9 +416,7 @@ describe('MockTransport', () => {
       uploadChunks: 5,
       objectUrls: createFakeObjectUrls(),
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await connecting;
+    await transport.connect({ conversationId: 'c1' });
     const uploading = transport.upload({
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
@@ -471,7 +426,7 @@ describe('MockTransport', () => {
       onProgress: () => {},
     });
     await vi.advanceTimersByTimeAsync(20);
-    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const reconnecting = transport.connect({ conversationId: 'c1' });
     await vi.runAllTimersAsync();
     await expect(uploading).resolves.toMatchObject({ url: expect.stringMatching(/^blob:fake\//) });
     await reconnecting;
@@ -485,9 +440,7 @@ describe('MockTransport', () => {
       uploadChunks: 5,
       objectUrls: createFakeObjectUrls(),
     });
-    const connecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await connecting;
+    await transport.connect({ conversationId: 'c1' });
     const uploading = transport.upload({
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
@@ -497,7 +450,7 @@ describe('MockTransport', () => {
       onProgress: () => {},
     });
     await vi.advanceTimersByTimeAsync(20);
-    const switching = transport.connect({ conversationId: 'c2', patientName: 'Ana' });
+    const switching = transport.connect({ conversationId: 'c2' });
     await expect(uploading).rejects.toBeInstanceOf(SessionAbortedError);
     await vi.runAllTimersAsync();
     await switching;
@@ -505,31 +458,23 @@ describe('MockTransport', () => {
   });
 
   it('depois de disconnect, reconectar na mesma conversa volta a connected', async () => {
-    vi.useFakeTimers();
-    const transport = new MockTransport({
-      delays: { typingMs: 20, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 20 },
-    });
-    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await first;
+    const transport = new MockTransport({ delays: instant });
+    await transport.connect({ conversationId: 'c1' });
     expect(transport.getStatus()).toBe('connected');
     transport.disconnect();
     expect(transport.getStatus()).toBe('disconnected');
-    const second = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await expect(second).resolves.toBeUndefined();
+    await expect(transport.connect({ conversationId: 'c1' })).resolves.toBeUndefined();
     expect(transport.getStatus()).toBe('connected');
-    vi.useRealTimers();
   });
 
   it('send durante reconexão da mesma conversa espera a conexão corrente', async () => {
     vi.useFakeTimers();
     const transport = new MockTransport({
-      delays: { typingMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 40, uploadChunkMs: 0 },
+      delays: { connectMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, uploadChunkMs: 0 },
       objectUrls: createFakeObjectUrls(),
     });
     const events = collect(transport);
-    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const first = transport.connect({ conversationId: 'c1' });
     await vi.runAllTimersAsync();
     await first;
     events.length = 0;
@@ -541,7 +486,7 @@ describe('MockTransport', () => {
       signal: new AbortController().signal,
       onProgress: () => {},
     });
-    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    const reconnecting = transport.connect({ conversationId: 'c1' });
     expect(transport.getStatus()).toBe('connecting');
     await expect(uploading).resolves.toMatchObject({ url: expect.stringMatching(/^blob:fake\//) });
     const sending = sendText(transport, '1', 'during-reconnect');
@@ -558,30 +503,4 @@ describe('MockTransport', () => {
     );
     vi.useRealTimers();
   });
-
-  it('reconectar na mesma conversa não emite a resposta antiga do bot antes das boas-vindas', async () => {
-    vi.useFakeTimers();
-    const transport = new MockTransport({
-      delays: { typingMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 40 },
-    });
-    const events = collect(transport);
-    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await first;
-    events.length = 0;
-    await sendText(transport, '1', 'choice-1');
-    await vi.advanceTimersByTimeAsync(20);
-    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
-    await vi.runAllTimersAsync();
-    await reconnecting;
-    const texts = events
-      .filter((event) => event.type === 'message' && event.message.type === 'text')
-      .map((event) => (event.type === 'message' && event.message.type === 'text' ? event.message.text : ''));
-    const welcomeIndex = texts.findIndex((text) => text.includes('Como posso ajudar'));
-    const oldReplyIndex = texts.findIndex((text) => text.includes('Você escolheu Primeira vez'));
-    expect(welcomeIndex).toBeGreaterThanOrEqual(0);
-    expect(oldReplyIndex).toBe(-1);
-    vi.useRealTimers();
-  });
 });
-

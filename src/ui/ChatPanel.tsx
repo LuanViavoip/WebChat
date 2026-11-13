@@ -11,7 +11,7 @@ import { useFileDrop } from './attachments/useFileDrop';
 import { ChatHeader } from './ChatHeader';
 import { historyConversationId, historyPane, mergeHistoryState } from './chatHistory';
 import { Composer } from './Composer';
-import { conversationById, isLiveConversation, LIVE_CONVERSATION_ID } from './conversations';
+import { CLIENT_CONVERSATIONS, conversationById, LIVE_CONVERSATION_ID } from './conversations';
 import { liveActivity, liveActivityAnnouncement } from './liveActivity';
 import { MessageList } from './MessageList';
 import { Sidebar } from './Sidebar';
@@ -21,32 +21,32 @@ import { useMediaQuery } from './useMediaQuery';
 type MobilePane = 'list' | 'chat';
 type PendingFocus = 'chat' | 'list';
 
+function resolveConversationId(id: string | undefined): string {
+  if (id && CLIENT_CONVERSATIONS.some((item) => item.id === id)) {
+    return id;
+  }
+  return LIVE_CONVERSATION_ID;
+}
+
 export function ChatPanel({
   transport,
-  patientName,
-  onClose,
-  compact = false,
   selectedConversationId: selectedConversationIdProp,
   onSelectConversation,
   objectUrls,
 }: {
   transport: ChatTransport;
-  patientName: string;
-  onClose?: () => void;
-  compact?: boolean;
   selectedConversationId?: string;
   onSelectConversation?: (id: string) => void;
   objectUrls?: ObjectUrlFactory;
 }) {
-  const { state, send, sendMenuOption, retry, reconnect, restart, sendAttachment, cancelUpload } = useChatSession(
+  const { state, send, retry, reconnect, sendAttachment, cancelUpload } = useChatSession(
     transport,
-    patientName,
     objectUrls ? { objectUrls } : undefined,
   );
   const isMobile = useMediaQuery('(max-width: 900px)');
   const [mobilePane, setMobilePane] = useState<MobilePane>(() => historyPane(window.history.state));
   const [uncontrolledId, setUncontrolledId] = useState(
-    () => (compact ? LIVE_CONVERSATION_ID : historyConversationId(window.history.state)) ?? LIVE_CONVERSATION_ID,
+    () => resolveConversationId(historyConversationId(window.history.state)),
   );
   const [draft, setDraft] = useState('');
   const [pendingAttachment, setPendingAttachment] = useState<ValidAttachment | null>(null);
@@ -56,15 +56,14 @@ export function ChatPanel({
   const chatRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLElement>(null);
   const controlled = selectedConversationIdProp !== undefined;
-  const selectedConversationId = selectedConversationIdProp ?? uncontrolledId;
-  const live = isLiveConversation(selectedConversationId);
-  const liveVisible = live && (compact || !isMobile || mobilePane === 'chat');
+  const selectedConversationId = resolveConversationId(selectedConversationIdProp ?? uncontrolledId);
+  const liveVisible = !isMobile || mobilePane === 'chat';
   const conversation = conversationById(selectedConversationId);
-  const messages = live ? state.messages : conversation.transcript;
-  const typing = live ? state.typing : { isTyping: false, actorName: '' };
-  const disabled = state.connection !== 'connected' || state.ended;
+  const messages = state.messages;
+  const typing = state.typing;
+  const disabled = state.connection !== 'connected';
   const preview = lastPreview(state.messages);
-  const showBack = !compact && isMobile && mobilePane === 'chat';
+  const showBack = isMobile && mobilePane === 'chat';
   const hadConnected = useRef(false);
   const seenLiveCount = useRef(0);
   const unseenBaselineReady = useRef(false);
@@ -79,7 +78,7 @@ export function ChatPanel({
     messages: state.messages,
     unseen: unseenLive,
     hadConnected: hadConnected.current,
-    failedUpload: !state.ended && Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
+    failedUpload: Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
   });
   const announcement = liveActivityAnnouncement(activity, liveVisible);
   const pendingFocus = useRef<PendingFocus | null>(null);
@@ -105,7 +104,7 @@ export function ChatPanel({
   }, []);
 
   const { dragging } = useFileDrop(chatRef, {
-    enabled: live && !disabled && !pendingAttachment,
+    enabled: !disabled && !pendingAttachment,
     onFiles: handleFiles,
     surface: shellRef,
   });
@@ -113,9 +112,6 @@ export function ChatPanel({
   selectedIdRef.current = selectedConversationId;
 
   useEffect(() => {
-    if (compact) {
-      return;
-    }
     if (!historyReady.current) {
       historyReady.current = true;
       writeHistory(mobilePane, selectedConversationId, 'replace');
@@ -124,7 +120,7 @@ export function ChatPanel({
       const pane = historyPane(event.state);
       const conversationId = historyConversationId(event.state);
       if (conversationId) {
-        assignConversation(conversationId);
+        assignConversation(resolveConversationId(conversationId));
       }
       setMobilePane(pane);
       if (isMobileRef.current) {
@@ -135,7 +131,7 @@ export function ChatPanel({
     return () => {
       window.removeEventListener('popstate', onPop);
     };
-  }, [compact, mobilePane, selectedConversationId]);
+  }, [mobilePane, selectedConversationId]);
 
   useEffect(() => {
     const target = pendingFocus.current;
@@ -176,32 +172,31 @@ export function ChatPanel({
   }, [liveVisible, state.messages.length, state.connection]);
 
   function assignConversation(id: string) {
-    if (id !== selectedIdRef.current) {
+    const nextId = resolveConversationId(id);
+    if (nextId !== selectedIdRef.current) {
       setPendingAttachment(null);
       setAttachError(null);
       setViewer(null);
     }
     if (!controlledRef.current) {
-      setUncontrolledId(id);
+      setUncontrolledId(nextId);
     }
-    onSelectRef.current?.(id);
+    onSelectRef.current?.(nextId);
   }
 
   function selectConversation(id: string) {
     assignConversation(id);
-    const nextPane: MobilePane = !compact && isMobile ? 'chat' : mobilePane;
+    const nextPane: MobilePane = isMobile ? 'chat' : mobilePane;
     setMobilePane(nextPane);
-    if (!compact) {
-      const currentPane = historyPane(window.history.state);
-      const currentId = historyConversationId(window.history.state);
-      if (isMobile && currentPane === 'list' && nextPane === 'chat') {
-        writeHistory('list', id, 'replace');
-        writeHistory('chat', id, 'push');
-      } else if (currentPane !== nextPane || currentId !== id) {
-        writeHistory(nextPane, id, 'push');
-      }
+    const currentPane = historyPane(window.history.state);
+    const currentId = historyConversationId(window.history.state);
+    if (isMobile && currentPane === 'list' && nextPane === 'chat') {
+      writeHistory('list', id, 'replace');
+      writeHistory('chat', id, 'push');
+    } else if (currentPane !== nextPane || currentId !== id) {
+      writeHistory(nextPane, id, 'push');
     }
-    if (!compact && isMobile) {
+    if (isMobile) {
       pendingFocus.current = 'chat';
     }
   }
@@ -249,12 +244,12 @@ export function ChatPanel({
   }, [restoreViewerFocus]);
 
   function backToList() {
-    if (!compact && isMobile && historyPane(window.history.state) === 'chat') {
+    if (isMobile && historyPane(window.history.state) === 'chat') {
       window.history.back();
       return;
     }
     setMobilePane('list');
-    if (!compact && isMobile) {
+    if (isMobile) {
       pendingFocus.current = 'list';
     }
   }
@@ -274,53 +269,32 @@ export function ChatPanel({
     restoreViewerFocus(viewerOpener.current);
   }, [openImage, restoreViewerFocus]);
 
+  const emptyThread = messages.length === 0 && !typing.isTyping;
+
   return (
-    <section
-      ref={shellRef}
-      className={`wa-shell${compact ? ' wa-compact' : ''}`}
-      data-mobile-pane={compact ? 'chat' : mobilePane}
-      aria-label="Conversa com o ICS"
-    >
+    <section ref={shellRef} className="wa-shell" data-mobile-pane={mobilePane} aria-label="Conversa">
       <div className="sr-only" aria-live="polite" aria-atomic="true" data-live-announcer>
         {announcement}
       </div>
-      {compact ? null : (
-        <Sidebar
-          preview={preview}
-          selectedConversationId={selectedConversationId}
-          liveActivity={activity}
-          onSelect={selectConversation}
-        />
-      )}
+      <Sidebar
+        preview={preview}
+        selectedConversationId={selectedConversationId}
+        liveActivity={activity}
+        onSelect={selectConversation}
+      />
       <div className="wa-chat" ref={chatRef}>
         <ChatHeader
           title={conversation.title}
           connection={state.connection}
           typing={typing}
-          readOnly={!live}
-          headingLevel={compact ? 'h1' : 'h2'}
           unseenLive={unseenLive}
-          {...(onClose ? { onClose } : {})}
           {...(showBack ? { onBack: backToList } : {})}
         />
-        {!live && unseenLive ? (
-          <div className="session-banner session-banner-unseen">
-            <p>Nova mensagem no ICS Pré-atendimento</p>
-          </div>
-        ) : null}
-        {conversation.demo ? (
-          <div className="session-banner session-banner-demo" role="note">
-            <p>Conversa fictícia para demonstração. Não é o seu histórico clínico.</p>
-          </div>
-        ) : null}
         <MessageList
           messages={messages}
           typing={typing}
-          menu={live ? state.menu : []}
-          menuDisabled={!live || disabled}
-          onMenuSelect={sendMenuOption}
           onRetry={retry}
-          sessionEnded={live && state.ended}
+          empty={emptyThread}
           hidden={Boolean(pendingAttachment)}
           uploads={state.uploads}
           onCancelUpload={handleCancelUpload}
@@ -334,7 +308,7 @@ export function ChatPanel({
             Solte o arquivo para anexar
           </div>
         ) : null}
-        {live && attachError ? (
+        {attachError ? (
           <div className="session-banner session-banner-error" role="alert">
             <p>{attachError}</p>
             <button
@@ -347,7 +321,7 @@ export function ChatPanel({
             </button>
           </div>
         ) : null}
-        {live && state.error ? (
+        {state.error ? (
           <div className="session-banner session-banner-error" role="alert">
             <p>{state.error}</p>
             <button type="button" onClick={reconnect}>
@@ -355,17 +329,7 @@ export function ChatPanel({
             </button>
           </div>
         ) : null}
-        {live && state.ended ? (
-          <div className="session-banner">
-            <p>
-              <strong>Atendimento encerrado</strong>. Toque para iniciar um novo.
-            </p>
-            <button type="button" onClick={restart}>
-              Iniciar novo atendimento
-            </button>
-          </div>
-        ) : null}
-        {live && pendingAttachment ? (
+        {pendingAttachment ? (
           <AttachmentPreview
             attachment={pendingAttachment}
             initialCaption={draft}
@@ -382,12 +346,8 @@ export function ChatPanel({
               closePreview();
             }}
           />
-        ) : live ? (
-          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} onPickFiles={handleFiles} />
         ) : (
-          <div className="session-banner">
-            <p>Atendimento encerrado · somente leitura</p>
-          </div>
+          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} onPickFiles={handleFiles} />
         )}
         <ImageViewer image={openImage} onClose={closeViewer} />
       </div>
@@ -429,5 +389,5 @@ function lastPreview(messages: ChatMessage[]): string {
       return line.length > 42 ? `${line.slice(0, 41)}…` : line;
     }
   }
-  return 'ICS Pré-atendimento';
+  return 'Nenhuma mensagem ainda';
 }

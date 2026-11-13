@@ -3,8 +3,8 @@ import { previewOf, type ChatMessage, type TextMessage } from './message';
 const base = {
   id: '1',
   conversationId: 'c',
-  direction: 'bot' as const,
-  author: { id: 'b', name: 'Bot' },
+  direction: 'agent' as const,
+  author: { id: 'a', name: 'Colega' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'delivered' as const,
 };

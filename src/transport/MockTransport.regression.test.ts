@@ -3,22 +3,28 @@ import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { SessionAbortedError } from './abort';
 import { MockTransport } from './MockTransport';
 
-const delays = { typingMs: 10, replyMs: 10, sentMs: 30, deliveredMs: 30, readMs: 30, uploadChunkMs: 0 };
-const conn = (conversationId: string) => ({ conversationId, patientName: 'Ana' });
+const delays = { connectMs: 10, sentMs: 30, deliveredMs: 30, readMs: 30, uploadChunkMs: 0 };
+const conn = (conversationId: string) => ({ conversationId });
 const file = () => new File(['x'], 'x.png', { type: 'image/png' });
-const request = () => ({ clientId: 'up', file: file(), fileName: 'x.png', mimeType: 'image/png', signal: new AbortController().signal, onProgress: () => {} });
+const request = () => ({
+  clientId: 'up',
+  file: file(),
+  fileName: 'x.png',
+  mimeType: 'image/png',
+  signal: new AbortController().signal,
+  onProgress: () => {},
+});
 
 describe('isolamento de operações entre sessões', () => {
   it.each([false, true])('não envia texto enfileirado à conversa nova (stop=%s)', async (stop) => {
     const transport = new MockTransport({ delays });
     const session = new ChatSession(transport, { createId: () => 'old' });
-    const first = session.start('Ana', 'c1');
-    const sending = session.send({ type: 'text', text: '0' });
+    const first = session.start('c1');
+    const sending = session.send({ type: 'text', text: 'oi' });
     if (stop) session.stop();
-    const next = session.start('Ana', 'c2');
+    const next = session.start('c2');
     await Promise.all([first, sending, next]);
     await new Promise((resolve) => setTimeout(resolve, 140));
-    expect(session.getState().ended).toBe(false);
     expect(session.getState().messages.some((message) => message.clientId === 'old')).toBe(false);
     session.stop();
   });
@@ -56,7 +62,7 @@ describe('isolamento de operações entre sessões', () => {
       if (event.type === 'message' && event.message.clientId) events.push(event.message.clientId);
     });
     const first = transport.connect(conn('c1')).catch(() => {});
-    const send = transport.send({ clientId: 'old', payload: { type: 'text', text: '0' } });
+    const send = transport.send({ clientId: 'old', payload: { type: 'text', text: 'oi' } });
     const upload = transport.upload(request());
     const rejectedSend = expect(send).rejects.toBeInstanceOf(SessionAbortedError);
     const rejectedUpload = expect(upload).rejects.toBeInstanceOf(SessionAbortedError);
@@ -74,7 +80,7 @@ describe('isolamento de operações entre sessões', () => {
     transport.subscribe((event) => {
       if (event.type === 'message' && event.message.clientId === 'msg-1') echoes.push(event.message.id);
     });
-    await session.start('Ana', 'c1');
+    await session.start('c1');
     await session.send({ type: 'text', text: '1' });
     await transport.connect(conn('c1'));
     await new Promise((resolve) => setTimeout(resolve, 150));

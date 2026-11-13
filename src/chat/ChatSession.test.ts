@@ -7,18 +7,17 @@ import { MockTransport } from '../transport/MockTransport';
 import { ChatSession } from './ChatSession';
 
 const instant = {
-  typingMs: 0,
+  connectMs: 0,
   sentMs: 0,
   deliveredMs: 0,
   readMs: 0,
-  replyMs: 0,
 };
 
 function textMessage(partial: Partial<TextMessage> & Pick<TextMessage, 'id' | 'text'>): TextMessage {
   return {
     conversationId: 'c1',
-    direction: 'bot',
-    author: { id: 'bot', name: 'Bot' },
+    direction: 'agent',
+    author: { id: 'agent', name: 'Colega' },
     timestamp: '2026-11-10T12:00:00.000Z',
     status: 'delivered',
     type: 'text',
@@ -27,16 +26,9 @@ function textMessage(partial: Partial<TextMessage> & Pick<TextMessage, 'id' | 't
 }
 
 describe('ChatSession', () => {
-  it('expõe o menu da última mensagem do bot', async () => {
-    const session = new ChatSession(new MockTransport({ delays: instant }));
-    await session.start('João');
-    expect(session.getState().menu).toHaveLength(5);
-    expect(session.getState().messages[0]?.direction).toBe('bot');
-  });
-
   it('atualiza o status da mensagem enviada', async () => {
     const session = new ChatSession(new MockTransport({ delays: instant }), { createId: () => 'local-1' });
-    await session.start('João');
+    await session.start('c1');
     await session.send({ type: 'text', text: 'oi' });
     await vi.waitFor(() => {
       expect(session.getState().messages.find((message) => message.direction === 'client')?.status).toBe('read');
@@ -46,7 +38,7 @@ describe('ChatSession', () => {
   it('deduplica replay e não regride status, salvo erro', () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport);
-    void session.start('João', 'c1');
+    void session.start('c1');
     const first: ChatMessage = textMessage({
       id: 'm1',
       clientId: 'c1',
@@ -67,7 +59,7 @@ describe('ChatSession', () => {
   it('guarda status que chega antes da mensagem', () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport);
-    void session.start('João', 'c1');
+    void session.start('c1');
     transport.emit({ type: 'status', messageId: 'late', clientId: 'late', status: 'delivered' });
     expect(session.getState().messages).toHaveLength(0);
     transport.emit({
@@ -81,7 +73,7 @@ describe('ChatSession', () => {
   it('associa clientId e id do servidor e mescla pendências pelo maior rank', () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport);
-    void session.start('João', 'c1');
+    void session.start('c1');
     transport.emit({ type: 'status', messageId: 'srv-1', status: 'read' });
     transport.emit({ type: 'status', messageId: 'cid-1', clientId: 'cid-1', status: 'sent' });
     transport.emit({
@@ -102,21 +94,11 @@ describe('ChatSession', () => {
     expect(session.getState().messages[0]?.status).toBe('read');
   });
 
-  it('encerra o atendimento e limpa o menu', async () => {
-    const session = new ChatSession(new MockTransport({ delays: instant }));
-    await session.start('João');
-    await session.send({ type: 'text', text: '0' });
-    await vi.waitFor(() => {
-      expect(session.getState().ended).toBe(true);
-    });
-    expect(session.getState().menu).toEqual([]);
-  });
-
   it('marca erro de connect e de send sem perder o texto', async () => {
     const transport = new ScriptedTransport();
     transport.failConnect = true;
     const session = new ChatSession(transport, { createId: () => 'cid-1' });
-    await session.start('João', 'c1');
+    await session.start('c1');
     expect(session.getState().connection).toBe('error');
     expect(session.getState().error).toMatch(/conectar/i);
 
@@ -148,7 +130,7 @@ describe('ChatSession', () => {
   it('reconectar preserva histórico e mensagem em erro', async () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport, { createId: () => 'keep-1' });
-    await session.start('João', 'c1');
+    await session.start('c1');
     transport.failSend = true;
     await session.send({ type: 'text', text: 'não apague' });
     expect(session.getState().messages.some((message) => message.status === 'error')).toBe(true);
@@ -164,21 +146,21 @@ describe('ChatSession', () => {
     expect(session.getState().error).toBeNull();
   });
 
-  it('iniciar novo atendimento limpa as mensagens', async () => {
+  it('um novo start limpa as mensagens', async () => {
     const session = new ChatSession(new MockTransport({ delays: instant }));
-    await session.start('João');
+    await session.start('c1');
     await session.send({ type: 'text', text: '1' });
-    await session.start('João');
+    await session.start('c1');
     expect(session.getState().messages.every((message) => message.direction !== 'client')).toBe(true);
   });
 
   it('ignora rejeição tardia de send após restart e após unmount', async () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport, { createId: () => 'old-1' });
-    await session.start('João', 'c1');
+    await session.start('c1');
     transport.holdSend = true;
     const first = session.send({ type: 'text', text: 'antiga' });
-    await session.start('João', 'c2');
+    await session.start('c2');
     transport.rejectHeld();
     await first;
     expect(session.getState().error).toBeNull();
@@ -198,7 +180,7 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     transport.failSend = true;
     const session = new ChatSession(transport, { createId: () => 'img-1' });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.send({ type: 'image', mimeType: 'image/jpeg', url: 'blob:preview', caption: 'rx' });
     expect(transport.sent[0]?.payload).toEqual({
       type: 'image',
@@ -214,7 +196,7 @@ describe('ChatSession', () => {
   it('ignora eventos da sessão anterior após stop', async () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport);
-    await session.start('João', 'old');
+    await session.start('old');
     session.stop();
     transport.emit({
       type: 'message',
@@ -229,7 +211,7 @@ describe('ChatSession', () => {
       new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls }),
       { createId: () => 'img-1', objectUrls: urls },
     );
-    await session.start('João');
+    await session.start('c1');
     const createdBefore = urls.created.length;
     await session.sendAttachment(mustAttach('rx.png', 'image/png', 40), 'exame');
     const image = session.getState().messages.find((message) => message.type === 'image');
@@ -249,7 +231,7 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     transport.holdUpload = true;
     const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const sending = session.sendAttachment(mustAttach('rx.png', 'image/png', 100));
     const optimistic = session.getState().messages.find((message) => message.type === 'image');
     expect(optimistic?.status).toBe('sending');
@@ -282,7 +264,7 @@ describe('ChatSession', () => {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     expect(session.getState().messages.find((message) => message.type === 'image')?.status).toBe('error');
     expect(session.getState().uploads['img-1']?.phase).toBe('failed');
@@ -299,7 +281,7 @@ describe('ChatSession', () => {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(attachment);
     transport.failUpload = false;
     await session.retry('img-1');
@@ -319,7 +301,7 @@ describe('ChatSession', () => {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('exame.png', 'image/png', 12), 'rx');
     expect(transport.uploads).toHaveLength(1);
     expect(session.getState().error).toMatch(/enviar/i);
@@ -339,7 +321,7 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     transport.holdUpload = true;
     const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
     session.cancelUpload('img-1');
@@ -355,7 +337,7 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     transport.failUpload = true;
     const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     session.cancelUpload('img-1');
     expect(session.getState().messages.some((message) => message.type === 'image')).toBe(false);
@@ -364,7 +346,7 @@ describe('ChatSession', () => {
 
   it('cancelUpload sem entrada é no-op', async () => {
     const session = new ChatSession(new ScriptedTransport(), { objectUrls: createFakeObjectUrls() });
-    await session.start('João', 'c1');
+    await session.start('c1');
     session.cancelUpload('inexistente');
     expect(session.getState().messages).toHaveLength(0);
   });
@@ -376,7 +358,7 @@ describe('ChatSession', () => {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const first = session.sendAttachment(mustAttach('exame.png', 'image/png', 100));
     transport.rejectUpload(0, new Error('falha 1'));
     await first;
@@ -394,9 +376,9 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     transport.holdUpload = true;
     const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
-    await session.start('João', 'c2');
+    await session.start('c2');
     expect(session.getState().uploads).toEqual({});
     expect(urls.revoked.length).toBeGreaterThan(0);
     await sending;
@@ -415,7 +397,7 @@ describe('ChatSession', () => {
       objectUrls: urls,
     });
     const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     const image = session.getState().messages.find((message) => message.type === 'image');
     expect(image?.type).toBe('image');
@@ -424,42 +406,41 @@ describe('ChatSession', () => {
     }
     const remoteUrl = image.url;
     expect(urls.revoked).not.toContain(remoteUrl);
-    await transport.connect({ conversationId: 'c1', patientName: 'João' });
+    await transport.connect({ conversationId: 'c1' });
     expect(urls.revoked).not.toContain(remoteUrl);
     expect(session.getState().messages.find((message) => message.type === 'image')).toMatchObject({
       url: remoteUrl,
     });
-    await session.start('João', 'c2');
+    await session.start('c2');
     expect(urls.revoked).toContain(remoteUrl);
   });
 
-  it('SessionAbortedError no upload sem ended não deixa a bolha em enviando', async () => {
+  it('SessionAbortedError no upload não deixa a bolha em enviando', async () => {
     const transport = new ScriptedTransport();
     transport.holdUpload = true;
     const session = new ChatSession(transport, {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     expect(session.getState().messages.find((message) => message.type === 'image')?.status).toBe('sending');
     transport.rejectUpload(0, new SessionAbortedError());
     await sending;
-    expect(session.getState().ended).toBe(false);
     const image = session.getState().messages.find((message) => message.type === 'image');
     expect(image).toBeDefined();
     expect(image?.status).toBe('error');
     expect(session.getState().uploads['img-1']?.phase).toBe('failed');
   });
 
-  it('retry após SessionAbortedError sem ended não duplica a mensagem e reusa o clientId', async () => {
+  it('retry após SessionAbortedError não duplica a mensagem e reusa o clientId', async () => {
     const transport = new ScriptedTransport();
     transport.holdUpload = true;
     const session = new ChatSession(transport, {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     transport.rejectUpload(0, new SessionAbortedError());
     await sending;
@@ -482,17 +463,16 @@ describe('ChatSession', () => {
       objectUrls: urls,
     });
     const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    const starting = session.start('João', 'c1');
+    const starting = session.start('c1');
     await vi.runAllTimersAsync();
     await starting;
     const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     await vi.advanceTimersByTimeAsync(20);
     expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
-    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'João' });
+    const reconnecting = transport.connect({ conversationId: 'c1' });
     await vi.runAllTimersAsync();
     await sending;
     await reconnecting;
-    expect(session.getState().ended).toBe(false);
     const image = session.getState().messages.find((message) => message.type === 'image');
     expect(image).toBeDefined();
     expect(image?.status).toBe('read');
@@ -507,41 +487,13 @@ describe('ChatSession', () => {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     await session.reconnect();
     expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
     transport.resolveUpload(0, 'blob:remote/1');
     await sending;
     expect(transport.sent[0]?.payload).toMatchObject({ type: 'image', url: 'blob:remote/1' });
-  });
-
-  it('ended durante upload aborta e não dispara send da mídia', async () => {
-    const urls = createFakeObjectUrls();
-    const transport = new ScriptedTransport();
-    transport.holdUpload = true;
-    const session = new ChatSession(transport, { createId: () => 'img-1', objectUrls: urls });
-    await session.start('João', 'c1');
-    const sending = session.sendAttachment(mustAttach('exame.png', 'image/png', 12), 'rx');
-    expect(session.getState().uploads['img-1']?.phase).toBe('uploading');
-    transport.emit({ type: 'ended', conversationId: 'c1' });
-    expect(session.getState().ended).toBe(true);
-    expect(session.getState().uploads).toEqual({});
-    expect(session.getState().messages.some((message) => message.type === 'image')).toBe(false);
-    expect(transport.uploads[0]?.signal.aborted).toBe(true);
-    transport.resolveUpload(0, 'blob:remote/1');
-    await sending;
-    expect(transport.sent.some((item) => item.payload.type !== 'text')).toBe(false);
-    expect(urls.revoked).toContain('blob:fake/1');
-  });
-
-  it('ended torna sendAttachment no-op', async () => {
-    const transport = new ScriptedTransport();
-    const session = new ChatSession(transport, { objectUrls: createFakeObjectUrls() });
-    await session.start('João', 'c1');
-    transport.emit({ type: 'ended', conversationId: 'c1' });
-    await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
-    expect(transport.uploads).toHaveLength(0);
   });
 
   it('ignora rejeição tardia de retry depois de stop', async () => {
@@ -551,7 +503,7 @@ describe('ChatSession', () => {
       createId: () => 'img-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     transport.failSend = false;
     transport.holdSend = true;
@@ -567,7 +519,7 @@ describe('ChatSession', () => {
       new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: createFakeObjectUrls() }),
       { createId: () => 'img-1', objectUrls: createFakeObjectUrls() },
     );
-    await session.start('João');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('exame.png', 'image/png', 12));
     const image = session.getState().messages.find((message) => message.type === 'image');
     expect(image?.status).toBe('read');
@@ -580,7 +532,7 @@ describe('ChatSession', () => {
       createId: () => 'doc-1',
       objectUrls: createFakeObjectUrls(),
     });
-    await session.start('João', 'c1');
+    await session.start('c1');
     await session.sendAttachment(mustAttach('guia.pdf', 'application/pdf', 80), 'ignorada');
     expect(transport.sent[0]?.payload).toEqual({
       type: 'document',

@@ -1,19 +1,16 @@
 import { expect, test } from '@playwright/test';
-import { isPageProject, isWidgetProject } from './project';
 
 const GRAY = 'rgb(209, 215, 219)';
 
 test.describe('tela cheia no modo página', () => {
-  test('o .wa-shell preenche o viewport sem faixa cinza nem scroll horizontal', async ({ page }, testInfo) => {
-    test.skip(!isPageProject(testInfo), 'só no modo página');
-
+  test('o .wa-shell preenche o viewport sem faixa cinza nem scroll horizontal', async ({ page }) => {
     const viewport = page.viewportSize();
     expect(viewport).not.toBeNull();
     if (!viewport) {
       return;
     }
 
-    await page.goto('/?nome=Maria%20Silva');
+    await page.goto('/');
     const shell = page.locator('.wa-shell');
     await expect(shell).toBeVisible();
 
@@ -49,7 +46,7 @@ test.describe('tela cheia no modo página', () => {
 
     for (const width of [900, 1024, 3840]) {
       await page.setViewportSize({ width, height: 1080 });
-      await page.goto('/?nome=Maria%20Silva');
+      await page.goto('/');
       const shell = page.locator('.wa-shell');
       await expect(shell).toBeVisible();
       const box = await shell.boundingBox();
@@ -71,21 +68,3 @@ test.describe('tela cheia no modo página', () => {
   });
 });
 
-test.describe('widget', () => {
-  test('o quadro do widget permanece 380×640', async ({ page }, testInfo) => {
-    test.skip(!isWidgetProject(testInfo), 'só no projeto widget');
-
-    await page.goto('/?modo=widget');
-    await page.getByRole('button', { name: /Abrir chat de atendimento/ }).click();
-    const frame = page.locator('.widget-frame');
-    await expect(frame).toBeVisible();
-    const box = await frame.boundingBox();
-    expect(box).not.toBeNull();
-    if (!box) {
-      return;
-    }
-    expect(Math.abs(box.width - 380)).toBeLessThanOrEqual(1);
-    expect(Math.abs(box.height - 640)).toBeLessThanOrEqual(1);
-    await expect(page.locator('.wa-sidebar')).toHaveCount(0);
-  });
-});
