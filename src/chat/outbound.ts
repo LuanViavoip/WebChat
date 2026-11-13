@@ -1,22 +1,25 @@
 import { acceptsCaption, clampCaption, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage, MessageAuthor, MessageStatus } from '../domain/message';
+import type { ConversationId } from '../domain/conversation';
 import type { OutboundPayload } from '../transport/ChatTransport';
+import { LOCAL_TENANT_ID, LOCAL_USER_ID } from './localIdentity';
 
-const CLIENT_AUTHOR: MessageAuthor = { id: 'client', name: 'Você' };
+const LOCAL_AUTHOR: MessageAuthor = { id: LOCAL_USER_ID, name: 'Você' };
 
 export function messageFromPayload(
   clientId: string,
-  conversationId: string,
+  conversationId: ConversationId,
   payload: OutboundPayload,
   timestamp: string,
   status: MessageStatus,
 ): ChatMessage {
   const base = {
     id: clientId,
+    tenantId: LOCAL_TENANT_ID,
     conversationId,
     clientId,
-    direction: 'client' as const,
-    author: CLIENT_AUTHOR,
+    authorId: LOCAL_USER_ID,
+    author: LOCAL_AUTHOR,
     timestamp,
     status,
   };

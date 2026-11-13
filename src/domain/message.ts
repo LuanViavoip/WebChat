@@ -1,9 +1,12 @@
-export type MessageSender = 'client' | 'agent' | 'system';
+import type { ConversationId } from './conversation';
+import type { UserId } from './identity';
+import type { TenantId } from './tenant';
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'error';
 
 export type MessageKind = 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker';
 
+/** Nome para exibição (snapshot). Quem é o autor de verdade é `authorId`. */
 export type MessageAuthor = {
   id: string;
   name: string;
@@ -11,9 +14,10 @@ export type MessageAuthor = {
 
 type MessageBase = {
   id: string;
-  conversationId: string;
+  tenantId: TenantId;
+  conversationId: ConversationId;
   clientId?: string;
-  direction: MessageSender;
+  authorId: UserId;
   author: MessageAuthor;
   timestamp: string;
   status: MessageStatus;

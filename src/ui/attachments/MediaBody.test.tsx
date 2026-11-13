@@ -2,11 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '../../domain/message';
 import { MediaBody } from './MediaBody';
+import { LOCAL_TENANT_ID, LOCAL_USER_ID } from '../../chat/localIdentity';
+import { asConversationId } from '../../domain/conversation';
 
 const base = {
   id: 'm1',
-  conversationId: 'c',
-  direction: 'client' as const,
+  tenantId: LOCAL_TENANT_ID,
+  conversationId: asConversationId('c'),
+  authorId: LOCAL_USER_ID,
   author: { id: 'client', name: 'Você' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'sent' as const,

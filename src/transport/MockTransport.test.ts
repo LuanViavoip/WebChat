@@ -2,6 +2,7 @@ import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { SessionAbortedError, UploadCanceledError, UploadFailedError } from './abort';
 import type { ChatEvent, ChatTransport, UploadProgress } from './ChatTransport';
 import { MockTransport } from './MockTransport';
+import { LOCAL_USER_ID } from '../chat/localIdentity';
 
 function collect(transport: MockTransport): ChatEvent[] {
   const events: ChatEvent[] = [];
@@ -58,7 +59,7 @@ describe('MockTransport', () => {
       expect(events.filter((event) => event.type === 'status')).toHaveLength(3);
     });
 
-    const client = events.find((event) => event.type === 'message' && event.message.direction === 'client');
+    const client = events.find((event) => event.type === 'message' && event.message.authorId === LOCAL_USER_ID);
     expect(client?.type).toBe('message');
     if (client?.type !== 'message') {
       throw new Error('esperava mensagem do cliente');
@@ -70,7 +71,7 @@ describe('MockTransport', () => {
     expect(statuses).toEqual(['sent', 'delivered', 'read']);
     expect(events.filter((event) => event.type === 'message')).toHaveLength(1);
     expect(
-      events.some((event) => event.type === 'message' && event.message.direction !== 'client'),
+      events.some((event) => event.type === 'message' && event.message.authorId !== LOCAL_USER_ID),
     ).toBe(false);
   });
 
@@ -137,7 +138,7 @@ describe('MockTransport', () => {
     void sendText(transport, '1', 'a');
     void sendText(transport, '2', 'b');
     const clientIds = events
-      .filter((event) => event.type === 'message' && event.message.direction === 'client')
+      .filter((event) => event.type === 'message' && event.message.authorId === LOCAL_USER_ID)
       .map((event) => (event.type === 'message' ? event.message.id : ''));
     expect(clientIds).toEqual(['a', 'b']);
 
@@ -340,7 +341,7 @@ describe('MockTransport', () => {
     await vi.waitFor(() => {
       expect(events.filter((event) => event.type === 'status' && event.status === 'read')).toHaveLength(1);
     });
-    const client = events.find((event) => event.type === 'message' && event.message.direction === 'client');
+    const client = events.find((event) => event.type === 'message' && event.message.authorId === LOCAL_USER_ID);
     expect(client?.type).toBe('message');
     if (client?.type !== 'message' || client.message.type !== 'image') {
       throw new Error('esperava imagem');

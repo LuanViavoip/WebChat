@@ -8,9 +8,10 @@ Este documento descreve o formato **interno** do ChatWeb. Ainda não há acesso 
 | --- | --- | --- |
 | `id` | string | Identificador da mensagem. No envio do cliente, começa igual ao `clientId`. |
 | `clientId` | string (opcional) | Id estável gerado **no cliente** antes do round-trip. Confirmações de status correlacionam por `clientId` ou `id`. |
-| `conversationId` | string | Conversa / ticket. A UI inicia a sessão com o id fixo `conversa-teste`. `start(id)` inicia uma sessão e limpa as mensagens; sem argumento, `start()` gera um novo id. Para reconectar preservando o histórico, use `reconnect()`. O mock preserva as URLs de mídia ao reconectar na mesma conversa e as revoga ao mudar de conversa ou desconectar. |
-| `direction` | `client` \| `agent` \| `system` | Quem originou. No cliente web, `client` alinha à direita. `authorId` entra na Etapa 4. |
-| `author` | `{ id, name }` | Exibição. |
+| `tenantId` | `TenantId` (branded) | Empresa dona da mensagem. Toda entidade de domínio carrega o tenant; o servidor nunca entrega uma mensagem a quem é de outro tenant. |
+| `conversationId` | `ConversationId` (branded) | Conversa. Direta: `dm:${tenantId}:${menor}:${maior}`. A UI inicia a sessão com o id fixo `conversa-teste`. `start(id)` inicia uma sessão e limpa as mensagens; sem argumento, `start()` gera um novo id. Para reconectar preservando o histórico, use `reconnect()`. O mock preserva as URLs de mídia ao reconectar na mesma conversa e as revoga ao mudar de conversa ou desconectar. |
+| `authorId` | `UserId` (branded) | Quem escreveu. Substitui `direction`: a UI alinha à direita as mensagens em que `authorId` é o usuário logado. |
+| `author` | `{ id, name }` | Nome para exibição (snapshot). Quem é o autor de verdade é `authorId`; a UI passará a derivar o nome do diretório. |
 | `timestamp` | string ISO-8601 | Relógio do emissor. |
 | `status` | `sending` \| `sent` \| `delivered` \| `read` \| `error` | Ticks estilo WhatsApp. Só avança (`sending→sent→delivered→read`); `error` pode aplicar a qualquer momento. Status que chega antes da mensagem fica pendente. |
 | `type` | união discriminada | Ver abaixo. |
@@ -130,7 +131,7 @@ Implementação atual: `MockTransport`. Uma implementação SM/WhatsApp deve res
 ## Pendências de alinhamento com o SM
 
 - Nomes de campos do payload oficial do canal WhatsApp
-- Mapeamento inbound/outbound vs. `direction`
+- Mapeamento inbound/outbound vs. `authorId`
 - Troca de `clientId` por id do servidor quando o canal atribuir um id definitivo
 - IDs de mídia / storage: endpoint real de `upload`, se devolve URL ou media id, expiração da URL (a Cloud API expira download em minutos)
 - Limites e formatos reais do SM (a tabela acima segue a Cloud API pública)

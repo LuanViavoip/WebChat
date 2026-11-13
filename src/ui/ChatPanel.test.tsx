@@ -7,6 +7,8 @@ import { stubDesktopMatchMedia, stubMobileMatchMedia } from '../test/matchMedia'
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
 import { ChatPanel } from './ChatPanel';
+import { LOCAL_TENANT_ID, PEER_USER_ID } from '../chat/localIdentity';
+import { asConversationId } from '../domain/conversation';
 
 const instant = {
   connectMs: 0,
@@ -51,8 +53,9 @@ function liveRoles(): Array<string | null> {
 function incomingText(conversationId: string, id: string, text: string): TextMessage {
   return {
     id,
-    conversationId,
-    direction: 'agent',
+    tenantId: LOCAL_TENANT_ID,
+    conversationId: asConversationId(conversationId),
+    authorId: PEER_USER_ID,
     author: { id: 'agent-1', name: 'Colega' },
     timestamp: new Date().toISOString(),
     status: 'delivered',

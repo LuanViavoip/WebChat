@@ -1,3 +1,4 @@
+import { asConversationId } from '../domain/conversation';
 import type { ChatMessage } from '../domain/message';
 import { messageFromPayload } from '../chat/outbound';
 import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from './abort';
@@ -204,7 +205,7 @@ export class MockTransport implements ChatTransport {
     const conversationEpoch = this.conversationEpoch;
     const message = messageFromPayload(
       request.clientId,
-      this.conversationId,
+      asConversationId(this.conversationId),
       request.payload,
       this.now(),
       'sending',

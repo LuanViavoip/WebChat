@@ -1,4 +1,5 @@
 import { type ValidAttachment } from '../domain/attachment';
+import { asConversationId } from '../domain/conversation';
 import type { ChatMessage, MessageStatus } from '../domain/message';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import type {
@@ -130,7 +131,7 @@ export class ChatSession {
     const generation = this.generation;
     const clientId = this.createId();
     this.aliases.link(clientId, clientId);
-    this.upsertMessage(messageFromPayload(clientId, this.conversationId, normalized, this.now(), 'sending'));
+    this.upsertMessage(messageFromPayload(clientId, asConversationId(this.conversationId), normalized, this.now(), 'sending'));
     this.emit();
     await this.dispatchSend(clientId, normalized, generation);
   }
@@ -140,7 +141,7 @@ export class ChatSession {
     const previewUrl = this.objectUrls.create(attachment.file);
     const payload = payloadForAttachment(attachment, previewUrl, caption);
     this.aliases.link(clientId, clientId);
-    this.upsertMessage(messageFromPayload(clientId, this.conversationId, payload, this.now(), 'sending'));
+    this.upsertMessage(messageFromPayload(clientId, asConversationId(this.conversationId), payload, this.now(), 'sending'));
     this.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
     this.emit();
     await this.runUpload(clientId);

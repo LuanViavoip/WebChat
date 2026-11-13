@@ -2,12 +2,14 @@ import { useEffect, useRef } from 'react';
 import type { TypingState } from '../chat/ChatSession';
 import { formatDateSeparator, isSameCalendarDay } from '../chat/dates';
 import type { UploadView } from '../chat/uploads';
+import type { UserId } from '../domain/identity';
 import type { ChatMessage } from '../domain/message';
 import type { OpenImage } from './attachments/MediaBody';
 import { MessageBubble } from './MessageBubble';
 
 export function MessageList({
   messages,
+  selfId,
   typing,
   onRetry,
   hidden = false,
@@ -17,6 +19,8 @@ export function MessageList({
   onOpenImage,
 }: {
   messages: ChatMessage[];
+  /** Quem está logado: as mensagens dele ficam à direita. */
+  selfId: UserId;
   typing: TypingState;
   onRetry?: (messageId: string) => void;
   hidden?: boolean;
@@ -45,7 +49,7 @@ export function MessageList({
           const showTail = isFirstInGroup(previous, message, showDate);
           const upload = uploads?.[message.id] ?? (message.clientId ? uploads?.[message.clientId] : undefined);
           return (
-            <div key={message.id} className={`message-row ${message.direction === 'client' ? 'out' : 'in'}`}>
+            <div key={message.id} className={`message-row ${message.authorId === selfId ? 'out' : 'in'}`}>
               {showDate ? (
                 <div className="date-separator">
                   <span>{formatDateSeparator(message.timestamp)}</span>
@@ -53,6 +57,7 @@ export function MessageList({
               ) : null}
               <MessageBubble
                 message={message}
+                outgoing={message.authorId === selfId}
                 showTail={showTail}
                 {...(onRetry ? { onRetry } : {})}
                 {...(upload ? { upload } : {})}
@@ -74,5 +79,5 @@ function isFirstInGroup(previous: ChatMessage | undefined, current: ChatMessage,
   if (!previous || newDay) {
     return true;
   }
-  return previous.direction !== current.direction || previous.author.id !== current.author.id;
+  return previous.authorId !== current.authorId;
 }

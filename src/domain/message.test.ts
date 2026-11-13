@@ -1,9 +1,12 @@
+import { LOCAL_TENANT_ID, PEER_USER_ID } from '../chat/localIdentity';
+import { asConversationId } from './conversation';
 import { previewOf, type ChatMessage, type TextMessage } from './message';
 
 const base = {
   id: '1',
-  conversationId: 'c',
-  direction: 'agent' as const,
+  tenantId: LOCAL_TENANT_ID,
+  conversationId: asConversationId('c'),
+  authorId: PEER_USER_ID,
   author: { id: 'a', name: 'Colega' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'delivered' as const,

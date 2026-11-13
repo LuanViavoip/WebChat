@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
+import { LOCAL_USER_ID } from '../chat/localIdentity';
 import type { ChatMessage } from '../domain/message';
 import { previewOf } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
@@ -70,7 +71,7 @@ export function ChatPanel({
   const unseenLive =
     !liveVisible &&
     unseenBaselineReady.current &&
-    state.messages.slice(seenLiveCount.current).some((message) => message.direction !== 'client');
+    state.messages.slice(seenLiveCount.current).some((message) => message.authorId !== LOCAL_USER_ID);
   const activity = liveActivity({
     error: state.error,
     connection: state.connection,
@@ -292,6 +293,7 @@ export function ChatPanel({
         />
         <MessageList
           messages={messages}
+          selfId={LOCAL_USER_ID}
           typing={typing}
           onRetry={retry}
           empty={emptyThread}

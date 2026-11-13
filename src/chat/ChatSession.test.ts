@@ -5,6 +5,8 @@ import { ScriptedTransport } from '../test/scriptedTransport';
 import { SessionAbortedError } from '../transport/abort';
 import { MockTransport } from '../transport/MockTransport';
 import { ChatSession } from './ChatSession';
+import { asConversationId } from '../domain/conversation';
+import { LOCAL_TENANT_ID, LOCAL_USER_ID, PEER_USER_ID } from './localIdentity';
 
 const instant = {
   connectMs: 0,
@@ -15,8 +17,9 @@ const instant = {
 
 function textMessage(partial: Partial<TextMessage> & Pick<TextMessage, 'id' | 'text'>): TextMessage {
   return {
-    conversationId: 'c1',
-    direction: 'agent',
+    tenantId: LOCAL_TENANT_ID,
+    conversationId: asConversationId('c1'),
+    authorId: PEER_USER_ID,
     author: { id: 'agent', name: 'Colega' },
     timestamp: '2026-11-10T12:00:00.000Z',
     status: 'delivered',
@@ -31,7 +34,7 @@ describe('ChatSession', () => {
     await session.start('c1');
     await session.send({ type: 'text', text: 'oi' });
     await vi.waitFor(() => {
-      expect(session.getState().messages.find((message) => message.direction === 'client')?.status).toBe('read');
+      expect(session.getState().messages.find((message) => message.authorId === LOCAL_USER_ID)?.status).toBe('read');
     });
   });
 
@@ -42,7 +45,7 @@ describe('ChatSession', () => {
     const first: ChatMessage = textMessage({
       id: 'm1',
       clientId: 'c1',
-      direction: 'client',
+      authorId: LOCAL_USER_ID,
       text: 'oi',
       status: 'sent',
     });
@@ -64,7 +67,7 @@ describe('ChatSession', () => {
     expect(session.getState().messages).toHaveLength(0);
     transport.emit({
       type: 'message',
-      message: textMessage({ id: 'late', clientId: 'late', direction: 'client', text: 'oi', status: 'sending' }),
+      message: textMessage({ id: 'late', clientId: 'late', authorId: LOCAL_USER_ID, text: 'oi', status: 'sending' }),
     });
     expect(session.getState().messages).toHaveLength(1);
     expect(session.getState().messages[0]?.status).toBe('delivered');
@@ -81,7 +84,7 @@ describe('ChatSession', () => {
       message: textMessage({
         id: 'srv-1',
         clientId: 'cid-1',
-        direction: 'client',
+        authorId: LOCAL_USER_ID,
         text: 'oi',
         status: 'sending',
       }),
@@ -109,7 +112,7 @@ describe('ChatSession', () => {
 
     transport.failSend = true;
     await session.send({ type: 'text', text: 'texto preservado' });
-    const client = session.getState().messages.find((message) => message.direction === 'client');
+    const client = session.getState().messages.find((message) => message.authorId === LOCAL_USER_ID);
     expect(client?.type).toBe('text');
     if (client?.type !== 'text') {
       throw new Error('esperava texto');
@@ -120,7 +123,7 @@ describe('ChatSession', () => {
 
     transport.failSend = false;
     await session.retry(client.id);
-    expect(session.getState().messages.find((message) => message.direction === 'client')?.status).toBe(
+    expect(session.getState().messages.find((message) => message.authorId === LOCAL_USER_ID)?.status).toBe(
       'sending',
     );
     expect(transport.sent).toHaveLength(2);
@@ -136,7 +139,7 @@ describe('ChatSession', () => {
     expect(session.getState().messages.some((message) => message.status === 'error')).toBe(true);
 
     await session.reconnect();
-    const kept = session.getState().messages.find((message) => message.direction === 'client');
+    const kept = session.getState().messages.find((message) => message.authorId === LOCAL_USER_ID);
     expect(kept?.type).toBe('text');
     if (kept?.type !== 'text') {
       throw new Error('esperava texto');
@@ -151,7 +154,7 @@ describe('ChatSession', () => {
     await session.start('c1');
     await session.send({ type: 'text', text: '1' });
     await session.start('c1');
-    expect(session.getState().messages.every((message) => message.direction !== 'client')).toBe(true);
+    expect(session.getState().messages.every((message) => message.authorId !== LOCAL_USER_ID)).toBe(true);
   });
 
   it('ignora rejeição tardia de send após restart e após unmount', async () => {
@@ -164,14 +167,14 @@ describe('ChatSession', () => {
     transport.rejectHeld();
     await first;
     expect(session.getState().error).toBeNull();
-    expect(session.getState().messages.find((message) => message.direction === 'client')).toBeUndefined();
+    expect(session.getState().messages.find((message) => message.authorId === LOCAL_USER_ID)).toBeUndefined();
 
     transport.holdSend = true;
     const second = session.send({ type: 'text', text: 'depois' });
     session.stop();
     transport.rejectHeld();
     await second;
-    const leftover = session.getState().messages.find((message) => message.direction === 'client');
+    const leftover = session.getState().messages.find((message) => message.authorId === LOCAL_USER_ID);
     expect(leftover?.status).toBe('sending');
     expect(session.getState().error).toBeNull();
   });
