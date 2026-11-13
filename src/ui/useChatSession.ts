@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChatSession, type ChatSessionState, type TypingState } from '../chat/ChatSession';
-import type { ValidAttachment } from '../domain/attachment';
+import type { UploadView } from '../chat/uploads';
 import type { ConversationId } from '../domain/conversation';
 import type { ChatMessage } from '../domain/message';
-import type { ChatTransport, TransportStatus } from '../transport/ChatTransport';
+import type { ChatTransport, ConnectRequest, TransportStatus } from '../transport/ChatTransport';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
-import type { UploadView } from '../chat/uploads';
 
 const EMPTY: ChatSessionState = {
   connection: 'disconnected',
   error: null,
+  errorConversationId: null,
   tenant: null,
   me: null,
   directory: null,
@@ -22,26 +22,47 @@ const NO_MESSAGES: ChatMessage[] = [];
 const IDLE: TypingState = { isTyping: false, actorName: '' };
 const NO_UPLOADS: Readonly<Record<string, UploadView>> = {};
 
-/** A visão de uma conversa só: é o que a UI de conversa única (até o Bloco 4) consome. */
+/** A visão de UMA conversa: é o que o painel de chat consome. */
 export type ThreadView = {
   messages: ChatMessage[];
   connection: TransportStatus;
   typing: TypingState;
+  /** Erro da sessão (conexão) ou da própria conversa; o erro de outra conversa não aparece aqui. */
   error: string | null;
   uploads: Readonly<Record<string, UploadView>>;
 };
 
+export function threadView(full: ChatSessionState, conversationId: ConversationId | null): ThreadView {
+  const thread = conversationId ? full.conversations[conversationId] : undefined;
+  const ownsError = full.errorConversationId === null || full.errorConversationId === conversationId;
+  return {
+    messages: thread?.messages ?? NO_MESSAGES,
+    connection: full.connection,
+    typing: thread?.typing ?? IDLE,
+    error: ownsError ? full.error : null,
+    uploads: thread?.uploads ?? NO_UPLOADS,
+  };
+}
+
+/**
+ * Uma ChatSession por usuário conectado. Ao trocar de usuário (ou desmontar) a sessão para:
+ * aborta uploads, revoga URLs e desconecta; a nova recomeça do Bootstrap.
+ */
 export function useChatSession(
   transport: ChatTransport,
-  conversationId: ConversationId,
+  identity: ConnectRequest,
   options?: { objectUrls?: ObjectUrlFactory },
-) {
+): { session: ChatSession; state: ChatSessionState } {
   const objectUrls = options?.objectUrls;
-  const session = useMemo(() => new ChatSession(transport, { objectUrls }), [transport, objectUrls]);
-  const [full, setFull] = useState<ChatSessionState>(EMPTY);
+  const { tenantId, userId } = identity;
+  const session = useMemo(
+    () => new ChatSession(transport, { objectUrls, identity: { tenantId, userId } }),
+    [transport, objectUrls, tenantId, userId],
+  );
+  const [state, setState] = useState<ChatSessionState>(EMPTY);
 
   useEffect(() => {
-    const unsubscribe = session.subscribe(setFull);
+    const unsubscribe = session.subscribe(setState);
     void session.start();
     return () => {
       unsubscribe();
@@ -49,36 +70,5 @@ export function useChatSession(
     };
   }, [session]);
 
-  useEffect(() => {
-    session.selectConversation(conversationId);
-  }, [session, conversationId]);
-
-  const thread = full.conversations[conversationId];
-  const state: ThreadView = {
-    messages: thread?.messages ?? NO_MESSAGES,
-    connection: full.connection,
-    typing: thread?.typing ?? IDLE,
-    error: full.error,
-    uploads: thread?.uploads ?? NO_UPLOADS,
-  };
-
-  return {
-    state,
-    session: full,
-    send: (text: string) => {
-      void session.send(conversationId, text);
-    },
-    retry: (messageId: string) => {
-      void session.retry(conversationId, messageId);
-    },
-    reconnect: () => {
-      void session.reconnect();
-    },
-    sendAttachment: (attachment: ValidAttachment, caption?: string) => {
-      void session.sendAttachment(conversationId, attachment, caption);
-    },
-    cancelUpload: (messageId: string) => {
-      session.cancelUpload(conversationId, messageId);
-    },
-  };
+  return { session, state };
 }

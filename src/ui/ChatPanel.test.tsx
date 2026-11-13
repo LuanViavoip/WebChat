@@ -85,6 +85,14 @@ function activityBadge(): HTMLElement {
   return node;
 }
 
+function unreadBadge(): HTMLElement {
+  const node = document.querySelector('[data-conversation-id="' + LIVE_CONVERSATION_ID + '"] .unread-badge');
+  if (!(node instanceof HTMLElement)) {
+    throw new Error('badge de não lidas ausente');
+  }
+  return node;
+}
+
 function politeAnnouncements(): HTMLElement[] {
   return liveRegions(document).filter((node) => node.getAttribute('aria-live') === 'polite');
 }
@@ -105,12 +113,17 @@ async function readyComposer() {
   return field;
 }
 
+beforeEach(() => {
+  // Estes cenários usam a direta Carla ↔ Bruno (vazia); a lista abriria na Ana, que tem histórico.
+  window.history.replaceState({ smPane: 'list', conversationId: LIVE_CONVERSATION_ID }, '');
+});
+
 describe('ChatPanel', () => {
   it('mostra a conversa de teste na lista', async () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
     await readyComposer();
     expect(screen.getByLabelText('Lista de conversas')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('log')).toHaveTextContent('Nenhuma mensagem ainda');
   });
 
@@ -118,20 +131,21 @@ describe('ChatPanel', () => {
     const user = userEvent.setup();
     render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
     await readyComposer();
-    const liveItem = screen.getByRole('button', { name: /Conversa de teste/ });
+    const liveItem = await screen.findByRole('button', { name: /Bruno Costa/ });
     for (let step = 0; step < 24 && document.activeElement !== liveItem; step += 1) {
       await user.tab();
     }
     expect(liveItem).toHaveFocus();
   });
 
-  it('não mostra conversas no filtro Não lidas', async () => {
+  it('o filtro Não lidas deixa só as conversas com mensagens não lidas', async () => {
     const user = userEvent.setup();
     render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
     await readyComposer();
     await user.click(screen.getByRole('button', { name: 'Não lidas' }));
-    expect(screen.queryByRole('button', { name: /Conversa de teste/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Nenhuma conversa não lida')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Bruno Costa/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ana Souza/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Marcos Dono/ })).toBeInTheDocument();
   });
 
   it('mostra Nenhum resultado encontrado quando a busca no filtro Tudo não acha nada', async () => {
@@ -166,7 +180,7 @@ describe('ChatPanel', () => {
     );
     await readyComposer();
     expect(connect.mock.calls.length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: /Conversa de teste/ })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Bruno Costa/ })).toHaveLength(1);
     expect(screen.getByRole('log', { name: 'Mensagens' }).querySelectorAll('.bubble')).toHaveLength(0);
   });
 
@@ -196,8 +210,8 @@ describe('ChatPanel', () => {
     transport.failConnect = true;
     render(<ChatPanel transport={transport} />);
     expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
-    expect(screen.getByRole('textbox', { name: /mensagem/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toBeDisabled();
+    expect(screen.queryByRole('textbox', { name: /mensagem/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anexar arquivo' })).not.toBeInTheDocument();
     const zone = document.querySelector('.wa-chat');
     if (!(zone instanceof HTMLElement)) {
       throw new Error('esperava a zona de drop');
@@ -230,11 +244,11 @@ describe('ChatPanel', () => {
     expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
   });
 
-  it('no erro de conexão o log permanece ativo e o banner é o único alerta', async () => {
+  it('no erro de conexão não há conversa e o banner é o único alerta', async () => {
     render(<ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} />);
     expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
-    expect(liveRoles()).toEqual(['log', 'alert']);
-    expect(screen.getByRole('log', { name: 'Mensagens' })).not.toHaveAttribute('aria-live', 'off');
+    expect(liveRoles()).toEqual(['alert']);
+    expect(screen.getByText('Não foi possível carregar as conversas.')).toBeInTheDocument();
   });
 
   it('no erro de envio o log permanece ativo junto do alerta', async () => {
@@ -286,29 +300,38 @@ describe('ChatPanel', () => {
     });
   });
 
-  it('mantém o item ao vivo visível na busca quando há erro', async () => {
+  it('mantém a conversa com erro de envio visível na busca', async () => {
     const user = userEvent.setup();
-    render(<ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} />);
-    expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
+    render(<ChatPanel transport={new MockTransport({ delays: instant, failSend: true })} />);
+    const field = await readyComposer();
+    await user.type(field, 'oi');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
     await user.type(screen.getByRole('searchbox', { name: 'Pesquisar conversa' }), 'zzzz-inexistente');
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toBeInTheDocument();
     expect(activityBadge()).toHaveTextContent('Erro');
     expect(screen.queryByText('Nenhum resultado encontrado')).not.toBeInTheDocument();
   });
 
-  it('na conexão inicial o badge diz Conectando, não Reconectando', async () => {
+  it('na conexão inicial a lista diz Conectando e o chat não tem composer', async () => {
     render(
       <ChatPanel transport={new MockTransport({ delays: { ...instant, connectMs: 400 } })} />,
     );
     await waitFor(() => {
-      expect(activityBadge()).toHaveTextContent('Conectando');
+      expect(screen.getByLabelText('Lista de conversas')).toHaveTextContent('Conectando…');
     });
-    expect(screen.queryByText('Reconectando')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reconectando/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /mensagem/i })).not.toBeInTheDocument();
+    await readyComposer();
   });
 
-  it('anuncia atividade sem duplicar o alerta de erro da conversa ao vivo', async () => {
-    render(<ChatPanel transport={new MockTransport({ delays: instant, failConnect: true })} />);
-    expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
+  it('anuncia atividade sem duplicar o alerta de erro da conversa aberta', async () => {
+    const user = userEvent.setup();
+    render(<ChatPanel transport={new MockTransport({ delays: instant, failSend: true })} />);
+    const field = await readyComposer();
+    await user.type(field, 'oi');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(liveRoles()).toEqual(['log', 'alert']);
     expect(activityAnnouncer()).toHaveTextContent('');
     expect(activityBadge()).toHaveTextContent('Erro');
@@ -327,15 +350,15 @@ describe('ChatPanel no mobile', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Lista de conversas')).toBeInTheDocument();
     });
-    const liveItem = screen.getByRole('button', { name: /Conversa de teste/ });
+    const liveItem = await screen.findByRole('button', { name: /Bruno Costa/ });
     liveItem.focus();
     await user.keyboard('{Enter}');
     await waitFor(() => {
       expect(document.querySelector('.chat-header')).toHaveFocus();
     });
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await user.click(screen.getByRole('button', { name: /^Voltar/ }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveFocus();
+      expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveFocus();
     });
   });
 
@@ -343,20 +366,20 @@ describe('ChatPanel no mobile', () => {
     stubMobileMatchMedia();
     const user = userEvent.setup();
     render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
-    const liveItem = screen.getByRole('button', { name: /Conversa de teste/ });
+    const liveItem = await screen.findByRole('button', { name: /Bruno Costa/ });
     liveItem.focus();
     await user.keyboard('{Enter}');
     await waitFor(() => {
       expect(document.querySelector('.chat-header')).toHaveFocus();
     });
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await user.click(screen.getByRole('button', { name: /^Voltar/ }));
     await waitFor(() => {
       expect(liveItem).toHaveFocus();
     });
     expect(liveItem).toHaveAttribute('aria-current', 'true');
   });
 
-  it('na lista, a mensagem que chega com o chat oculto vira nova mensagem', async () => {
+  it('na lista, a mensagem que chega com o chat oculto vira não lida e é anunciada', async () => {
     stubMobileMatchMedia();
     const user = userEvent.setup();
     const transport = new ScriptedTransport();
@@ -365,9 +388,9 @@ describe('ChatPanel no mobile', () => {
       expect(transport.getStatus()).toBe('connected');
     });
     const conversationId = LIVE_CONVERSATION_ID;
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await user.click(await screen.findByRole('button', { name: /Bruno Costa/ }));
     await readyComposer();
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await user.click(screen.getByRole('button', { name: /^Voltar/ }));
     act(() => {
       transport.emit({
         type: 'message',
@@ -375,13 +398,14 @@ describe('ChatPanel no mobile', () => {
       });
     });
     await waitFor(() => {
-      expect(activityBadge()).toHaveTextContent('Nova mensagem');
+      expect(unreadBadge()).toHaveTextContent('1');
     });
     expect(activityAnnouncer()).toHaveTextContent('Nova mensagem');
     expect(politeAnnouncements()).toHaveLength(1);
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAccessibleName(/1 mensagem não lida/);
+    await user.click(screen.getByRole('button', { name: /Bruno Costa/ }));
     await waitFor(() => {
-      expect(document.querySelector('.live-activity-badge.is-unseen')).toBeNull();
+      expect(screen.getByRole('button', { name: /Bruno Costa/ })).not.toHaveAccessibleName(/não lida/);
     });
     expect(activityAnnouncer()).toHaveTextContent('');
   });
@@ -398,8 +422,8 @@ describe('ChatPanel no mobile', () => {
       expect(transport.getStatus()).toBe('connected');
     });
     const conversationId = LIVE_CONVERSATION_ID;
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
-    await user.click(await screen.findByRole('button', { name: 'Voltar' }));
+    await user.click(await screen.findByRole('button', { name: /Bruno Costa/ }));
+    await user.click(await screen.findByRole('button', { name: /^Voltar/ }));
     act(() => {
       transport.emit({
         type: 'message',
@@ -410,23 +434,24 @@ describe('ChatPanel no mobile', () => {
       expect(activityAnnouncer()).toHaveTextContent('Nova mensagem');
     });
     expect(activityAnnouncer()).toBe(announcer);
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await user.click(await screen.findByRole('button', { name: /Bruno Costa/ }));
     await waitFor(() => {
       expect(activityAnnouncer()).toHaveTextContent('');
     });
     expect(activityAnnouncer()).toBe(announcer);
   });
 
-  it('depois do remount na lista, mensagem nova fica não vista', async () => {
+  it('depois do remount na lista, mensagem nova fica não lida e é anunciada', async () => {
     stubMobileMatchMedia();
-    window.history.replaceState({ smPane: 'list', conversationId: 'conversa-teste' }, '');
+    window.history.replaceState({ smPane: 'list', conversationId: LIVE_CONVERSATION_ID }, '');
     const transport = new ScriptedTransport();
     render(<ChatPanel transport={transport} />);
     await waitFor(() => {
       expect(transport.getStatus()).toBe('connected');
     });
     const conversationId = LIVE_CONVERSATION_ID;
-    expect(document.querySelector('.live-activity-badge')).toBeNull();
+    await screen.findByRole('button', { name: /Bruno Costa/ });
+    expect(document.querySelector('[data-conversation-id="' + LIVE_CONVERSATION_ID + '"] .unread-badge')).toBeNull();
     act(() => {
       transport.emit({
         type: 'message',
@@ -434,9 +459,10 @@ describe('ChatPanel no mobile', () => {
       });
     });
     await waitFor(() => {
-      expect(activityBadge()).toHaveTextContent('Nova mensagem');
+      expect(unreadBadge()).toHaveTextContent('1');
     });
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAccessibleName(/nova mensagem/i);
+    expect(activityAnnouncer()).toHaveTextContent('Nova mensagem');
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAccessibleName(/1 mensagem não lida/);
   });
 
   it('na lista indica envio em andamento ao voltar da conversa', async () => {
@@ -448,42 +474,42 @@ describe('ChatPanel no mobile', () => {
     await waitFor(() => {
       expect(transport.getStatus()).toBe('connected');
     });
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await user.click(await screen.findByRole('button', { name: /Bruno Costa/ }));
     const field = await readyComposer();
     await user.type(field, 'oi');
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await user.click(screen.getByRole('button', { name: /^Voltar/ }));
     await waitFor(() => {
       expect(activityBadge()).toHaveTextContent('Enviando…');
     });
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAccessibleName(/enviando/i);
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAccessibleName(/enviando/i);
   });
 
   it('restaura a conversa selecionada a partir do history.state no remount', async () => {
     stubMobileMatchMedia();
-    window.history.replaceState({ smPane: 'chat', conversationId: 'conversa-teste' }, '');
+    window.history.replaceState({ smPane: 'chat', conversationId: LIVE_CONVERSATION_ID }, '');
     const first = render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
     await readyComposer();
-    expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^Voltar/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAttribute('aria-current', 'true');
     first.unmount();
     render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
     await readyComposer();
-    expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('button', { name: /^Voltar/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAttribute('aria-current', 'true');
   });
 
   it('se o item de origem sumiu da lista, o foco volta para a busca', async () => {
     stubMobileMatchMedia();
     const user = userEvent.setup();
     render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await user.click(await screen.findByRole('button', { name: /Bruno Costa/ }));
     await waitFor(() => {
       expect(document.querySelector('.chat-header')).toHaveFocus();
     });
     await user.type(screen.getByRole('searchbox', { name: 'Pesquisar conversa' }), 'zzzz-inexistente');
-    expect(screen.queryByRole('button', { name: /Conversa de teste/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(screen.queryByRole('button', { name: /Bruno Costa/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Voltar/ }));
     await waitFor(() => {
       expect(screen.getByRole('searchbox', { name: 'Pesquisar conversa' })).toHaveFocus();
     });
@@ -499,7 +525,7 @@ describe('ChatPanel no mobile', () => {
     act(() => {
       transport.emit({ type: 'connection', status: 'connecting' });
     });
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAccessibleName(/reconectando/i);
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAccessibleName(/reconectando/i);
     expect(activityBadge()).toHaveTextContent('Reconectando');
   });
 });
@@ -529,7 +555,7 @@ describe('ChatPanel mídia', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Lida')).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveTextContent('minha foto');
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveTextContent('minha foto');
   });
 
   it('arquivo inválido mostra alerta e Fechar remove', async () => {
@@ -697,13 +723,13 @@ describe('ChatPanel mídia', () => {
     const transport = new ScriptedTransport();
     transport.failUpload = true;
     render(<ChatPanel transport={transport} objectUrls={urls} />);
-    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await user.click(await screen.findByRole('button', { name: /Bruno Costa/ }));
     await readyComposer();
     await user.upload(fileInput(), png());
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/Falha ao enviar exame.png/);
-    await user.click(screen.getByRole('button', { name: 'Voltar' }));
-    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAccessibleName(/erro/i);
+    await user.click(screen.getByRole('button', { name: /^Voltar/ }));
+    expect(screen.getByRole('button', { name: /Bruno Costa/ })).toHaveAccessibleName(/erro/i);
     expect(activityBadge()).toHaveTextContent('Erro');
     expect(activityAnnouncer()).toHaveTextContent('Erro');
     stubDesktopMatchMedia();

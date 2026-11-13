@@ -5,6 +5,7 @@ import { conversationInitials } from './conversations';
 
 export function ChatHeader({
   title,
+  roleText,
   connection,
   typing,
   headingLevel = 'h2',
@@ -12,6 +13,8 @@ export function ChatHeader({
   unseenLive = false,
 }: {
   title: string;
+  /** Role do outro lado (em português); grupos não têm. */
+  roleText?: string;
   connection: TransportStatus;
   typing: TypingState;
   headingLevel?: 'h1' | 'h2';
@@ -27,7 +30,7 @@ export function ChatHeader({
         <button
           type="button"
           className={`icon-button header-back${unseenLive ? ' has-unseen' : ''}`}
-          aria-label={unseenLive ? 'Voltar, nova mensagem' : 'Voltar'}
+          aria-label={unseenLive ? 'Voltar, conversas não lidas' : 'Voltar'}
           onClick={onBack}
         >
           <ArrowLeft size={20} strokeWidth={1.7} aria-hidden="true" />
@@ -41,6 +44,12 @@ export function ChatHeader({
         <HeaderTitle level={headingLevel}>{title}</HeaderTitle>
         <p className="header-status">
           <span className={`status-dot ${online ? 'online' : 'offline'}`} />
+          {roleText ? (
+            <>
+              <span className="header-role">{roleText}</span>
+              <span aria-hidden="true">·</span>
+            </>
+          ) : null}
           {subtitle}
         </p>
       </div>

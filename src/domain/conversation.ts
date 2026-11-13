@@ -115,7 +115,25 @@ export function sortConversations(
   me: StaffUser,
   d: Directory,
 ): { readonly priority: readonly ConversationSummary[]; readonly colleagues: readonly ConversationSummary[] } {
+  const nameOf = (item: ConversationSummary): string => {
+    const c = item.conversation;
+    if (c.kind === 'group') {
+      return c.title;
+    }
+    const otherId = c.participants[0] === me.id ? c.participants[1] : c.participants[0];
+    return own(d.users, otherId)?.name ?? '';
+  };
+  // Com mensagem: última atividade desc. Sem nenhuma mensagem: depois, por nome.
   const byActivity = (a: ConversationSummary, b: ConversationSummary): number => {
+    const aEmpty = !a.preview;
+    const bEmpty = !b.preview;
+    if (aEmpty !== bEmpty) {
+      return aEmpty ? 1 : -1;
+    }
+    if (aEmpty) {
+      const byName = nameOf(a).localeCompare(nameOf(b), 'pt-BR');
+      return byName !== 0 ? byName : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    }
     const diff = Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt);
     if (diff !== 0 && !Number.isNaN(diff)) {
       return diff;

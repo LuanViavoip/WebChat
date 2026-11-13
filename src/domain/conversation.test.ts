@@ -18,6 +18,7 @@ const sup2 = user(d, 'sup-2');
 const ag1 = user(d, 'ag-1'); // ilha-1 (sup-1)
 const ag2 = user(d, 'ag-2'); // ilha-1
 const ag3 = user(d, 'ag-3'); // ilha-2 (sup-2)
+const ag4 = user(d, 'ag-4');
 
 function dm(a: StaffUser, b: StaffUser): Conversation {
   const result = directConversation(a, b);
@@ -113,7 +114,7 @@ describe('conversationTier', () => {
 
 describe('sortConversations', () => {
   function summary(conversation: Conversation, lastActivityAt: string, unread = 0): ConversationSummary {
-    return { id: conversation.id, conversation, lastActivityAt, unread };
+    return { id: conversation.id, conversation, lastActivityAt, unread, preview: 'msg' };
   }
 
   it('separa em priority e colleagues e ordena cada seção por última atividade desc', () => {
@@ -127,6 +128,31 @@ describe('sortConversations', () => {
     const { priority, colleagues } = sortConversations(items, ag1, d);
     expect(priority.map((item) => item.id)).toEqual([grupo.id, dm(ag1, sup1).id]);
     expect(colleagues.map((item) => item.id)).toEqual([dm(ag1, ag3).id, dm(ag1, ag2).id, dm(ag1, admin).id]);
+  });
+
+  it('conversas sem mensagem vão por último na seção, entre si por nome', () => {
+    const empty = (c: Conversation, at: string): ConversationSummary => ({
+      id: c.id,
+      conversation: c,
+      lastActivityAt: at,
+      unread: 0,
+    });
+    const { colleagues } = sortConversations(
+      [
+        empty(dm(ag1, ag3), '2026-11-12T00:00:00.000Z'),
+        summary(dm(ag1, ag2), '2026-11-01T00:00:00.000Z'),
+        empty(dm(ag1, ag4), '2026-11-13T00:00:00.000Z'),
+        summary(dm(ag1, admin), '2026-11-02T00:00:00.000Z'),
+      ],
+      ag1,
+      d,
+    );
+    expect(colleagues.map((item) => item.id)).toEqual([
+      dm(ag1, admin).id,
+      dm(ag1, ag2).id,
+      dm(ag1, ag3).id,
+      dm(ag1, ag4).id,
+    ]);
   });
 
   it('priority fica separada mesmo quando um colega é mais recente', () => {

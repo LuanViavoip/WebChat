@@ -561,3 +561,32 @@ describe('ChatSession multi-conversa: rejeição tardia e reenvio idempotente', 
     bruno.disconnect();
   });
 });
+
+describe('ChatSession multi-conversa: erro por conversa e lista à frente', () => {
+  it('a falha de envio pertence à conversa; o erro de sessão não pertence a nenhuma', async () => {
+    const { transport, session } = await scripted();
+    session.selectConversation(C1);
+    transport.failSend = true;
+    await session.send(C1, 'oi');
+    expect(session.getState().error).toMatch(/enviar/i);
+    expect(session.getState().errorConversationId).toBe(C1);
+    transport.failSend = false;
+    const failed = thread(session, C1).messages[0];
+    await session.retry(C1, failed?.id ?? '');
+    expect(session.getState().error).toBeNull();
+    expect(session.getState().errorConversationId).toBeNull();
+    session.stop();
+  });
+
+  it('selectConversation(null) deixa nenhuma conversa ativa: a mensagem nova fica não lida', async () => {
+    const { transport, session } = await scripted();
+    session.selectConversation(C1);
+    session.selectConversation(null);
+    expect(session.getState().activeConversationId).toBeNull();
+    transport.emit({ type: 'message', message: incoming('m-lista', C1) });
+    expect(thread(session, C1).unread).toBe(1);
+    session.selectConversation(C1);
+    expect(thread(session, C1).unread).toBe(0);
+    session.stop();
+  });
+});

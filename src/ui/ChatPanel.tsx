@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { asConversationId } from '../domain/conversation';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { asConversationId, sortConversations, type ConversationId } from '../domain/conversation';
+import type { StaffUser } from '../domain/identity';
+import { can } from '../domain/permissions';
 import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage } from '../domain/message';
-import { previewOf } from '../domain/message';
-import type { ChatTransport } from '../transport/ChatTransport';
+import type { ChatTransport, ConnectRequest, TransportStatus } from '../transport/ChatTransport';
 import { DEFAULT_SESSION } from '../transport/mock/seed';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
 import { AttachmentPreview } from './attachments/AttachmentPreview';
@@ -13,85 +14,128 @@ import { useFileDrop } from './attachments/useFileDrop';
 import { ChatHeader } from './ChatHeader';
 import { historyConversationId, historyPane, mergeHistoryState } from './chatHistory';
 import { Composer } from './Composer';
-import { CLIENT_CONVERSATIONS, conversationById, LIVE_CONVERSATION_ID } from './conversations';
+import {
+  conversationItem,
+  conversationTitle,
+  openableColleagues,
+  otherParticipant,
+  roleLabel,
+  type ConversationItem,
+} from './conversations';
 import { liveActivity, liveActivityAnnouncement } from './liveActivity';
 import { MessageList } from './MessageList';
 import { Sidebar } from './Sidebar';
-import { useChatSession } from './useChatSession';
+import { threadView, useChatSession } from './useChatSession';
 import { useMediaQuery } from './useMediaQuery';
 
 type MobilePane = 'list' | 'chat';
 type PendingFocus = 'chat' | 'list';
 
-function resolveConversationId(id: string | undefined): string {
-  if (id && CLIENT_CONVERSATIONS.some((item) => item.id === id)) {
-    return id;
-  }
-  return LIVE_CONVERSATION_ID;
-}
-
 export function ChatPanel({
   transport,
-  selectedConversationId: selectedConversationIdProp,
-  onSelectConversation,
+  identity = DEFAULT_SESSION,
+  onSwitchUser,
+  onOpenAdmin,
   objectUrls,
 }: {
   transport: ChatTransport;
-  selectedConversationId?: string;
-  onSelectConversation?: (id: string) => void;
+  /** Quem entrou. O ChatPanel de outro usuário é outro ChatPanel (`key`): a sessão anterior é parada ao desmontar. */
+  identity?: ConnectRequest;
+  onSwitchUser?: () => void;
+  /** Só é chamado se o usuário tem `admin.console`. */
+  onOpenAdmin?: () => void;
   objectUrls?: ObjectUrlFactory;
 }) {
   const isMobile = useMediaQuery('(max-width: 900px)');
   const [mobilePane, setMobilePane] = useState<MobilePane>(() => historyPane(window.history.state));
-  const [uncontrolledId, setUncontrolledId] = useState(
-    () => resolveConversationId(historyConversationId(window.history.state)),
-  );
-  const [draft, setDraft] = useState('');
+  const [chosenId, setChosenId] = useState<ConversationId | null>(() => {
+    const fromHistory = historyConversationId(window.history.state);
+    return fromHistory ? asConversationId(fromHistory) : null;
+  });
+  const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
   const [pendingAttachment, setPendingAttachment] = useState<ValidAttachment | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<OpenImage | null>(null);
   const viewerOpener = useRef<HTMLElement | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLElement>(null);
-  const controlled = selectedConversationIdProp !== undefined;
-  const selectedConversationId = resolveConversationId(selectedConversationIdProp ?? uncontrolledId);
-  const { state, send, retry, reconnect, sendAttachment, cancelUpload } = useChatSession(
+  const { session, state: full } = useChatSession(
     transport,
-    asConversationId(selectedConversationId),
+    identity,
     objectUrls ? { objectUrls } : undefined,
   );
-  const liveVisible = !isMobile || mobilePane === 'chat';
-  const conversation = conversationById(selectedConversationId);
+  const { me, directory } = full;
+  const sorted = useMemo(
+    () => (me && directory ? sortConversations(full.summaries, me, directory) : { priority: [], colleagues: [] }),
+    [full.summaries, me, directory],
+  );
+  const firstId = sorted.priority[0]?.id ?? sorted.colleagues[0]?.id ?? null;
+  const selectedId: ConversationId | null =
+    chosenId && full.conversations[chosenId] ? chosenId : firstId;
+  const chatVisible = !isMobile || mobilePane === 'chat';
+  const state = threadView(full, selectedId);
+  const selectedThread = selectedId ? full.conversations[selectedId] : undefined;
   const messages = state.messages;
   const typing = state.typing;
-  const disabled = state.connection !== 'connected';
-  const preview = lastPreview(state.messages);
+  const disabled = state.connection !== 'connected' || selectedId === null;
+  const draft = selectedId ? (drafts[selectedId] ?? '') : '';
   const showBack = isMobile && mobilePane === 'chat';
   const hadConnected = useRef(false);
-  const seenLiveCount = useRef(0);
-  const unseenBaselineReady = useRef(false);
-  const unseenLive =
-    !liveVisible &&
-    unseenBaselineReady.current &&
-    state.messages.slice(seenLiveCount.current).some((message) => message.authorId !== DEFAULT_SESSION.userId);
-  const activity = liveActivity({
-    error: state.error,
-    connection: state.connection,
-    typing: state.typing,
-    messages: state.messages,
-    unseen: unseenLive,
-    hadConnected: hadConnected.current,
-    failedUpload: Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
-  });
-  const announcement = liveActivityAnnouncement(activity, liveVisible);
+  const unreadBaseline = useRef(0);
+  const unreadBaselineReady = useRef(false);
+  const totalUnread = full.summaries.reduce((sum, item) => sum + item.unread, 0);
+  const unreadElsewhere = full.summaries.some((item) => item.id !== selectedId && item.unread > 0);
+  const unseenWhileHidden = !chatVisible && unreadBaselineReady.current && totalUnread > unreadBaseline.current;
+
+  function activityOf(id: ConversationId): ReturnType<typeof liveActivity> {
+    const thread = full.conversations[id];
+    const isSelected = id === selectedId;
+    const ownError =
+      full.error !== null && (full.errorConversationId === id || (full.errorConversationId === null && isSelected));
+    return liveActivity({
+      error: ownError ? full.error : null,
+      connection: isSelected ? full.connection : 'connected',
+      typing: thread?.typing ?? { isTyping: false },
+      messages: thread?.messages ?? [],
+      hadConnected: hadConnected.current,
+      failedUpload: Object.values(thread?.uploads ?? {}).some((upload) => upload.phase === 'failed'),
+    });
+  }
+
+  const sections = (() => {
+    if (!me || !directory) {
+      return { priority: [] as ConversationItem[], colleagues: [] as ConversationItem[] };
+    }
+    const now = new Date();
+    const build = (items: typeof sorted.priority) =>
+      items.map((summary) => conversationItem(summary, me, directory, activityOf(summary.id), now));
+    return { priority: build(sorted.priority), colleagues: build(sorted.colleagues) };
+  })();
+
+  const announcement = liveActivityAnnouncement(
+    selectedId
+      ? liveActivity({
+          error: state.error,
+          connection: state.connection,
+          typing: state.typing,
+          messages: state.messages,
+          unseen: unseenWhileHidden,
+          hadConnected: hadConnected.current,
+          failedUpload: Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
+        })
+      : 'idle',
+    chatVisible,
+  );
   const pendingFocus = useRef<PendingFocus | null>(null);
   const isMobileRef = useRef(isMobile);
-  const onSelectRef = useRef(onSelectConversation);
-  const controlledRef = useRef(controlled);
   const historyReady = useRef(false);
   isMobileRef.current = isMobile;
-  onSelectRef.current = onSelectConversation;
-  controlledRef.current = controlled;
+
+  const newConversationCandidates = useMemo(
+    () => (me && directory ? openableColleagues(me, directory) : []),
+    [me, directory],
+  );
+  const adminAllowed = Boolean(me && directory && can(me, { type: 'admin.console' }, directory).ok);
 
   const handleFiles = useCallback((files: File[]) => {
     const check = validateFiles(files);
@@ -111,19 +155,24 @@ export function ChatPanel({
     onFiles: handleFiles,
     surface: shellRef,
   });
-  const selectedIdRef = useRef(selectedConversationId);
-  selectedIdRef.current = selectedConversationId;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
+  // A conversa à vista é a ativa na sessão (marca como lida); com a lista à frente (mobile) nenhuma é.
+  useEffect(() => {
+    session.selectConversation(chatVisible ? selectedId : null);
+  }, [session, selectedId, chatVisible, me]);
 
   useEffect(() => {
-    if (!historyReady.current) {
+    if (!historyReady.current && selectedId) {
       historyReady.current = true;
-      writeHistory(mobilePane, selectedConversationId, 'replace');
+      writeHistory(mobilePane, selectedId, 'replace');
     }
     function onPop(event: PopStateEvent) {
       const pane = historyPane(event.state);
       const conversationId = historyConversationId(event.state);
       if (conversationId) {
-        assignConversation(resolveConversationId(conversationId));
+        assignConversation(asConversationId(conversationId));
       }
       setMobilePane(pane);
       if (isMobileRef.current) {
@@ -134,7 +183,7 @@ export function ChatPanel({
     return () => {
       window.removeEventListener('popstate', onPop);
     };
-  }, [mobilePane, selectedConversationId]);
+  }, [mobilePane, selectedId]);
 
   useEffect(() => {
     const target = pendingFocus.current;
@@ -146,15 +195,15 @@ export function ChatPanel({
       document.querySelector<HTMLElement>('.chat-header')?.focus();
       return;
     }
-    const origin = document.querySelector<HTMLElement>(
-      `[data-conversation-id="${CSS.escape(selectedConversationId)}"]`,
-    );
+    const origin = selectedId
+      ? document.querySelector<HTMLElement>(`[data-conversation-id="${CSS.escape(selectedId)}"]`)
+      : null;
     if (origin) {
       origin.focus();
       return;
     }
     document.querySelector<HTMLElement>('.sidebar-search input')?.focus();
-  }, [mobilePane, selectedConversationId]);
+  }, [mobilePane, selectedId]);
 
   useEffect(() => {
     if (state.connection === 'connected') {
@@ -163,31 +212,22 @@ export function ChatPanel({
   }, [state.connection]);
 
   useEffect(() => {
-    if (liveVisible) {
-      seenLiveCount.current = state.messages.length;
-      unseenBaselineReady.current = true;
-      return;
+    if (chatVisible || (!unreadBaselineReady.current && me)) {
+      unreadBaseline.current = totalUnread;
+      unreadBaselineReady.current = Boolean(me);
     }
-    if (!unseenBaselineReady.current && (state.connection === 'connected' || state.connection === 'error')) {
-      seenLiveCount.current = state.messages.length;
-      unseenBaselineReady.current = true;
-    }
-  }, [liveVisible, state.messages.length, state.connection]);
+  }, [chatVisible, totalUnread, me]);
 
-  function assignConversation(id: string) {
-    const nextId = resolveConversationId(id);
-    if (nextId !== selectedIdRef.current) {
+  function assignConversation(id: ConversationId) {
+    if (id !== selectedIdRef.current) {
       setPendingAttachment(null);
       setAttachError(null);
       setViewer(null);
     }
-    if (!controlledRef.current) {
-      setUncontrolledId(nextId);
-    }
-    onSelectRef.current?.(nextId);
+    setChosenId(id);
   }
 
-  function selectConversation(id: string) {
+  function selectConversation(id: ConversationId) {
     assignConversation(id);
     const nextPane: MobilePane = isMobile ? 'chat' : mobilePane;
     setMobilePane(nextPane);
@@ -201,6 +241,47 @@ export function ChatPanel({
     }
     if (isMobile) {
       pendingFocus.current = 'chat';
+    }
+  }
+
+  async function openDirect(user: StaffUser) {
+    const id = await session.openDirect(user.id);
+    if (id) {
+      selectConversation(id);
+    }
+  }
+
+  function setDraft(value: string) {
+    if (selectedId) {
+      setDrafts((current) => ({ ...current, [selectedId]: value }));
+    }
+  }
+
+  function send(text: string) {
+    if (selectedId) {
+      void session.send(selectedId, text);
+    }
+  }
+
+  function retry(messageId: string) {
+    if (selectedId) {
+      void session.retry(selectedId, messageId);
+    }
+  }
+
+  function reconnect() {
+    void session.reconnect();
+  }
+
+  function sendAttachment(attachment: ValidAttachment, caption?: string) {
+    if (selectedId) {
+      void session.sendAttachment(selectedId, attachment, caption);
+    }
+  }
+
+  function cancelUpload(messageId: string) {
+    if (selectedId) {
+      session.cancelUpload(selectedId, messageId);
     }
   }
 
@@ -273,6 +354,34 @@ export function ChatPanel({
   }, [openImage, restoreViewerFocus]);
 
   const emptyThread = messages.length === 0 && !typing.isTyping;
+  const other = selectedThread && me && directory ? otherParticipant(selectedThread.conversation, me, directory) : undefined;
+  const title = selectedThread && me && directory ? conversationTitle(selectedThread.conversation, me, directory) : '';
+  const note = connectionNote(full.connection, hadConnected.current);
+  const banners = (
+    <>
+      {attachError ? (
+        <div className="session-banner session-banner-error" role="alert">
+          <p>{attachError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setAttachError(null);
+            }}
+          >
+            Fechar
+          </button>
+        </div>
+      ) : null}
+      {state.error ? (
+        <div className="session-banner session-banner-error" role="alert">
+          <p>{state.error}</p>
+          <button type="button" onClick={reconnect}>
+            Reconectar
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     <section ref={shellRef} className="wa-shell" data-mobile-pane={mobilePane} aria-label="Conversa">
@@ -280,60 +389,59 @@ export function ChatPanel({
         {announcement}
       </div>
       <Sidebar
-        preview={preview}
-        selectedConversationId={selectedConversationId}
-        liveActivity={activity}
+        me={me}
+        tenantName={full.tenant?.name ?? ''}
+        sections={sections}
+        selectedConversationId={selectedId}
+        note={note}
+        newConversationCandidates={newConversationCandidates}
         onSelect={selectConversation}
+        onOpenDirect={(user) => {
+          void openDirect(user);
+        }}
+        onSwitchUser={() => {
+          onSwitchUser?.();
+        }}
+        {...(adminAllowed && onOpenAdmin ? { onOpenAdmin } : {})}
       />
       <div className="wa-chat" ref={chatRef}>
-        <ChatHeader
-          title={conversation.title}
-          connection={state.connection}
-          typing={typing}
-          unseenLive={unseenLive}
-          {...(showBack ? { onBack: backToList } : {})}
-        />
-        <MessageList
-          messages={messages}
-          selfId={DEFAULT_SESSION.userId}
-          typing={typing}
-          onRetry={retry}
-          empty={emptyThread}
-          hidden={Boolean(pendingAttachment)}
-          uploads={state.uploads}
-          onCancelUpload={handleCancelUpload}
-          onOpenImage={(image, opener) => {
-            viewerOpener.current = opener;
-            setViewer(image);
-          }}
-        />
+        {selectedId ? (
+          <>
+            <ChatHeader
+              title={title}
+              {...(other ? { roleText: roleLabel(other.role) } : {})}
+              connection={state.connection}
+              typing={typing}
+              unseenLive={unreadElsewhere}
+              {...(showBack ? { onBack: backToList } : {})}
+            />
+            <MessageList
+              messages={messages}
+              selfId={identity.userId}
+              typing={typing}
+              onRetry={retry}
+              empty={emptyThread}
+              hidden={Boolean(pendingAttachment)}
+              uploads={state.uploads}
+              onCancelUpload={handleCancelUpload}
+              onOpenImage={(image, opener) => {
+                viewerOpener.current = opener;
+                setViewer(image);
+              }}
+            />
+          </>
+        ) : (
+          <div className="chat-empty-state">
+            <p>Selecione uma conversa para começar.</p>
+          </div>
+        )}
         {dragging ? (
           <div className="drop-overlay" aria-hidden="true">
             Solte o arquivo para anexar
           </div>
         ) : null}
-        {attachError ? (
-          <div className="session-banner session-banner-error" role="alert">
-            <p>{attachError}</p>
-            <button
-              type="button"
-              onClick={() => {
-                setAttachError(null);
-              }}
-            >
-              Fechar
-            </button>
-          </div>
-        ) : null}
-        {state.error ? (
-          <div className="session-banner session-banner-error" role="alert">
-            <p>{state.error}</p>
-            <button type="button" onClick={reconnect}>
-              Reconectar
-            </button>
-          </div>
-        ) : null}
-        {pendingAttachment ? (
+        {banners}
+        {selectedId && pendingAttachment ? (
           <AttachmentPreview
             attachment={pendingAttachment}
             initialCaption={draft}
@@ -350,13 +458,35 @@ export function ChatPanel({
               closePreview();
             }}
           />
-        ) : (
-          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} onPickFiles={handleFiles} />
-        )}
+        ) : selectedId ? (
+          <Composer
+            value={draft}
+            onChange={setDraft}
+            onSend={send}
+            disabled={disabled}
+            onPickFiles={handleFiles}
+          />
+        ) : null}
         <ImageViewer image={openImage} onClose={closeViewer} />
       </div>
     </section>
   );
+}
+
+function connectionNote(connection: TransportStatus, hadConnected: boolean): string {
+  switch (connection) {
+    case 'connecting':
+      return hadConnected ? 'Reconectando…' : 'Conectando…';
+    case 'error':
+      return 'Não foi possível carregar as conversas.';
+    case 'connected':
+    case 'disconnected':
+      return '';
+    default: {
+      const exhaustive: never = connection;
+      return exhaustive;
+    }
+  }
 }
 
 function resolveOpenImage(
@@ -380,18 +510,4 @@ function writeHistory(pane: MobilePane, conversationId: string, mode: 'push' | '
     return;
   }
   window.history.replaceState(next, '');
-}
-
-function lastPreview(messages: ChatMessage[]): string {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message) {
-      continue;
-    }
-    const line = previewOf(message).split('\n')[0]?.trim();
-    if (line) {
-      return line.length > 42 ? `${line.slice(0, 41)}…` : line;
-    }
-  }
-  return 'Nenhuma mensagem ainda';
 }

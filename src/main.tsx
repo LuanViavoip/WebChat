@@ -34,8 +34,8 @@ const backend = new MockBackend({ store, tabSync: createTabSync() });
 
 const transport = new MockTransport({
   backend,
-  // TODO Bloco 4: desligar. A UI ainda é de conversa única (sem outro humano), então o destinatário é simulado.
-  simulateReceipts: true,
+  // Há humanos nas duas pontas: quem entrega e lê é o outro usuário (outra aba, via TabSync).
+  simulateReceipts: false,
   failConnect,
   failUpload,
   holdConnect,

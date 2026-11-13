@@ -47,6 +47,8 @@ export type ThreadState = {
 export type ChatSessionState = {
   connection: TransportStatus;
   error: string | null;
+  /** A conversa a que o erro pertence (falha de envio); `null` = erro da sessão (conexão, abrir conversa). */
+  errorConversationId: ConversationId | null;
   tenant: Tenant | null;
   me: StaffUser | null;
   directory: Directory | null;
@@ -86,6 +88,7 @@ type Thread = {
 export class ChatSession {
   private connection: TransportStatus = 'disconnected';
   private error: string | null = null;
+  private errorConversationId: ConversationId | null = null;
   private generation = 0;
   private identity: ConnectRequest;
   private tenant: Tenant | null = null;
@@ -138,7 +141,7 @@ export class ChatSession {
     this.me = null;
     this.directory = null;
     this.activeConversationId = null;
-    this.error = null;
+    this.clearError();
     this.connection = 'disconnected';
     this.bindTransport(generation);
     this.emit();
@@ -148,7 +151,7 @@ export class ChatSession {
   async reconnect(): Promise<void> {
     this.generation += 1;
     const generation = this.generation;
-    this.error = null;
+    this.clearError();
     for (const thread of this.threads.values()) {
       thread.typing = IDLE_TYPING;
     }
@@ -163,6 +166,11 @@ export class ChatSession {
     await this.openConnection(generation, false);
   }
 
+  private clearError(): void {
+    this.error = null;
+    this.errorConversationId = null;
+  }
+
   stop(): void {
     this.generation += 1;
     this.clearAllUploads();
@@ -171,8 +179,16 @@ export class ChatSession {
     this.transport.disconnect();
   }
 
-  /** Torna a conversa ativa e marca como lidas as mensagens de outros. Antes do Bootstrap fica pendente. */
-  selectConversation(conversationId: ConversationId): void {
+  /**
+   * Torna a conversa ativa e marca como lidas as mensagens de outros. Antes do Bootstrap fica pendente.
+   * `null` = nenhuma conversa à vista (ex.: lista no mobile): as mensagens novas ficam não lidas.
+   */
+  selectConversation(conversationId: ConversationId | null): void {
+    if (conversationId === null) {
+      this.activeConversationId = null;
+      this.emit();
+      return;
+    }
     const thread = this.threads.get(conversationId);
     if (!thread && this.me) {
       return;
@@ -300,7 +316,7 @@ export class ChatSession {
       return;
     }
     const generation = this.generation;
-    this.error = null;
+    this.clearError();
     this.applyStatus(thread, message.id, 'sending', true);
     this.emit();
     const clientId = message.clientId ?? message.id;
@@ -402,6 +418,7 @@ export class ChatSession {
       }
       this.applyStatus(thread, clientId, 'error');
       this.error = errorMessage(error, 'Não foi possível enviar a mensagem.');
+      this.errorConversationId = conversationId;
       this.emit();
     }
   }
@@ -547,7 +564,7 @@ export class ChatSession {
     if (event.type === 'connection') {
       this.connection = event.status;
       if (event.status === 'connected') {
-        this.error = null;
+        this.clearError();
       }
       if (event.status === 'error' && !this.error) {
         this.error = 'Falha na conexão.';
@@ -799,6 +816,7 @@ export class ChatSession {
     return {
       connection: this.connection,
       error: this.error,
+      errorConversationId: this.errorConversationId,
       tenant: this.tenant,
       me: this.me,
       directory: this.directory,
