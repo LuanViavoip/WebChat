@@ -58,7 +58,7 @@ export class MockTransport implements ChatTransport {
   failUpload: MockUploadFailure;
   private readonly handlers = new Set<ChatEventHandler>();
   private readonly connectionTimers = new Set<ReturnType<typeof setTimeout>>();
-  private readonly uploadTimers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly conversationTimers = new Set<ReturnType<typeof setTimeout>>();
   private abort = new AbortController();
   private lifetime = new AbortController();
   private epoch = 0;
@@ -135,6 +135,7 @@ export class MockTransport implements ChatTransport {
 
   disconnect(): void {
     this.abortPending(true);
+    this.conversationEpoch += 1;
     this.revokeRemoteUrls();
     this.setStatus('disconnected');
     this.unlockWelcome?.();
@@ -147,7 +148,11 @@ export class MockTransport implements ChatTransport {
     if (this.status === 'connected') {
       return this.dispatchSend(request);
     }
-    return this.whenReady().then(() => this.dispatchSend(request));
+    const conversationEpoch = this.conversationEpoch;
+    return this.whenReady().then(() => {
+      this.guardConversation(conversationEpoch);
+      return this.dispatchSend(request);
+    });
   }
 
   upload(request: UploadRequest): Promise<UploadedMedia> {
@@ -155,7 +160,11 @@ export class MockTransport implements ChatTransport {
       return Promise.reject(new Error('Não conectado'));
     }
     if (this.status === 'connecting') {
-      return this.whenReady().then(() => this.runUpload(request));
+      const conversationEpoch = this.conversationEpoch;
+      return this.whenReady().then(() => {
+        this.guardConversation(conversationEpoch);
+        return this.runUpload(request);
+      });
     }
     return this.runUpload(request);
   }
@@ -173,7 +182,7 @@ export class MockTransport implements ChatTransport {
     const shouldFail =
       this.failUpload === 'always' || (this.failUpload === 'once' && attempt === 1);
     for (let step = 1; step <= chunks; step += 1) {
-      await this.wait(this.delays.uploadChunkMs, request.signal, 'upload');
+      await this.wait(this.delays.uploadChunkMs, request.signal, 'conversation');
       this.guardConversation(conversationEpoch);
       if (request.signal.aborted) {
         throw new UploadCanceledError();
@@ -201,6 +210,7 @@ export class MockTransport implements ChatTransport {
       return Promise.resolve();
     }
     const epoch = this.epoch;
+    const conversationEpoch = this.conversationEpoch;
     const message = messageFromPayload(
       request.clientId,
       this.conversationId,
@@ -209,24 +219,25 @@ export class MockTransport implements ChatTransport {
       'sending',
     );
     this.emit({ type: 'message', message });
-    void this.progressClient(message, epoch);
+    void this.progressClient(message, epoch, conversationEpoch);
     return Promise.resolve();
   }
 
-  private async progressClient(message: ChatMessage, epoch: number): Promise<void> {
+  private async progressClient(message: ChatMessage, epoch: number, conversationEpoch: number): Promise<void> {
     try {
-      await this.wait(this.delays.sentMs);
-      this.guard(epoch);
+      await this.wait(this.delays.sentMs, undefined, 'conversation');
+      this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'sent');
-      await this.wait(this.delays.deliveredMs);
-      this.guard(epoch);
+      await this.wait(this.delays.deliveredMs, undefined, 'conversation');
+      this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'delivered');
-      await this.wait(this.delays.readMs);
-      this.guard(epoch);
+      await this.wait(this.delays.readMs, undefined, 'conversation');
+      this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'read');
       if (this.ended || message.type !== 'text') {
         return;
       }
+      this.guard(epoch);
       const text = message.text;
       this.botQueue = this.botQueue.then(
         () => this.replyAsBot(text, epoch),
@@ -342,10 +353,10 @@ export class MockTransport implements ChatTransport {
     this.uploadAttempts.clear();
     this.conversationEpoch += 1;
     this.lifetime = new AbortController();
-    for (const timer of this.uploadTimers) {
+    for (const timer of this.conversationTimers) {
       clearTimeout(timer);
     }
-    this.uploadTimers.clear();
+    this.conversationTimers.clear();
   }
 
   private abortPending(includeUploads: boolean): void {
@@ -358,10 +369,10 @@ export class MockTransport implements ChatTransport {
     }
     this.connectionTimers.clear();
     if (includeUploads) {
-      for (const timer of this.uploadTimers) {
+      for (const timer of this.conversationTimers) {
         clearTimeout(timer);
       }
-      this.uploadTimers.clear();
+      this.conversationTimers.clear();
     }
     this.botQueue = Promise.resolve();
   }
@@ -408,10 +419,10 @@ export class MockTransport implements ChatTransport {
   private wait(
     ms: number,
     extra?: AbortSignal,
-    scope: 'connection' | 'upload' = 'connection',
+    scope: 'connection' | 'conversation' = 'connection',
   ): Promise<void> {
-    const sessionSignal = scope === 'upload' ? this.lifetime.signal : this.abort.signal;
-    const timers = scope === 'upload' ? this.uploadTimers : this.connectionTimers;
+    const sessionSignal = scope === 'conversation' ? this.lifetime.signal : this.abort.signal;
+    const timers = scope === 'conversation' ? this.conversationTimers : this.connectionTimers;
     if (sessionSignal.aborted) {
       return Promise.reject(new SessionAbortedError());
     }
