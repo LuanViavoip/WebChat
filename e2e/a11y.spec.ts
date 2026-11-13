@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { audioFile, pdfFile, pngFile, videoFile } from './files';
-import { chatFileInput, isMobileProject, isPageProject } from './project';
+import { chatFileInput, isMobileProject } from './project';
 
 async function expectNoSeriousOrCritical(page: Page, label: string) {
   const results = await new AxeBuilder({ page }).analyze();
@@ -35,8 +35,6 @@ async function expectMediaA11y(page: Page, label: string) {
 
 test.describe('axe nos 4 viewports', () => {
   test('lista, chat ao vivo e estado vazio sem violações serious/critical', async ({ page }, testInfo) => {
-    test.skip(!isPageProject(testInfo), 'só no modo página');
-
     await page.goto('/');
     await expect(page.getByLabel('Lista de conversas')).toBeVisible();
 

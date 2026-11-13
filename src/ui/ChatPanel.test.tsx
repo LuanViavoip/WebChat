@@ -188,6 +188,23 @@ describe('ChatPanel', () => {
     await readyComposer();
   });
 
+  it('com falha de conexão, composer, clipe e drop ficam desligados', async () => {
+    const transport = new ScriptedTransport();
+    transport.failConnect = true;
+    render(<ChatPanel transport={transport} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/conectar/i);
+    expect(screen.getByRole('textbox', { name: /mensagem/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toBeDisabled();
+    const zone = document.querySelector('.wa-chat');
+    if (!(zone instanceof HTMLElement)) {
+      throw new Error('esperava a zona de drop');
+    }
+    const file = new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' });
+    fireEvent.dragEnter(zone, { dataTransfer: { types: ['Files'], files: [file] } });
+    fireEvent.drop(zone, { dataTransfer: { types: ['Files'], files: [file] } });
+    expect(screen.queryByRole('region', { name: 'Pré-visualização do anexo' })).toBeNull();
+  });
+
   it('falha de envio → Reconectar preserva texto e Reenviar', async () => {
     const user = userEvent.setup();
     const transport = new MockTransport({ delays: instant, failSend: true });
@@ -364,6 +381,93 @@ describe('ChatPanel no mobile', () => {
       expect(document.querySelector('.live-activity-badge.is-unseen')).toBeNull();
     });
     expect(activityAnnouncer()).toHaveTextContent('');
+  });
+
+  it('mantém a região aria-live montada vazia e só muda o texto no mesmo nó', async () => {
+    stubMobileMatchMedia();
+    const user = userEvent.setup();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} />);
+    const announcer = activityAnnouncer();
+    expect(announcer).toHaveAttribute('aria-live', 'polite');
+    expect(announcer).toHaveTextContent('');
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const conversationId = transport.lastSession?.conversationId ?? 'conversa-teste';
+    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await user.click(await screen.findByRole('button', { name: 'Voltar' }));
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: incomingText(conversationId, 'same-node', 'oi'),
+      });
+    });
+    await waitFor(() => {
+      expect(activityAnnouncer()).toHaveTextContent('Nova mensagem');
+    });
+    expect(activityAnnouncer()).toBe(announcer);
+    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    await waitFor(() => {
+      expect(activityAnnouncer()).toHaveTextContent('');
+    });
+    expect(activityAnnouncer()).toBe(announcer);
+  });
+
+  it('depois do remount na lista, mensagem nova fica não vista', async () => {
+    stubMobileMatchMedia();
+    window.history.replaceState({ smPane: 'list', conversationId: 'conversa-teste' }, '');
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    const conversationId = transport.lastSession?.conversationId ?? 'conversa-teste';
+    expect(document.querySelector('.live-activity-badge')).toBeNull();
+    act(() => {
+      transport.emit({
+        type: 'message',
+        message: incomingText(conversationId, 'after-reload', 'chegou'),
+      });
+    });
+    await waitFor(() => {
+      expect(activityBadge()).toHaveTextContent('Nova mensagem');
+    });
+    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAccessibleName(/nova mensagem/i);
+  });
+
+  it('na lista indica envio em andamento ao voltar da conversa', async () => {
+    stubMobileMatchMedia();
+    const user = userEvent.setup();
+    const transport = new ScriptedTransport();
+    transport.holdSend = true;
+    render(<ChatPanel transport={transport} />);
+    await waitFor(() => {
+      expect(transport.getStatus()).toBe('connected');
+    });
+    await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
+    const field = await readyComposer();
+    await user.type(field, 'oi');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await user.click(screen.getByRole('button', { name: 'Voltar' }));
+    await waitFor(() => {
+      expect(activityBadge()).toHaveTextContent('Enviando…');
+    });
+    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAccessibleName(/enviando/i);
+  });
+
+  it('restaura a conversa selecionada a partir do history.state no remount', async () => {
+    stubMobileMatchMedia();
+    window.history.replaceState({ smPane: 'chat', conversationId: 'conversa-teste' }, '');
+    const first = render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
+    await readyComposer();
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAttribute('aria-current', 'true');
+    first.unmount();
+    render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
+    await readyComposer();
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Conversa de teste/ })).toHaveAttribute('aria-current', 'true');
   });
 
   it('se o item de origem sumiu da lista, o foco volta para a busca', async () => {

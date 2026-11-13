@@ -1,5 +1,3 @@
-import type { ChatMessage } from '../domain/message';
-
 export const LIVE_CONVERSATION_ID = 'conversa-teste';
 
 export type ConversationPreview = {
@@ -8,7 +6,6 @@ export type ConversationPreview = {
   preview: string;
   timeLabel: string;
   unread: number;
-  transcript: ChatMessage[];
 };
 
 export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
@@ -18,7 +15,6 @@ export const CLIENT_CONVERSATIONS: ConversationPreview[] = [
     preview: 'Nenhuma mensagem ainda',
     timeLabel: 'hoje',
     unread: 0,
-    transcript: [],
   },
 ];
 

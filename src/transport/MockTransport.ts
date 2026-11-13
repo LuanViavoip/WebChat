@@ -29,6 +29,7 @@ export type MockTransportOptions = {
   failConnect?: boolean;
   failSend?: boolean;
   failUpload?: MockUploadFailure;
+  holdConnect?: boolean;
   uploadChunks?: number;
   objectUrls?: ObjectUrlFactory;
 };
@@ -49,6 +50,8 @@ export class MockTransport implements ChatTransport {
   failConnect: boolean;
   failSend: boolean;
   failUpload: MockUploadFailure;
+  holdConnect: boolean;
+  private releaseHeldConnect: (() => void) | undefined;
   private readonly handlers = new Set<ChatEventHandler>();
   private readonly connectionTimers = new Set<ReturnType<typeof setTimeout>>();
   private readonly conversationTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -69,6 +72,7 @@ export class MockTransport implements ChatTransport {
     this.failConnect = options.failConnect ?? false;
     this.failSend = options.failSend ?? false;
     this.failUpload = options.failUpload ?? 'never';
+    this.holdConnect = options.holdConnect ?? false;
     this.uploadChunks = options.uploadChunks ?? 5;
     this.objectUrls = options.objectUrls ?? browserObjectUrls;
   }
@@ -103,7 +107,9 @@ export class MockTransport implements ChatTransport {
       throw new Error('Falha ao conectar');
     }
     const epoch = this.epoch;
-    if (this.delays.connectMs > 0) {
+    if (this.holdConnect) {
+      await this.waitForRelease();
+    } else if (this.delays.connectMs > 0) {
       await this.wait(this.delays.connectMs);
     } else {
       await Promise.resolve();
@@ -111,6 +117,12 @@ export class MockTransport implements ChatTransport {
     this.guard(epoch);
     this.setStatus('connected');
     this.unlockReady?.();
+  }
+
+  releaseConnect(): void {
+    const release = this.releaseHeldConnect;
+    this.releaseHeldConnect = undefined;
+    release?.();
   }
 
   disconnect(): void {
@@ -324,6 +336,28 @@ export class MockTransport implements ChatTransport {
     if (conversationEpoch !== this.conversationEpoch || this.lifetime.signal.aborted) {
       throw new SessionAbortedError();
     }
+  }
+
+  private waitForRelease(): Promise<void> {
+    const sessionSignal = this.abort.signal;
+    if (sessionSignal.aborted) {
+      return Promise.reject(new SessionAbortedError());
+    }
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        sessionSignal.removeEventListener('abort', onAbort);
+        this.releaseHeldConnect = undefined;
+      };
+      const onAbort = () => {
+        cleanup();
+        reject(new SessionAbortedError());
+      };
+      this.releaseHeldConnect = () => {
+        cleanup();
+        resolve();
+      };
+      sessionSignal.addEventListener('abort', onAbort, { once: true });
+    });
   }
 
   private wait(

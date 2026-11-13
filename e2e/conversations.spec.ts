@@ -15,6 +15,8 @@ test.describe('lista e conversa no desktop', () => {
     test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
     await page.goto('/?falha=conectar');
     await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByLabel('Mensagem')).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Anexar arquivo' })).toBeDisabled();
     await page.getByRole('searchbox', { name: 'Pesquisar conversa' }).fill('zzzz-inexistente');
     await expect(page.getByRole('button', { name: /Conversa de teste/ })).toBeVisible();
     await expect(page.locator('.live-activity-badge.is-error')).toHaveText('Erro');
@@ -23,9 +25,20 @@ test.describe('lista e conversa no desktop', () => {
 
   test('no carregamento inicial o badge diz Conectando', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== '1920', 'cenário pedido em 1920');
-    await page.goto('/');
+    await page.goto('/?conexao=segurar');
     await expect(page.locator('.live-activity-badge')).toHaveText('Conectando');
     await expect(page.getByText('Reconectando')).toHaveCount(0);
+    await expect(page.getByLabel('Mensagem')).toBeDisabled();
+    const released = await page.evaluate(() => {
+      const hooks = window as Window & { __releaseConnect?: () => void };
+      if (typeof hooks.__releaseConnect !== 'function') {
+        return false;
+      }
+      hooks.__releaseConnect();
+      return true;
+    });
+    expect(released).toBe(true);
+    await expect(page.getByLabel('Mensagem')).toBeEnabled();
   });
 
   test('envia mensagem e preserva o histórico ao vivo', async ({ page }, testInfo) => {

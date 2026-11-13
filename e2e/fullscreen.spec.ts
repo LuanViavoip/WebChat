@@ -1,12 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { isPageProject } from './project';
 
 const GRAY = 'rgb(209, 215, 219)';
 
 test.describe('tela cheia no modo página', () => {
-  test('o .wa-shell preenche o viewport sem faixa cinza nem scroll horizontal', async ({ page }, testInfo) => {
-    test.skip(!isPageProject(testInfo), 'só no modo página');
-
+  test('o .wa-shell preenche o viewport sem faixa cinza nem scroll horizontal', async ({ page }) => {
     const viewport = page.viewportSize();
     expect(viewport).not.toBeNull();
     if (!viewport) {

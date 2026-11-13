@@ -11,12 +11,7 @@ import { useFileDrop } from './attachments/useFileDrop';
 import { ChatHeader } from './ChatHeader';
 import { historyConversationId, historyPane, mergeHistoryState } from './chatHistory';
 import { Composer } from './Composer';
-import {
-  CLIENT_CONVERSATIONS,
-  conversationById,
-  isLiveConversation,
-  LIVE_CONVERSATION_ID,
-} from './conversations';
+import { CLIENT_CONVERSATIONS, conversationById, LIVE_CONVERSATION_ID } from './conversations';
 import { liveActivity, liveActivityAnnouncement } from './liveActivity';
 import { MessageList } from './MessageList';
 import { Sidebar } from './Sidebar';
@@ -62,11 +57,10 @@ export function ChatPanel({
   const shellRef = useRef<HTMLElement>(null);
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = resolveConversationId(selectedConversationIdProp ?? uncontrolledId);
-  const live = isLiveConversation(selectedConversationId);
-  const liveVisible = live && (!isMobile || mobilePane === 'chat');
+  const liveVisible = !isMobile || mobilePane === 'chat';
   const conversation = conversationById(selectedConversationId);
-  const messages = live ? state.messages : conversation.transcript;
-  const typing = live ? state.typing : { isTyping: false, actorName: '' };
+  const messages = state.messages;
+  const typing = state.typing;
   const disabled = state.connection !== 'connected';
   const preview = lastPreview(state.messages);
   const showBack = isMobile && mobilePane === 'chat';
@@ -110,7 +104,7 @@ export function ChatPanel({
   }, []);
 
   const { dragging } = useFileDrop(chatRef, {
-    enabled: live && !disabled && !pendingAttachment,
+    enabled: !disabled && !pendingAttachment,
     onFiles: handleFiles,
     surface: shellRef,
   });
@@ -314,7 +308,7 @@ export function ChatPanel({
             Solte o arquivo para anexar
           </div>
         ) : null}
-        {live && attachError ? (
+        {attachError ? (
           <div className="session-banner session-banner-error" role="alert">
             <p>{attachError}</p>
             <button
@@ -327,7 +321,7 @@ export function ChatPanel({
             </button>
           </div>
         ) : null}
-        {live && state.error ? (
+        {state.error ? (
           <div className="session-banner session-banner-error" role="alert">
             <p>{state.error}</p>
             <button type="button" onClick={reconnect}>
@@ -335,7 +329,7 @@ export function ChatPanel({
             </button>
           </div>
         ) : null}
-        {live && pendingAttachment ? (
+        {pendingAttachment ? (
           <AttachmentPreview
             attachment={pendingAttachment}
             initialCaption={draft}
@@ -352,12 +346,8 @@ export function ChatPanel({
               closePreview();
             }}
           />
-        ) : live ? (
-          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} onPickFiles={handleFiles} />
         ) : (
-          <div className="session-banner">
-            <p>Nenhuma conversa selecionada</p>
-          </div>
+          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} onPickFiles={handleFiles} />
         )}
         <ImageViewer image={openImage} onClose={closeViewer} />
       </div>

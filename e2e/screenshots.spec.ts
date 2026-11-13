@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { isMobileProject, isPageProject } from './project';
+import { isMobileProject } from './project';
 
 const DIR = process.env['CI'] ? 'docs/screenshots/etapa-3' : 'test-results/screenshots/etapa-3';
 
 test.describe('artefatos visuais', () => {
   test('depois — página', async ({ page }, testInfo) => {
-    test.skip(!isPageProject(testInfo));
     mkdirSync(DIR, { recursive: true });
     await page.goto('/');
 

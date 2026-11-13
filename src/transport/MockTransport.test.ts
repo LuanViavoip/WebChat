@@ -36,6 +36,17 @@ describe('MockTransport', () => {
     expect(transport.getStatus()).toBe('connected');
   });
 
+  it('holdConnect mantém connecting até releaseConnect', async () => {
+    const transport = new MockTransport({ delays: instant, holdConnect: true });
+    const connecting = transport.connect({ conversationId: 'c1' });
+    await vi.waitFor(() => {
+      expect(transport.getStatus()).toBe('connecting');
+    });
+    transport.releaseConnect();
+    await connecting;
+    expect(transport.getStatus()).toBe('connected');
+  });
+
   it('send de texto progride até read e nenhuma mensagem de outro autor chega', async () => {
     const transport = new MockTransport({ delays: instant });
     const events = collect(transport);

@@ -116,7 +116,16 @@ test.describe('mídia', () => {
     await openLiveChat(page, testInfo, 'upload=lento');
     await attach(page, pngFile('exame.png'));
     await page.getByRole('button', { name: 'Enviar' }).click();
-    await expect(page.getByRole('progressbar')).toBeVisible();
+    const progress = page.getByRole('progressbar');
+    await expect(progress).toBeVisible();
+    await expect
+      .poll(async () => Number(await progress.getAttribute('value')), { timeout: 5_000 })
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(1_000);
+    await expect(progress).toBeVisible();
+    const loaded = Number(await progress.getAttribute('value'));
+    const total = Number(await progress.getAttribute('max'));
+    expect(loaded).toBeLessThan(total);
     await page.getByRole('button', { name: 'Cancelar envio de exame.png' }).click();
     await expect(page.getByRole('progressbar')).toHaveCount(0);
     await expect(page.getByLabel(/Você: Foto/)).toHaveCount(0);

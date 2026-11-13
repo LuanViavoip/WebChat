@@ -16,22 +16,33 @@ if (!root) {
 
 const params = new URLSearchParams(window.location.search);
 const falha = params.get('falha');
+const conexao = params.get('conexao');
 const failConnect = falha === 'conectar';
 const failUpload = falha === 'upload' ? 'once' : 'never';
 const slowUpload = params.get('upload') === 'lento';
+const slowConnect = conexao === 'lenta';
+const holdConnect = conexao === 'segurar';
+
+const transport = new MockTransport({
+  failConnect,
+  failUpload,
+  holdConnect,
+  delays: {
+    ...(slowConnect ? { connectMs: 450 } : {}),
+    ...(slowUpload ? { uploadChunkMs: 800 } : {}),
+  },
+  ...(slowUpload ? { uploadChunks: 5 } : {}),
+});
+
+if (holdConnect) {
+  const hooks = window as Window & { __releaseConnect?: () => void };
+  hooks.__releaseConnect = () => {
+    transport.releaseConnect();
+  };
+}
 
 createRoot(root).render(
   <StrictMode>
-    <App
-      transport={new MockTransport({
-        failConnect,
-        failUpload,
-        delays: {
-          connectMs: 450,
-          ...(slowUpload ? { uploadChunkMs: 800 } : {}),
-        },
-        ...(slowUpload ? { uploadChunks: 5 } : {}),
-      })}
-    />
+    <App transport={transport} />
   </StrictMode>,
 );
