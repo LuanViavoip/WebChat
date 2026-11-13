@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { audioFile, pdfFile, pngFile, videoFile } from './files';
-import { chatFileInput, isMobileProject } from './project';
+import { chatFileInput, enterAs, isMobileProject, openConversation, USERS } from './project';
 
 async function expectNoSeriousOrCritical(page: Page, label: string) {
   const results = await new AxeBuilder({ page }).analyze();
@@ -34,23 +34,48 @@ async function expectMediaA11y(page: Page, label: string) {
 }
 
 test.describe('axe nos 4 viewports', () => {
-  test('lista, chat ao vivo e estado vazio sem violações serious/critical', async ({ page }, testInfo) => {
-    await page.goto('/');
-    await expect(page.getByLabel('Lista de conversas')).toBeVisible();
+  test('Entrar como sem violações serious/critical', async ({ page }) => {
+    await page.goto('/?reset=1');
+    await expect(page.getByRole('heading', { level: 1, name: 'Entrar como' })).toBeVisible();
+    await expectNoSeriousOrCritical(page, 'Entrar como');
+  });
+
+  test('lista com seções, chat, seletor Nova conversa e estado vazio sem violações serious/critical', async ({ page }, testInfo) => {
+    await enterAs(page, USERS.carla, { reset: true });
+    const sidebar = page.getByLabel('Lista de conversas');
+    await expect(sidebar.getByRole('region', { name: 'Grupos e supervisão' })).toBeVisible();
+    await expect(sidebar.getByRole('region', { name: 'Colegas' })).toBeVisible();
 
     if (isMobileProject(testInfo)) {
       await expect(page.getByLabel('Mensagem')).toBeHidden();
-      await expectNoSeriousOrCritical(page, 'lista');
+      await expectNoSeriousOrCritical(page, 'lista com seções');
 
-      await page.getByRole('button', { name: /Conversa de teste/ }).click();
-      await expect(page.getByLabel('Mensagem')).toBeEnabled();
-      await expectNoSeriousOrCritical(page, 'chat ao vivo');
+      await page.getByRole('button', { name: 'Nova conversa' }).click();
+      await expect(page.getByRole('dialog', { name: 'Nova conversa' })).toBeVisible();
+      await expectNoSeriousOrCritical(page, 'seletor Nova conversa');
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: 'Nova conversa' })).toBeHidden();
+
+      await openConversation(page, /Bruno Costa/);
+      await expectNoSeriousOrCritical(page, 'chat');
       await expectMediaA11y(page, 'mobile');
       return;
     }
 
     await expect(page.getByLabel('Mensagem')).toBeEnabled();
-    await expectNoSeriousOrCritical(page, 'lista + chat ao vivo');
+    await expectNoSeriousOrCritical(page, 'lista com seções + chat');
+    await page.getByRole('button', { name: 'Nova conversa' }).click();
+    await expect(page.getByRole('dialog', { name: 'Nova conversa' })).toBeVisible();
+    await expectNoSeriousOrCritical(page, 'seletor Nova conversa');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Nova conversa' })).toBeHidden();
     await expectMediaA11y(page, 'página');
+  });
+
+  test('administração placeholder sem violações serious/critical', async ({ page }) => {
+    await enterAs(page, USERS.marcos, { reset: true });
+    await page.getByRole('button', { name: /Administração \(Etapa 5\)/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Administração' })).toBeVisible();
+    await expectNoSeriousOrCritical(page, 'administração');
   });
 });
