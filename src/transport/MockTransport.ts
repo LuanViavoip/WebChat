@@ -57,9 +57,12 @@ export class MockTransport implements ChatTransport {
   failSend: boolean;
   failUpload: MockUploadFailure;
   private readonly handlers = new Set<ChatEventHandler>();
-  private readonly timers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly connectionTimers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly uploadTimers = new Set<ReturnType<typeof setTimeout>>();
   private abort = new AbortController();
+  private lifetime = new AbortController();
   private epoch = 0;
+  private conversationEpoch = 0;
   private status: TransportStatus = 'disconnected';
   private conversationId = '';
   private patientName = 'Paciente';
@@ -101,8 +104,9 @@ export class MockTransport implements ChatTransport {
   async connect(session: ConnectSession): Promise<void> {
     const previousConversationId = this.conversationId;
     const sameConversation = previousConversationId !== '' && previousConversationId === session.conversationId;
+    const releasePreviousGate = this.beginConnection();
     if (!sameConversation) {
-      this.resetSession();
+      this.resetUploadLifetime();
       if (previousConversationId) {
         this.revokeConversationUrls(previousConversationId);
       }
@@ -111,6 +115,7 @@ export class MockTransport implements ChatTransport {
     this.patientName = session.patientName;
     this.ended = false;
     this.setStatus('connecting');
+    releasePreviousGate();
     if (this.failConnect) {
       this.setStatus('error');
       this.unlockWelcome?.();
@@ -129,9 +134,10 @@ export class MockTransport implements ChatTransport {
   }
 
   disconnect(): void {
-    this.abortPending();
+    this.abortPending(true);
     this.revokeRemoteUrls();
     this.setStatus('disconnected');
+    this.unlockWelcome?.();
   }
 
   send(request: SendRequest): Promise<void> {
@@ -158,7 +164,7 @@ export class MockTransport implements ChatTransport {
     if (this.status !== 'connected') {
       throw new Error('Não conectado');
     }
-    const epoch = this.epoch;
+    const conversationEpoch = this.conversationEpoch;
     const total = request.file.size;
     const chunks = Math.max(1, this.uploadChunks);
     const attempt = (this.uploadAttempts.get(request.clientId) ?? 0) + 1;
@@ -167,8 +173,8 @@ export class MockTransport implements ChatTransport {
     const shouldFail =
       this.failUpload === 'always' || (this.failUpload === 'once' && attempt === 1);
     for (let step = 1; step <= chunks; step += 1) {
-      await this.wait(this.delays.uploadChunkMs, request.signal);
-      this.guard(epoch);
+      await this.wait(this.delays.uploadChunkMs, request.signal, 'upload');
+      this.guardConversation(conversationEpoch);
       if (request.signal.aborted) {
         throw new UploadCanceledError();
       }
@@ -316,24 +322,47 @@ export class MockTransport implements ChatTransport {
     }
   }
 
-  private resetSession(): void {
-    this.abortPending();
-    this.uploadAttempts.clear();
+  private beginConnection(): () => void {
+    const releasePreviousGate = this.unlockWelcome ?? (() => {});
+    this.abortPending(false);
     this.epoch += 1;
     this.abort = new AbortController();
+    if (this.lifetime.signal.aborted) {
+      this.lifetime = new AbortController();
+    }
     this.botQueue = Promise.resolve();
     this.welcomeGate = new Promise((resolve) => {
       this.unlockWelcome = resolve;
     });
+    return releasePreviousGate;
   }
 
-  private abortPending(): void {
-    this.abort.abort();
-    this.unlockWelcome?.();
-    for (const timer of this.timers) {
+  private resetUploadLifetime(): void {
+    this.lifetime.abort();
+    this.uploadAttempts.clear();
+    this.conversationEpoch += 1;
+    this.lifetime = new AbortController();
+    for (const timer of this.uploadTimers) {
       clearTimeout(timer);
     }
-    this.timers.clear();
+    this.uploadTimers.clear();
+  }
+
+  private abortPending(includeUploads: boolean): void {
+    this.abort.abort();
+    if (includeUploads) {
+      this.lifetime.abort();
+    }
+    for (const timer of this.connectionTimers) {
+      clearTimeout(timer);
+    }
+    this.connectionTimers.clear();
+    if (includeUploads) {
+      for (const timer of this.uploadTimers) {
+        clearTimeout(timer);
+      }
+      this.uploadTimers.clear();
+    }
     this.botQueue = Promise.resolve();
   }
 
@@ -359,7 +388,7 @@ export class MockTransport implements ChatTransport {
       return Promise.resolve();
     }
     if (this.status === 'connecting') {
-      return this.welcomeGate;
+      return this.welcomeGate.then(() => this.whenReady());
     }
     return Promise.reject(new Error('Não conectado'));
   }
@@ -370,8 +399,20 @@ export class MockTransport implements ChatTransport {
     }
   }
 
-  private wait(ms: number, extra?: AbortSignal): Promise<void> {
-    if (this.abort.signal.aborted) {
+  private guardConversation(conversationEpoch: number): void {
+    if (conversationEpoch !== this.conversationEpoch || this.lifetime.signal.aborted) {
+      throw new SessionAbortedError();
+    }
+  }
+
+  private wait(
+    ms: number,
+    extra?: AbortSignal,
+    scope: 'connection' | 'upload' = 'connection',
+  ): Promise<void> {
+    const sessionSignal = scope === 'upload' ? this.lifetime.signal : this.abort.signal;
+    const timers = scope === 'upload' ? this.uploadTimers : this.connectionTimers;
+    if (sessionSignal.aborted) {
       return Promise.reject(new SessionAbortedError());
     }
     if (extra?.aborted) {
@@ -381,11 +422,10 @@ export class MockTransport implements ChatTransport {
       return Promise.resolve();
     }
     return new Promise((resolve, reject) => {
-      const { signal } = this.abort;
       const cleanup = () => {
         clearTimeout(timer);
-        this.timers.delete(timer);
-        signal.removeEventListener('abort', onSessionAbort);
+        timers.delete(timer);
+        sessionSignal.removeEventListener('abort', onSessionAbort);
         extra?.removeEventListener('abort', onCancel);
       };
       const onSessionAbort = () => {
@@ -400,8 +440,8 @@ export class MockTransport implements ChatTransport {
         cleanup();
         resolve();
       }, ms);
-      this.timers.add(timer);
-      signal.addEventListener('abort', onSessionAbort, { once: true });
+      timers.add(timer);
+      sessionSignal.addEventListener('abort', onSessionAbort, { once: true });
       extra?.addEventListener('abort', onCancel, { once: true });
     });
   }

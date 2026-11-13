@@ -503,5 +503,85 @@ describe('MockTransport', () => {
     await switching;
     vi.useRealTimers();
   });
+
+  it('depois de disconnect, reconectar na mesma conversa volta a connected', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { typingMs: 20, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 20 },
+    });
+    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await first;
+    expect(transport.getStatus()).toBe('connected');
+    transport.disconnect();
+    expect(transport.getStatus()).toBe('disconnected');
+    const second = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await expect(second).resolves.toBeUndefined();
+    expect(transport.getStatus()).toBe('connected');
+    vi.useRealTimers();
+  });
+
+  it('send durante reconexão da mesma conversa espera a conexão corrente', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { typingMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 40, uploadChunkMs: 0 },
+      objectUrls: createFakeObjectUrls(),
+    });
+    const events = collect(transport);
+    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await first;
+    events.length = 0;
+    const uploading = transport.upload({
+      clientId: 'up-short',
+      file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
+      fileName: 'foto.png',
+      mimeType: 'image/png',
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    expect(transport.getStatus()).toBe('connecting');
+    await expect(uploading).resolves.toMatchObject({ url: expect.stringMatching(/^blob:fake\//) });
+    const sending = sendText(transport, '1', 'during-reconnect');
+    await vi.advanceTimersByTimeAsync(20);
+    expect(events.some((event) => event.type === 'message' && event.message.id === 'during-reconnect')).toBe(
+      false,
+    );
+    await vi.runAllTimersAsync();
+    await expect(sending).resolves.toBeUndefined();
+    await reconnecting;
+    expect(transport.getStatus()).toBe('connected');
+    expect(events.some((event) => event.type === 'message' && event.message.id === 'during-reconnect')).toBe(
+      true,
+    );
+    vi.useRealTimers();
+  });
+
+  it('reconectar na mesma conversa não emite a resposta antiga do bot antes das boas-vindas', async () => {
+    vi.useFakeTimers();
+    const transport = new MockTransport({
+      delays: { typingMs: 40, sentMs: 0, deliveredMs: 0, readMs: 0, replyMs: 40 },
+    });
+    const events = collect(transport);
+    const first = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await first;
+    events.length = 0;
+    await sendText(transport, '1', 'choice-1');
+    await vi.advanceTimersByTimeAsync(20);
+    const reconnecting = transport.connect({ conversationId: 'c1', patientName: 'Ana' });
+    await vi.runAllTimersAsync();
+    await reconnecting;
+    const texts = events
+      .filter((event) => event.type === 'message' && event.message.type === 'text')
+      .map((event) => (event.type === 'message' && event.message.type === 'text' ? event.message.text : ''));
+    const welcomeIndex = texts.findIndex((text) => text.includes('Como posso ajudar'));
+    const oldReplyIndex = texts.findIndex((text) => text.includes('Você escolheu Primeira vez'));
+    expect(welcomeIndex).toBeGreaterThanOrEqual(0);
+    expect(oldReplyIndex).toBe(-1);
+    vi.useRealTimers();
+  });
 });
 
