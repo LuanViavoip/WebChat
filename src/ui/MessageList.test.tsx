@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { ChatMessage, TextMessage } from '../domain/message';
 import { MessageList } from './MessageList';
-import { LOCAL_TENANT_ID, LOCAL_USER_ID, PEER_USER_ID } from '../chat/localIdentity';
+import { ICS_TENANT_ID, ICS_USERS } from '../transport/mock/seed';
 import { asConversationId } from '../domain/conversation';
 import type { UserId } from '../domain/identity';
 
@@ -17,7 +17,7 @@ function text(
 ): TextMessage {
   return {
     id,
-    tenantId: LOCAL_TENANT_ID,
+    tenantId: ICS_TENANT_ID,
     conversationId: asConversationId('c'),
     authorId,
     author,
@@ -39,13 +39,13 @@ function bubble(name: string | RegExp): HTMLElement {
 describe('MessageList caudas', () => {
   it('marca só a primeira mensagem de um grupo consecutivo', () => {
     const messages: ChatMessage[] = [
-      text('a', PEER_USER_ID, AGENT, '2026-11-10T10:00:00.000Z', 'primeiro colega'),
-      text('b', PEER_USER_ID, AGENT, '2026-11-10T10:00:10.000Z', 'segundo colega'),
-      text('c', LOCAL_USER_ID, CLIENT, '2026-11-10T10:00:20.000Z', 'cliente'),
-      text('d', PEER_USER_ID, AGENT, '2026-11-11T10:00:00.000Z', 'outro dia'),
+      text('a', ICS_USERS.bruno, AGENT, '2026-11-10T10:00:00.000Z', 'primeiro colega'),
+      text('b', ICS_USERS.bruno, AGENT, '2026-11-10T10:00:10.000Z', 'segundo colega'),
+      text('c', ICS_USERS.carla, CLIENT, '2026-11-10T10:00:20.000Z', 'cliente'),
+      text('d', ICS_USERS.bruno, AGENT, '2026-11-11T10:00:00.000Z', 'outro dia'),
     ];
     render(
-      <MessageList messages={messages} selfId={LOCAL_USER_ID} typing={{ isTyping: false, actorName: '' }} />,
+      <MessageList messages={messages} selfId={ICS_USERS.carla} typing={{ isTyping: false, actorName: '' }} />,
     );
 
     expect(bubble(/primeiro colega/)).toHaveClass('has-tail');

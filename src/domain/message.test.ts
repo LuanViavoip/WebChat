@@ -1,12 +1,12 @@
-import { LOCAL_TENANT_ID, PEER_USER_ID } from '../chat/localIdentity';
+import { ICS_TENANT_ID, ICS_USERS } from '../transport/mock/seed';
 import { asConversationId } from './conversation';
 import { previewOf, type ChatMessage, type TextMessage } from './message';
 
 const base = {
   id: '1',
-  tenantId: LOCAL_TENANT_ID,
+  tenantId: ICS_TENANT_ID,
   conversationId: asConversationId('c'),
-  authorId: PEER_USER_ID,
+  authorId: ICS_USERS.bruno,
   author: { id: 'a', name: 'Colega' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'delivered' as const,

@@ -2,14 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '../../domain/message';
 import { MediaBody } from './MediaBody';
-import { LOCAL_TENANT_ID, LOCAL_USER_ID } from '../../chat/localIdentity';
+import { ICS_TENANT_ID, ICS_USERS } from '../../transport/mock/seed';
 import { asConversationId } from '../../domain/conversation';
 
 const base = {
   id: 'm1',
-  tenantId: LOCAL_TENANT_ID,
+  tenantId: ICS_TENANT_ID,
   conversationId: asConversationId('c'),
-  authorId: LOCAL_USER_ID,
+  authorId: ICS_USERS.carla,
   author: { id: 'client', name: 'Você' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'sent' as const,

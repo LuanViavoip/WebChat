@@ -1,16 +1,25 @@
 import { type ValidAttachment } from '../domain/attachment';
-import { asConversationId } from '../domain/conversation';
+import { asConversationId, type ConversationId } from '../domain/conversation';
 import type { ChatMessage, MessageStatus } from '../domain/message';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import type {
+  Bootstrap,
   ChatEvent,
   ChatTransport,
+  ConnectRequest,
   OutboundPayload,
   TransportStatus,
 } from '../transport/ChatTransport';
+import { DEFAULT_SESSION } from '../transport/mock/seed';
 import { browserObjectUrls, type ObjectUrlFactory } from '../transport/objectUrls';
 import { IdAliasIndex } from './idAlias';
-import { messageFromPayload, normalizePayload, payloadForAttachment, payloadFromMessage } from './outbound';
+import {
+  messageFromPayload,
+  normalizePayload,
+  payloadForAttachment,
+  payloadFromMessage,
+  type MessageOrigin,
+} from './outbound';
 import { DEFAULT_PENDING_LIMIT, DEFAULT_PENDING_TTL_MS, PendingStatusMap } from './pendingStatus';
 import { mergeStatus } from './statusRank';
 import { beginUpload, nextUpload, type UploadEntry, type UploadView } from './uploads';
@@ -31,6 +40,8 @@ export type ChatSessionState = {
 export type ChatSessionListener = (state: ChatSessionState) => void;
 
 export type ChatSessionOptions = {
+  /** Quem conecta. Até a tela "Entrar como" (Bloco 4), o padrão é o usuário da seed. */
+  identity?: ConnectRequest;
   createId?: () => string;
   now?: () => string;
   pendingLimit?: number;
@@ -46,7 +57,9 @@ export class ChatSession {
   private typing: TypingState = IDLE_TYPING;
   private error: string | null = null;
   private generation = 0;
-  private conversationId = 'conv-web';
+  private conversationId: ConversationId = asConversationId('conv-web');
+  private readonly identity: ConnectRequest;
+  private bootstrap: Bootstrap | undefined;
   private readonly aliases = new IdAliasIndex();
   private readonly pendingStatus: PendingStatusMap;
   private readonly listeners = new Set<ChatSessionListener>();
@@ -61,6 +74,7 @@ export class ChatSession {
     private readonly transport: ChatTransport,
     options: ChatSessionOptions = {},
   ) {
+    this.identity = options.identity ?? DEFAULT_SESSION;
     this.createId = options.createId ?? (() => crypto.randomUUID());
     this.now = options.now ?? (() => new Date().toISOString());
     this.objectUrls = options.objectUrls ?? browserObjectUrls;
@@ -83,7 +97,7 @@ export class ChatSession {
     return this.snapshot();
   }
 
-  async start(conversationId = nextConversationId()): Promise<void> {
+  async start(conversationId: ConversationId = nextConversationId()): Promise<void> {
     this.generation += 1;
     const generation = this.generation;
     this.clearUploads();
@@ -93,6 +107,7 @@ export class ChatSession {
     this.pendingStatus.clear();
     this.aliases.clear();
     this.conversationId = conversationId;
+    this.bootstrap = undefined;
     this.connection = 'disconnected';
     this.bindTransport(generation);
     this.emit();
@@ -131,7 +146,7 @@ export class ChatSession {
     const generation = this.generation;
     const clientId = this.createId();
     this.aliases.link(clientId, clientId);
-    this.upsertMessage(messageFromPayload(clientId, asConversationId(this.conversationId), normalized, this.now(), 'sending'));
+    this.upsertMessage(messageFromPayload(this.origin(clientId), normalized, this.now(), 'sending'));
     this.emit();
     await this.dispatchSend(clientId, normalized, generation);
   }
@@ -141,7 +156,7 @@ export class ChatSession {
     const previewUrl = this.objectUrls.create(attachment.file);
     const payload = payloadForAttachment(attachment, previewUrl, caption);
     this.aliases.link(clientId, clientId);
-    this.upsertMessage(messageFromPayload(clientId, asConversationId(this.conversationId), payload, this.now(), 'sending'));
+    this.upsertMessage(messageFromPayload(this.origin(clientId), payload, this.now(), 'sending'));
     this.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
     this.emit();
     await this.runUpload(clientId);
@@ -205,6 +220,7 @@ export class ChatSession {
     const { attachment, caption } = entry;
     try {
       const { url } = await this.transport.upload({
+        conversationId: this.conversationId,
         clientId,
         file: attachment.file,
         fileName: attachment.fileName,
@@ -272,7 +288,7 @@ export class ChatSession {
     generation?: number,
   ): Promise<void> {
     try {
-      await this.transport.send({ clientId, payload });
+      await this.transport.send({ conversationId: this.conversationId, clientId, payload });
     } catch (error) {
       if (isSessionAborted(error)) {
         return;
@@ -301,7 +317,15 @@ export class ChatSession {
 
   private async openConnection(generation: number): Promise<void> {
     try {
-      await this.transport.connect({ conversationId: this.conversationId });
+      const bootstrap = await this.transport.connect(this.identity);
+      if (generation !== this.generation) {
+        return;
+      }
+      this.bootstrap = bootstrap;
+      for (const message of bootstrap.recent[this.conversationId] ?? []) {
+        this.upsertMessage(message);
+      }
+      this.emit();
     } catch (error) {
       if (generation !== this.generation || isSessionAborted(error)) {
         return;
@@ -312,12 +336,33 @@ export class ChatSession {
     }
   }
 
+  private origin(clientId: string): MessageOrigin {
+    return {
+      id: clientId,
+      clientId,
+      tenantId: this.identity.tenantId,
+      conversationId: this.conversationId,
+      authorId: this.identity.userId,
+      authorName: this.bootstrap?.me.name ?? 'Você',
+    };
+  }
+
   private apply(event: ChatEvent): void {
+    // Defesa em profundidade: o transporte já filtra, mas nada de outro tenant entra na sessão.
+    if (event.type !== 'connection' && event.tenantId !== this.identity.tenantId) {
+      return;
+    }
     switch (event.type) {
       case 'message':
+        if (event.message.conversationId !== this.conversationId) {
+          return;
+        }
         this.upsertMessage(event.message);
         break;
       case 'status':
+        if (event.conversationId !== this.conversationId) {
+          return;
+        }
         this.aliases.link(event.clientId, event.messageId);
         this.applyStatus(event.messageId, event.status);
         if (event.clientId) {
@@ -325,10 +370,18 @@ export class ChatSession {
         }
         break;
       case 'typing':
+        if (event.conversationId !== this.conversationId || event.userId === this.identity.userId) {
+          return;
+        }
         this.typing = event.isTyping
-          ? { isTyping: true, actorName: event.actor.name }
+          ? { isTyping: true, actorName: this.bootstrap?.directory.users[event.userId]?.name ?? '' }
           : IDLE_TYPING;
         break;
+      // Multi-conversa chega no Bloco 3: por ora, leitura/conversas novas/grants não mudam esta sessão.
+      case 'read':
+      case 'conversation':
+      case 'grants':
+        return;
       case 'connection':
         this.connection = event.status;
         if (event.status === 'connected') {
@@ -480,8 +533,8 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function nextConversationId(): string {
-  return `conv-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+function nextConversationId(): ConversationId {
+  return asConversationId(`conv-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
 }
 
 function percentOf(view: UploadView): number {

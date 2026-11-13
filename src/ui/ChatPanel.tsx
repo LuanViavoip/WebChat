@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
-import { LOCAL_USER_ID } from '../chat/localIdentity';
 import type { ChatMessage } from '../domain/message';
 import { previewOf } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
+import { DEFAULT_SESSION } from '../transport/mock/seed';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
 import { AttachmentPreview } from './attachments/AttachmentPreview';
 import { ImageViewer } from './attachments/ImageViewer';
@@ -71,7 +71,7 @@ export function ChatPanel({
   const unseenLive =
     !liveVisible &&
     unseenBaselineReady.current &&
-    state.messages.slice(seenLiveCount.current).some((message) => message.authorId !== LOCAL_USER_ID);
+    state.messages.slice(seenLiveCount.current).some((message) => message.authorId !== DEFAULT_SESSION.userId);
   const activity = liveActivity({
     error: state.error,
     connection: state.connection,
@@ -293,7 +293,7 @@ export function ChatPanel({
         />
         <MessageList
           messages={messages}
-          selfId={LOCAL_USER_ID}
+          selfId={DEFAULT_SESSION.userId}
           typing={typing}
           onRetry={retry}
           empty={emptyThread}

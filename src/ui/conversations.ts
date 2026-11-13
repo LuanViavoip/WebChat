@@ -1,4 +1,7 @@
-export const LIVE_CONVERSATION_ID = 'conversa-teste';
+import { LIVE_CONVERSATION_ID as SEED_LIVE_CONVERSATION_ID } from '../transport/mock/seed';
+
+/** A direta real Carla ↔ Bruno da seed: a UI de conversa única (Bloco 4 a troca pela lista de verdade). */
+export const LIVE_CONVERSATION_ID = SEED_LIVE_CONVERSATION_ID;
 
 export type ConversationPreview = {
   id: string;

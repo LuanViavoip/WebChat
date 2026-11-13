@@ -7,7 +7,7 @@ import { stubDesktopMatchMedia, stubMobileMatchMedia } from '../test/matchMedia'
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
 import { ChatPanel } from './ChatPanel';
-import { LOCAL_TENANT_ID, PEER_USER_ID } from '../chat/localIdentity';
+import { ICS_TENANT_ID, ICS_USERS, LIVE_CONVERSATION_ID } from '../transport/mock/seed';
 import { asConversationId } from '../domain/conversation';
 
 const instant = {
@@ -53,9 +53,9 @@ function liveRoles(): Array<string | null> {
 function incomingText(conversationId: string, id: string, text: string): TextMessage {
   return {
     id,
-    tenantId: LOCAL_TENANT_ID,
+    tenantId: ICS_TENANT_ID,
     conversationId: asConversationId(conversationId),
-    authorId: PEER_USER_ID,
+    authorId: ICS_USERS.bruno,
     author: { id: 'agent-1', name: 'Colega' },
     timestamp: new Date().toISOString(),
     status: 'delivered',
@@ -172,7 +172,7 @@ describe('ChatPanel', () => {
 
   it('atualiza o status da mensagem enviada até lida', async () => {
     const user = userEvent.setup();
-    render(<ChatPanel transport={new MockTransport({ delays: instant })} />);
+    render(<ChatPanel transport={new MockTransport({ simulateReceipts: true, delays: instant })} />);
     const field = await readyComposer();
     await user.type(field, '2');
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
@@ -253,7 +253,7 @@ describe('ChatPanel', () => {
     const transport = new ScriptedTransport();
     render(<ChatPanel transport={transport} />);
     await readyComposer();
-    const conversationId = transport.lastSession?.conversationId ?? 'conv-web';
+    const conversationId = LIVE_CONVERSATION_ID;
     transport.failSend = true;
     await user.type(screen.getByLabelText('Mensagem'), 'oi');
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
@@ -271,7 +271,7 @@ describe('ChatPanel', () => {
 
   it('mantém o texto em erro e permite reenviar', async () => {
     const user = userEvent.setup();
-    const transport = new MockTransport({ delays: instant, failSend: true });
+    const transport = new MockTransport({ simulateReceipts: true, delays: instant, failSend: true });
     render(<ChatPanel transport={transport} />);
     const field = await readyComposer();
     await user.type(field, 'preciso de ajuda');
@@ -364,7 +364,7 @@ describe('ChatPanel no mobile', () => {
     await waitFor(() => {
       expect(transport.getStatus()).toBe('connected');
     });
-    const conversationId = transport.lastSession?.conversationId ?? 'conv-web';
+    const conversationId = LIVE_CONVERSATION_ID;
     await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
     await readyComposer();
     await user.click(screen.getByRole('button', { name: 'Voltar' }));
@@ -397,7 +397,7 @@ describe('ChatPanel no mobile', () => {
     await waitFor(() => {
       expect(transport.getStatus()).toBe('connected');
     });
-    const conversationId = transport.lastSession?.conversationId ?? 'conversa-teste';
+    const conversationId = LIVE_CONVERSATION_ID;
     await user.click(screen.getByRole('button', { name: /Conversa de teste/ }));
     await user.click(await screen.findByRole('button', { name: 'Voltar' }));
     act(() => {
@@ -425,7 +425,7 @@ describe('ChatPanel no mobile', () => {
     await waitFor(() => {
       expect(transport.getStatus()).toBe('connected');
     });
-    const conversationId = transport.lastSession?.conversationId ?? 'conversa-teste';
+    const conversationId = LIVE_CONVERSATION_ID;
     expect(document.querySelector('.live-activity-badge')).toBeNull();
     act(() => {
       transport.emit({
@@ -514,7 +514,7 @@ describe('ChatPanel mídia', () => {
     const urls = createFakeObjectUrls();
     render(
       <ChatPanel
-        transport={new MockTransport({ delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls })}
+        transport={new MockTransport({ simulateReceipts: true, delays: { ...instant, uploadChunkMs: 0 }, objectUrls: urls })}
         objectUrls={urls}
       />,
     );
