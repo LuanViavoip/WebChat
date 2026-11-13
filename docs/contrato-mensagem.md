@@ -8,7 +8,7 @@ Este documento descreve o formato **interno** do ChatWeb. Ainda não há acesso 
 | --- | --- | --- |
 | `id` | string | Identificador da mensagem. No envio do cliente, começa igual ao `clientId`. |
 | `clientId` | string (opcional) | Id estável gerado **no cliente** antes do round-trip. Confirmações de status correlacionam por `clientId` ou `id`. |
-| `conversationId` | string | Conversa / ticket. Nesta etapa o id é fixo (`conversa-teste`); `start()` reconecta na mesma conversa e o mock preserva as URLs de mídia. |
+| `conversationId` | string | Conversa / ticket. A UI inicia a sessão com o id fixo `conversa-teste`. `start(id)` inicia uma sessão e limpa as mensagens; sem argumento, `start()` gera um novo id. Para reconectar preservando o histórico, use `reconnect()`. O mock preserva as URLs de mídia ao reconectar na mesma conversa e as revoga ao mudar de conversa ou desconectar. |
 | `direction` | `client` \| `agent` \| `system` | Quem originou. No cliente web, `client` alinha à direita. `authorId` entra na Etapa 4. |
 | `author` | `{ id, name }` | Exibição. |
 | `timestamp` | string ISO-8601 | Relógio do emissor. |
