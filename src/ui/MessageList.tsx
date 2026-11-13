@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { formatDateSeparator, isSameCalendarDay } from '../chat/dates';
-import type { ChatMessage, MenuOption } from '../domain/message';
 import type { TypingState } from '../chat/ChatSession';
+import { formatDateSeparator, isSameCalendarDay } from '../chat/dates';
+import type { UploadView } from '../chat/uploads';
+import type { ChatMessage, MenuOption } from '../domain/message';
 import { isTextMessage } from '../domain/message';
+import type { OpenImage } from './attachments/MediaBody';
 import { MessageBubble } from './MessageBubble';
 
 export function MessageList({
@@ -12,6 +14,11 @@ export function MessageList({
   menu,
   menuDisabled,
   onMenuSelect,
+  hidden = false,
+  uploads,
+  onCancelUpload,
+  onOpenImage,
+  sessionEnded = false,
 }: {
   messages: ChatMessage[];
   typing: TypingState;
@@ -19,6 +26,11 @@ export function MessageList({
   menu: MenuOption[];
   menuDisabled: boolean;
   onMenuSelect: (option: MenuOption) => void;
+  hidden?: boolean;
+  uploads?: Readonly<Record<string, UploadView>>;
+  onCancelUpload?: (id: string) => void;
+  onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
+  sessionEnded?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const menuHostId = lastBotMenuHostId(messages, menu);
@@ -32,13 +44,14 @@ export function MessageList({
   }, [messages, typing.isTyping]);
 
   return (
-    <div className="message-list" ref={scrollerRef}>
+    <div className="message-list" ref={scrollerRef} hidden={hidden}>
       <div role="log" aria-label="Mensagens">
         {messages.map((message, index) => {
           const previous = messages[index - 1];
           const showDate = !previous || !isSameCalendarDay(previous.timestamp, message.timestamp);
           const showTail = isFirstInGroup(previous, message, showDate);
           const showMenu = menuHostId === message.id;
+          const upload = uploads?.[message.id] ?? (message.clientId ? uploads?.[message.clientId] : undefined);
           return (
             <div key={message.id} className={`message-row ${message.direction === 'client' ? 'out' : 'in'}`}>
               {showDate ? (
@@ -53,6 +66,10 @@ export function MessageList({
                 onMenuSelect={onMenuSelect}
                 {...(showMenu ? { menu } : {})}
                 {...(onRetry ? { onRetry } : {})}
+                {...(upload ? { upload } : {})}
+                {...(onCancelUpload ? { onCancelUpload } : {})}
+                {...(onOpenImage ? { onOpenImage } : {})}
+                {...(sessionEnded ? { sessionEnded } : {})}
               />
             </div>
           );

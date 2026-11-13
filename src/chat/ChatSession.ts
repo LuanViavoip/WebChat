@@ -1,16 +1,19 @@
+import { type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage, MenuOption, MessageStatus } from '../domain/message';
 import { isTextMessage } from '../domain/message';
-import { isSessionAborted } from '../transport/abort';
+import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import type {
   ChatEvent,
   ChatTransport,
   OutboundPayload,
   TransportStatus,
 } from '../transport/ChatTransport';
+import { browserObjectUrls, type ObjectUrlFactory } from '../transport/objectUrls';
 import { IdAliasIndex } from './idAlias';
-import { messageFromPayload, normalizePayload, payloadFromMessage } from './outbound';
+import { messageFromPayload, normalizePayload, payloadForAttachment, payloadFromMessage } from './outbound';
 import { DEFAULT_PENDING_LIMIT, DEFAULT_PENDING_TTL_MS, PendingStatusMap } from './pendingStatus';
 import { mergeStatus } from './statusRank';
+import { beginUpload, nextUpload, type UploadEntry, type UploadView } from './uploads';
 
 export type TypingState = {
   isTyping: boolean;
@@ -24,6 +27,7 @@ export type ChatSessionState = {
   menu: MenuOption[];
   ended: boolean;
   error: string | null;
+  uploads: Readonly<Record<string, UploadView>>;
 };
 
 export type ChatSessionListener = (state: ChatSessionState) => void;
@@ -33,6 +37,7 @@ export type ChatSessionOptions = {
   now?: () => string;
   pendingLimit?: number;
   pendingTtlMs?: number;
+  objectUrls?: ObjectUrlFactory;
 };
 
 const IDLE_TYPING: TypingState = { isTyping: false, actorName: '' };
@@ -52,6 +57,9 @@ export class ChatSession {
   private unsubscribeTransport: (() => void) | undefined;
   private readonly createId: () => string;
   private readonly now: () => string;
+  private readonly objectUrls: ObjectUrlFactory;
+  private readonly uploads = new Map<string, UploadEntry>();
+  private readonly uploadControllers = new Map<string, AbortController>();
 
   constructor(
     private readonly transport: ChatTransport,
@@ -59,6 +67,7 @@ export class ChatSession {
   ) {
     this.createId = options.createId ?? (() => crypto.randomUUID());
     this.now = options.now ?? (() => new Date().toISOString());
+    this.objectUrls = options.objectUrls ?? browserObjectUrls;
     this.pendingStatus = new PendingStatusMap(
       options.pendingLimit ?? DEFAULT_PENDING_LIMIT,
       options.pendingTtlMs ?? DEFAULT_PENDING_TTL_MS,
@@ -81,6 +90,7 @@ export class ChatSession {
   async start(patientName: string, conversationId = nextConversationId()): Promise<void> {
     this.generation += 1;
     const generation = this.generation;
+    this.clearUploads();
     this.messages = [];
     this.typing = IDLE_TYPING;
     this.ended = false;
@@ -113,6 +123,7 @@ export class ChatSession {
 
   stop(): void {
     this.generation += 1;
+    this.clearUploads();
     this.unsubscribeTransport?.();
     this.unsubscribeTransport = undefined;
     this.transport.disconnect();
@@ -131,16 +142,42 @@ export class ChatSession {
     this.aliases.link(clientId, clientId);
     this.upsertMessage(messageFromPayload(clientId, this.conversationId, normalized, this.now(), 'sending'));
     this.emit();
-    try {
-      await this.transport.send({ clientId, payload: normalized });
-    } catch (error) {
-      if (generation !== this.generation || isSessionAborted(error)) {
-        return;
-      }
-      this.applyStatus(clientId, 'error');
-      this.error = errorMessage(error, 'Não foi possível enviar a mensagem.');
-      this.emit();
+    await this.dispatchSend(clientId, normalized, generation);
+  }
+
+  async sendAttachment(attachment: ValidAttachment, caption?: string): Promise<void> {
+    if (this.ended) {
+      return;
     }
+    const clientId = this.createId();
+    const previewUrl = this.objectUrls.create(attachment.file);
+    const payload = payloadForAttachment(attachment, previewUrl, caption);
+    this.aliases.link(clientId, clientId);
+    this.upsertMessage(messageFromPayload(clientId, this.conversationId, payload, this.now(), 'sending'));
+    this.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
+    this.emit();
+    await this.runUpload(clientId);
+  }
+
+  cancelUpload(messageId: string): void {
+    const key = this.uploadKey(messageId);
+    if (!key) {
+      return;
+    }
+    const entry = this.uploads.get(key);
+    if (!entry) {
+      return;
+    }
+    const next = nextUpload(entry, { type: 'cancel' });
+    if (next !== 'removed' && next === entry) {
+      return;
+    }
+    this.uploadControllers.get(key)?.abort();
+    this.uploadControllers.delete(key);
+    this.uploads.delete(key);
+    this.objectUrls.revoke(entry.previewUrl);
+    this.messages = this.messages.filter((message) => !this.matchesId(message, key));
+    this.emit();
   }
 
   async sendMenuOption(option: MenuOption): Promise<void> {
@@ -148,6 +185,22 @@ export class ChatSession {
   }
 
   async retry(messageId: string): Promise<void> {
+    if (this.ended) {
+      return;
+    }
+    const uploadKey = this.uploadKey(messageId);
+    const upload = uploadKey ? this.uploads.get(uploadKey) : undefined;
+    if (upload?.view.phase === 'failed' && uploadKey) {
+      const next = nextUpload(upload, { type: 'retry' });
+      if (next === 'removed') {
+        return;
+      }
+      this.uploads.set(uploadKey, next);
+      this.applyStatus(uploadKey, 'sending', true);
+      this.emit();
+      await this.runUpload(uploadKey);
+      return;
+    }
     const message = this.findMessage(messageId);
     if (!message || message.status !== 'error') {
       return;
@@ -155,14 +208,107 @@ export class ChatSession {
     const generation = this.generation;
     this.error = null;
     this.applyStatus(message.id, 'sending', true);
+    this.emit();
     const clientId = message.clientId ?? message.id;
+    await this.dispatchSend(clientId, payloadFromMessage(message), generation);
+  }
+
+  private async runUpload(clientId: string): Promise<void> {
+    const entry = this.uploads.get(clientId);
+    if (!entry) {
+      return;
+    }
+    const attempt = entry.attempt;
+    const controller = new AbortController();
+    this.uploadControllers.set(clientId, controller);
+    const { attachment, caption } = entry;
     try {
-      await this.transport.send({ clientId, payload: payloadFromMessage(message) });
-    } catch (error) {
-      if (generation !== this.generation || isSessionAborted(error)) {
+      const { url } = await this.transport.upload({
+        clientId,
+        file: attachment.file,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        signal: controller.signal,
+        onProgress: ({ loaded }) => {
+          this.applyUploadProgress(clientId, attempt, loaded);
+        },
+      });
+      const current = this.uploads.get(clientId);
+      if (!current || current.attempt !== attempt) {
         return;
       }
-      this.applyStatus(message.id, 'error', true);
+      const succeeded = nextUpload(current, { type: 'succeed', attempt });
+      if (succeeded !== 'removed') {
+        return;
+      }
+      this.uploads.delete(clientId);
+      this.uploadControllers.delete(clientId);
+      this.objectUrls.revoke(current.previewUrl);
+      this.replaceMessageUrl(clientId, url);
+      this.emit();
+      await this.dispatchSend(clientId, payloadForAttachment(attachment, url, caption));
+    } catch (error) {
+      if (isUploadCanceled(error)) {
+        return;
+      }
+      if (isSessionAborted(error) && this.ended) {
+        return;
+      }
+      const current = this.uploads.get(clientId);
+      if (!current || current.attempt !== attempt) {
+        return;
+      }
+      const failed = nextUpload(current, {
+        type: 'fail',
+        attempt,
+        message: `Falha ao enviar ${attachment.fileName}.`,
+      });
+      if (failed === 'removed' || failed === current) {
+        return;
+      }
+      this.uploads.set(clientId, failed);
+      this.applyStatus(clientId, 'error');
+      this.emit();
+    }
+  }
+
+  private applyUploadProgress(clientId: string, attempt: number, loaded: number): void {
+    const current = this.uploads.get(clientId);
+    if (!current) {
+      return;
+    }
+    const previousPercent = percentOf(current.view);
+    const next = nextUpload(current, { type: 'progress', attempt, loaded });
+    if (next === 'removed' || next === current) {
+      return;
+    }
+    this.uploads.set(clientId, next);
+    if (percentOf(next.view) !== previousPercent) {
+      this.emit();
+    }
+  }
+
+  private async dispatchSend(
+    clientId: string,
+    payload: OutboundPayload,
+    generation?: number,
+  ): Promise<void> {
+    if (this.ended) {
+      return;
+    }
+    try {
+      await this.transport.send({ clientId, payload });
+    } catch (error) {
+      if (isSessionAborted(error)) {
+        return;
+      }
+      if (generation !== undefined && generation !== this.generation) {
+        return;
+      }
+      if (!this.findMessage(clientId)) {
+        return;
+      }
+      this.applyStatus(clientId, 'error');
       this.error = errorMessage(error, 'Não foi possível enviar a mensagem.');
       this.emit();
     }
@@ -220,6 +366,7 @@ export class ChatSession {
       case 'ended':
         this.ended = true;
         this.typing = IDLE_TYPING;
+        this.abortInFlightUploads();
         break;
       default: {
         const exhaustive: never = event;
@@ -277,8 +424,55 @@ export class ChatSession {
     );
   }
 
+  private replaceMessageUrl(id: string, url: string): void {
+    this.messages = this.messages.map((message) => {
+      if (!this.matchesId(message, id) || !('url' in message)) {
+        return message;
+      }
+      return { ...message, url };
+    });
+  }
+
   private findMessage(id: string): ChatMessage | undefined {
     return this.messages.find((message) => this.matchesId(message, id));
+  }
+
+  private uploadKey(messageId: string): string | undefined {
+    if (this.uploads.has(messageId)) {
+      return messageId;
+    }
+    for (const key of this.aliasKeys(messageId)) {
+      if (this.uploads.has(key)) {
+        return key;
+      }
+    }
+    const message = this.findMessage(messageId);
+    if (message?.clientId && this.uploads.has(message.clientId)) {
+      return message.clientId;
+    }
+    return undefined;
+  }
+
+  private abortInFlightUploads(): void {
+    for (const [id, entry] of [...this.uploads]) {
+      if (entry.view.phase !== 'uploading') {
+        continue;
+      }
+      this.uploadControllers.get(id)?.abort();
+      this.uploadControllers.delete(id);
+      this.objectUrls.revoke(entry.previewUrl);
+      this.uploads.delete(id);
+      this.messages = this.messages.filter((message) => !this.matchesId(message, id));
+    }
+  }
+
+  private clearUploads(): void {
+    for (const [id, entry] of this.uploads) {
+      this.uploadControllers.get(id)?.abort();
+      this.objectUrls.revoke(entry.previewUrl);
+    }
+    this.uploads.clear();
+    this.uploadControllers.clear();
   }
 
   private matchesId(message: ChatMessage, id: string): boolean {
@@ -304,6 +498,10 @@ export class ChatSession {
   }
 
   private snapshot(): ChatSessionState {
+    const uploads: Record<string, UploadView> = {};
+    for (const [id, entry] of this.uploads) {
+      uploads[id] = entry.view;
+    }
     return {
       messages: this.messages,
       connection: this.connection,
@@ -311,6 +509,7 @@ export class ChatSession {
       menu: this.ended ? [] : lastBotMenu(this.messages),
       ended: this.ended,
       error: this.error,
+      uploads,
     };
   }
 
@@ -338,4 +537,11 @@ function errorMessage(error: unknown, fallback: string): string {
 
 function nextConversationId(): string {
   return `conv-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function percentOf(view: UploadView): number {
+  if (view.phase !== 'uploading' || view.total === 0) {
+    return -1;
+  }
+  return Math.floor((view.loaded / view.total) * 100);
 }

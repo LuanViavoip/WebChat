@@ -1,5 +1,6 @@
-import type { MessageAuthor, TextMessage } from '../domain/message';
-import { isSessionAborted, SessionAbortedError } from './abort';
+import type { ChatMessage, MessageAuthor, TextMessage } from '../domain/message';
+import { messageFromPayload } from '../chat/outbound';
+import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from './abort';
 import type {
   ChatEvent,
   ChatEventHandler,
@@ -7,7 +8,10 @@ import type {
   ConnectSession,
   SendRequest,
   TransportStatus,
+  UploadedMedia,
+  UploadRequest,
 } from './ChatTransport';
+import { browserObjectUrls, type ObjectUrlFactory } from './objectUrls';
 import { PRE_ATENDIMENTO_MENU, replyForChoice, welcomeText } from './preAtendimento';
 
 export type MockDelays = {
@@ -16,7 +20,10 @@ export type MockDelays = {
   deliveredMs: number;
   readMs: number;
   replyMs: number;
+  uploadChunkMs: number;
 };
+
+export type MockUploadFailure = 'never' | 'once' | 'always';
 
 export type MockTransportOptions = {
   delays?: Partial<MockDelays>;
@@ -24,6 +31,9 @@ export type MockTransportOptions = {
   createId?: () => string;
   failConnect?: boolean;
   failSend?: boolean;
+  failUpload?: MockUploadFailure;
+  uploadChunks?: number;
+  objectUrls?: ObjectUrlFactory;
 };
 
 const DEFAULT_DELAYS: MockDelays = {
@@ -32,21 +42,27 @@ const DEFAULT_DELAYS: MockDelays = {
   deliveredMs: 280,
   readMs: 520,
   replyMs: 700,
+  uploadChunkMs: 150,
 };
 
 const BOT: MessageAuthor = { id: 'bot-preatendimento', name: 'ICS Pré-atendimento' };
-const CLIENT: MessageAuthor = { id: 'client', name: 'Você' };
 
 export class MockTransport implements ChatTransport {
   private readonly delays: MockDelays;
   private readonly now: () => string;
   private readonly createId: () => string;
+  private readonly uploadChunks: number;
+  private readonly objectUrls: ObjectUrlFactory;
   failConnect: boolean;
   failSend: boolean;
+  failUpload: MockUploadFailure;
   private readonly handlers = new Set<ChatEventHandler>();
-  private readonly timers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly connectionTimers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly conversationTimers = new Set<ReturnType<typeof setTimeout>>();
   private abort = new AbortController();
+  private lifetime = new AbortController();
   private epoch = 0;
+  private conversationEpoch = 0;
   private status: TransportStatus = 'disconnected';
   private conversationId = '';
   private patientName = 'Paciente';
@@ -55,12 +71,17 @@ export class MockTransport implements ChatTransport {
   private welcomeGate: Promise<void> = Promise.resolve();
   private unlockWelcome: (() => void) | undefined;
   private idSeq = 0;
+  private readonly uploadAttempts = new Map<string, number>();
+  private readonly remoteUrlsByConversation = new Map<string, string[]>();
 
   constructor(options: MockTransportOptions = {}) {
     this.delays = { ...DEFAULT_DELAYS, ...options.delays };
     this.now = options.now ?? (() => new Date().toISOString());
     this.failConnect = options.failConnect ?? false;
     this.failSend = options.failSend ?? false;
+    this.failUpload = options.failUpload ?? 'never';
+    this.uploadChunks = options.uploadChunks ?? 5;
+    this.objectUrls = options.objectUrls ?? browserObjectUrls;
     this.createId =
       options.createId ??
       (() => {
@@ -81,11 +102,20 @@ export class MockTransport implements ChatTransport {
   }
 
   async connect(session: ConnectSession): Promise<void> {
-    this.resetSession();
+    const previousConversationId = this.conversationId;
+    const sameConversation = previousConversationId !== '' && previousConversationId === session.conversationId;
+    const releasePreviousGate = this.beginConnection();
+    if (!sameConversation) {
+      this.resetUploadLifetime();
+      if (previousConversationId) {
+        this.revokeConversationUrls(previousConversationId);
+      }
+    }
     this.conversationId = session.conversationId;
     this.patientName = session.patientName;
     this.ended = false;
     this.setStatus('connecting');
+    releasePreviousGate();
     if (this.failConnect) {
       this.setStatus('error');
       this.unlockWelcome?.();
@@ -104,8 +134,11 @@ export class MockTransport implements ChatTransport {
   }
 
   disconnect(): void {
-    this.abortPending();
+    this.abortPending(true);
+    this.conversationEpoch += 1;
+    this.revokeRemoteUrls();
     this.setStatus('disconnected');
+    this.unlockWelcome?.();
   }
 
   send(request: SendRequest): Promise<void> {
@@ -115,7 +148,55 @@ export class MockTransport implements ChatTransport {
     if (this.status === 'connected') {
       return this.dispatchSend(request);
     }
-    return this.whenReady().then(() => this.dispatchSend(request));
+    const conversationEpoch = this.conversationEpoch;
+    return this.whenReady().then(() => {
+      this.guardConversation(conversationEpoch);
+      return this.dispatchSend(request);
+    });
+  }
+
+  upload(request: UploadRequest): Promise<UploadedMedia> {
+    if (this.status === 'disconnected' || this.status === 'error') {
+      return Promise.reject(new Error('Não conectado'));
+    }
+    if (this.status === 'connecting') {
+      const conversationEpoch = this.conversationEpoch;
+      return this.whenReady().then(() => {
+        this.guardConversation(conversationEpoch);
+        return this.runUpload(request);
+      });
+    }
+    return this.runUpload(request);
+  }
+
+  private async runUpload(request: UploadRequest): Promise<UploadedMedia> {
+    if (this.status !== 'connected') {
+      throw new Error('Não conectado');
+    }
+    const conversationEpoch = this.conversationEpoch;
+    const total = request.file.size;
+    const chunks = Math.max(1, this.uploadChunks);
+    const attempt = (this.uploadAttempts.get(request.clientId) ?? 0) + 1;
+    this.uploadAttempts.set(request.clientId, attempt);
+    const failAt = Math.ceil(chunks / 2);
+    const shouldFail =
+      this.failUpload === 'always' || (this.failUpload === 'once' && attempt === 1);
+    for (let step = 1; step <= chunks; step += 1) {
+      await this.wait(this.delays.uploadChunkMs, request.signal, 'conversation');
+      this.guardConversation(conversationEpoch);
+      if (request.signal.aborted) {
+        throw new UploadCanceledError();
+      }
+      request.onProgress({ loaded: Math.round((total * step) / chunks), total });
+      if (shouldFail && step === failAt) {
+        throw new UploadFailedError('Falha no upload simulado');
+      }
+    }
+    const url = this.objectUrls.create(request.file);
+    const urls = this.remoteUrlsByConversation.get(this.conversationId) ?? [];
+    urls.push(url);
+    this.remoteUrlsByConversation.set(this.conversationId, urls);
+    return { url };
   }
 
   private dispatchSend(request: SendRequest): Promise<void> {
@@ -125,52 +206,43 @@ export class MockTransport implements ChatTransport {
     if (this.failSend) {
       return Promise.reject(new Error('Falha ao enviar'));
     }
-    switch (request.payload.type) {
-      case 'text':
-        break;
-      case 'image':
-      case 'audio':
-      case 'video':
-      case 'document':
-      case 'sticker':
-        this.emit({
-          type: 'status',
-          messageId: request.clientId,
-          clientId: request.clientId,
-          status: 'error',
-        });
-        return Promise.reject(new Error('Mídia ainda não suportada nesta etapa'));
-      default: {
-        const exhaustive: never = request.payload;
-        return exhaustive;
-      }
-    }
-    const text = request.payload.text.trim();
-    if (!text) {
+    if (request.payload.type === 'text' && !request.payload.text.trim()) {
       return Promise.resolve();
     }
     const epoch = this.epoch;
-    const message = this.clientText(text, request.clientId);
+    const conversationEpoch = this.conversationEpoch;
+    const message = messageFromPayload(
+      request.clientId,
+      this.conversationId,
+      request.payload,
+      this.now(),
+      'sending',
+    );
     this.emit({ type: 'message', message });
-    void this.progressClient(message, text, epoch);
+    void this.progressClient(message, epoch, conversationEpoch);
     return Promise.resolve();
   }
 
-  private async progressClient(message: TextMessage, text: string, epoch: number): Promise<void> {
+  private async progressClient(message: ChatMessage, epoch: number, conversationEpoch: number): Promise<void> {
     try {
-      await this.wait(this.delays.sentMs);
-      this.guard(epoch);
+      await this.wait(this.delays.sentMs, undefined, 'conversation');
+      this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'sent');
-      await this.wait(this.delays.deliveredMs);
-      this.guard(epoch);
+      await this.wait(this.delays.deliveredMs, undefined, 'conversation');
+      this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'delivered');
-      await this.wait(this.delays.readMs);
-      this.guard(epoch);
+      await this.wait(this.delays.readMs, undefined, 'conversation');
+      this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'read');
-      if (this.ended) {
+      if (this.ended || message.type !== 'text') {
         return;
       }
-      this.botQueue = this.botQueue.then(() => this.replyAsBot(text, epoch), () => this.replyAsBot(text, epoch));
+      this.guard(epoch);
+      const text = message.text;
+      this.botQueue = this.botQueue.then(
+        () => this.replyAsBot(text, epoch),
+        () => this.replyAsBot(text, epoch),
+      );
       await this.botQueue;
     } catch (error) {
       if (isSessionAborted(error)) {
@@ -214,20 +286,6 @@ export class MockTransport implements ChatTransport {
     await this.wait(this.delays.replyMs);
     this.guard(epoch);
     emit();
-  }
-
-  private clientText(text: string, clientId: string): TextMessage {
-    return {
-      id: clientId,
-      conversationId: this.conversationId,
-      clientId,
-      direction: 'client',
-      author: CLIENT,
-      timestamp: this.now(),
-      status: 'sending',
-      type: 'text',
-      text,
-    };
   }
 
   private botText(text: string, menu?: TextMessage['menu']): TextMessage {
@@ -275,24 +333,65 @@ export class MockTransport implements ChatTransport {
     }
   }
 
-  private resetSession(): void {
-    this.abortPending();
+  private beginConnection(): () => void {
+    const releasePreviousGate = this.unlockWelcome ?? (() => {});
+    this.abortPending(false);
     this.epoch += 1;
     this.abort = new AbortController();
+    if (this.lifetime.signal.aborted) {
+      this.lifetime = new AbortController();
+    }
     this.botQueue = Promise.resolve();
     this.welcomeGate = new Promise((resolve) => {
       this.unlockWelcome = resolve;
     });
+    return releasePreviousGate;
   }
 
-  private abortPending(): void {
-    this.abort.abort();
-    this.unlockWelcome?.();
-    for (const timer of this.timers) {
+  private resetUploadLifetime(): void {
+    this.lifetime.abort();
+    this.uploadAttempts.clear();
+    this.conversationEpoch += 1;
+    this.lifetime = new AbortController();
+    for (const timer of this.conversationTimers) {
       clearTimeout(timer);
     }
-    this.timers.clear();
+    this.conversationTimers.clear();
+  }
+
+  private abortPending(includeUploads: boolean): void {
+    this.abort.abort();
+    if (includeUploads) {
+      this.lifetime.abort();
+    }
+    for (const timer of this.connectionTimers) {
+      clearTimeout(timer);
+    }
+    this.connectionTimers.clear();
+    if (includeUploads) {
+      for (const timer of this.conversationTimers) {
+        clearTimeout(timer);
+      }
+      this.conversationTimers.clear();
+    }
     this.botQueue = Promise.resolve();
+  }
+
+  private revokeRemoteUrls(): void {
+    for (const conversationId of [...this.remoteUrlsByConversation.keys()]) {
+      this.revokeConversationUrls(conversationId);
+    }
+  }
+
+  private revokeConversationUrls(conversationId: string): void {
+    const urls = this.remoteUrlsByConversation.get(conversationId);
+    if (!urls) {
+      return;
+    }
+    for (const url of urls) {
+      this.objectUrls.revoke(url);
+    }
+    this.remoteUrlsByConversation.delete(conversationId);
   }
 
   private whenReady(): Promise<void> {
@@ -300,7 +399,7 @@ export class MockTransport implements ChatTransport {
       return Promise.resolve();
     }
     if (this.status === 'connecting') {
-      return this.welcomeGate;
+      return this.welcomeGate.then(() => this.whenReady());
     }
     return Promise.reject(new Error('Não conectado'));
   }
@@ -311,27 +410,50 @@ export class MockTransport implements ChatTransport {
     }
   }
 
-  private wait(ms: number): Promise<void> {
-    if (this.abort.signal.aborted) {
+  private guardConversation(conversationEpoch: number): void {
+    if (conversationEpoch !== this.conversationEpoch || this.lifetime.signal.aborted) {
+      throw new SessionAbortedError();
+    }
+  }
+
+  private wait(
+    ms: number,
+    extra?: AbortSignal,
+    scope: 'connection' | 'conversation' = 'connection',
+  ): Promise<void> {
+    const sessionSignal = scope === 'conversation' ? this.lifetime.signal : this.abort.signal;
+    const timers = scope === 'conversation' ? this.conversationTimers : this.connectionTimers;
+    if (sessionSignal.aborted) {
       return Promise.reject(new SessionAbortedError());
+    }
+    if (extra?.aborted) {
+      return Promise.reject(new UploadCanceledError());
     }
     if (ms <= 0) {
       return Promise.resolve();
     }
     return new Promise((resolve, reject) => {
-      const { signal } = this.abort;
-      const onAbort = () => {
+      const cleanup = () => {
         clearTimeout(timer);
-        this.timers.delete(timer);
+        timers.delete(timer);
+        sessionSignal.removeEventListener('abort', onSessionAbort);
+        extra?.removeEventListener('abort', onCancel);
+      };
+      const onSessionAbort = () => {
+        cleanup();
         reject(new SessionAbortedError());
       };
+      const onCancel = () => {
+        cleanup();
+        reject(new UploadCanceledError());
+      };
       const timer = setTimeout(() => {
-        signal.removeEventListener('abort', onAbort);
-        this.timers.delete(timer);
+        cleanup();
         resolve();
       }, ms);
-      this.timers.add(timer);
-      signal.addEventListener('abort', onAbort, { once: true });
+      timers.add(timer);
+      sessionSignal.addEventListener('abort', onSessionAbort, { once: true });
+      extra?.addEventListener('abort', onCancel, { once: true });
     });
   }
 }

@@ -1,7 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage } from '../domain/message';
-import { isTextMessage } from '../domain/message';
+import { previewOf } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
+import type { ObjectUrlFactory } from '../transport/objectUrls';
+import { AttachmentPreview } from './attachments/AttachmentPreview';
+import { ImageViewer } from './attachments/ImageViewer';
+import type { OpenImage } from './attachments/MediaBody';
+import { useFileDrop } from './attachments/useFileDrop';
 import { ChatHeader } from './ChatHeader';
 import { historyConversationId, historyPane, mergeHistoryState } from './chatHistory';
 import { Composer } from './Composer';
@@ -22,6 +28,7 @@ export function ChatPanel({
   compact = false,
   selectedConversationId: selectedConversationIdProp,
   onSelectConversation,
+  objectUrls,
 }: {
   transport: ChatTransport;
   patientName: string;
@@ -29,14 +36,25 @@ export function ChatPanel({
   compact?: boolean;
   selectedConversationId?: string;
   onSelectConversation?: (id: string) => void;
+  objectUrls?: ObjectUrlFactory;
 }) {
-  const { state, send, sendMenuOption, retry, reconnect, restart } = useChatSession(transport, patientName);
+  const { state, send, sendMenuOption, retry, reconnect, restart, sendAttachment, cancelUpload } = useChatSession(
+    transport,
+    patientName,
+    objectUrls ? { objectUrls } : undefined,
+  );
   const isMobile = useMediaQuery('(max-width: 900px)');
   const [mobilePane, setMobilePane] = useState<MobilePane>(() => historyPane(window.history.state));
   const [uncontrolledId, setUncontrolledId] = useState(
     () => (compact ? LIVE_CONVERSATION_ID : historyConversationId(window.history.state)) ?? LIVE_CONVERSATION_ID,
   );
   const [draft, setDraft] = useState('');
+  const [pendingAttachment, setPendingAttachment] = useState<ValidAttachment | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<OpenImage | null>(null);
+  const viewerOpener = useRef<HTMLElement | null>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLElement>(null);
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = selectedConversationIdProp ?? uncontrolledId;
   const live = isLiveConversation(selectedConversationId);
@@ -61,6 +79,7 @@ export function ChatPanel({
     messages: state.messages,
     unseen: unseenLive,
     hadConnected: hadConnected.current,
+    failedUpload: !state.ended && Object.values(state.uploads).some((upload) => upload.phase === 'failed'),
   });
   const announcement = liveActivityAnnouncement(activity, liveVisible);
   const pendingFocus = useRef<PendingFocus | null>(null);
@@ -71,6 +90,27 @@ export function ChatPanel({
   isMobileRef.current = isMobile;
   onSelectRef.current = onSelectConversation;
   controlledRef.current = controlled;
+
+  const handleFiles = useCallback((files: File[]) => {
+    const check = validateFiles(files);
+    if (!check) {
+      return;
+    }
+    if (!check.ok) {
+      setAttachError(rejectionMessage(check.rejection));
+      return;
+    }
+    setAttachError(null);
+    setPendingAttachment(check.attachment);
+  }, []);
+
+  const { dragging } = useFileDrop(chatRef, {
+    enabled: live && !disabled && !pendingAttachment,
+    onFiles: handleFiles,
+    surface: shellRef,
+  });
+  const selectedIdRef = useRef(selectedConversationId);
+  selectedIdRef.current = selectedConversationId;
 
   useEffect(() => {
     if (compact) {
@@ -136,6 +176,11 @@ export function ChatPanel({
   }, [liveVisible, state.messages.length, state.connection]);
 
   function assignConversation(id: string) {
+    if (id !== selectedIdRef.current) {
+      setPendingAttachment(null);
+      setAttachError(null);
+      setViewer(null);
+    }
     if (!controlledRef.current) {
       setUncontrolledId(id);
     }
@@ -161,6 +206,48 @@ export function ChatPanel({
     }
   }
 
+  function focusAttachControl() {
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[aria-label="Anexar arquivo"]')?.focus();
+    });
+  }
+
+  function closePreview() {
+    setPendingAttachment(null);
+    focusAttachControl();
+  }
+
+  function handleCancelUpload(id: string) {
+    cancelUpload(id);
+    focusAttachControl();
+  }
+
+  const restoreViewerFocus = useCallback((opener: HTMLElement | null) => {
+    requestAnimationFrame(() => {
+      if (opener?.isConnected) {
+        opener.focus();
+        return;
+      }
+      const attach = document.querySelector<HTMLButtonElement>('[aria-label="Anexar arquivo"]');
+      if (attach && !attach.disabled) {
+        attach.focus();
+        return;
+      }
+      const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Mensagem"]');
+      if (field && !field.disabled) {
+        field.focus();
+        return;
+      }
+      document.querySelector<HTMLElement>('.chat-header')?.focus();
+    });
+  }, []);
+
+  const closeViewer = useCallback(() => {
+    const opener = viewerOpener.current;
+    setViewer(null);
+    restoreViewerFocus(opener);
+  }, [restoreViewerFocus]);
+
   function backToList() {
     if (!compact && isMobile && historyPane(window.history.state) === 'chat') {
       window.history.back();
@@ -172,8 +259,24 @@ export function ChatPanel({
     }
   }
 
+  const openImage = resolveOpenImage(viewer, messages);
+  const restoreFocusAfterGone = useRef(false);
+  if (viewer && !openImage) {
+    restoreFocusAfterGone.current = true;
+    setViewer(null);
+  }
+
+  useLayoutEffect(() => {
+    if (!restoreFocusAfterGone.current) {
+      return;
+    }
+    restoreFocusAfterGone.current = false;
+    restoreViewerFocus(viewerOpener.current);
+  }, [openImage, restoreViewerFocus]);
+
   return (
     <section
+      ref={shellRef}
       className={`wa-shell${compact ? ' wa-compact' : ''}`}
       data-mobile-pane={compact ? 'chat' : mobilePane}
       aria-label="Conversa com o ICS"
@@ -189,7 +292,7 @@ export function ChatPanel({
           onSelect={selectConversation}
         />
       )}
-      <div className="wa-chat">
+      <div className="wa-chat" ref={chatRef}>
         <ChatHeader
           title={conversation.title}
           connection={state.connection}
@@ -217,7 +320,33 @@ export function ChatPanel({
           menuDisabled={!live || disabled}
           onMenuSelect={sendMenuOption}
           onRetry={retry}
+          sessionEnded={live && state.ended}
+          hidden={Boolean(pendingAttachment)}
+          uploads={state.uploads}
+          onCancelUpload={handleCancelUpload}
+          onOpenImage={(image, opener) => {
+            viewerOpener.current = opener;
+            setViewer(image);
+          }}
         />
+        {dragging ? (
+          <div className="drop-overlay" aria-hidden="true">
+            Solte o arquivo para anexar
+          </div>
+        ) : null}
+        {live && attachError ? (
+          <div className="session-banner session-banner-error" role="alert">
+            <p>{attachError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setAttachError(null);
+              }}
+            >
+              Fechar
+            </button>
+          </div>
+        ) : null}
         {live && state.error ? (
           <div className="session-banner session-banner-error" role="alert">
             <p>{state.error}</p>
@@ -236,16 +365,48 @@ export function ChatPanel({
             </button>
           </div>
         ) : null}
-        {live ? (
-          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} />
+        {live && pendingAttachment ? (
+          <AttachmentPreview
+            attachment={pendingAttachment}
+            initialCaption={draft}
+            disabled={disabled}
+            onCancel={() => {
+              closePreview();
+            }}
+            onSend={(caption) => {
+              const kind = pendingAttachment.kind;
+              sendAttachment(pendingAttachment, caption);
+              if (kind === 'image' || kind === 'video') {
+                setDraft(splitCaption(draft).rest);
+              }
+              closePreview();
+            }}
+          />
+        ) : live ? (
+          <Composer value={draft} onChange={setDraft} onSend={send} disabled={disabled} onPickFiles={handleFiles} />
         ) : (
           <div className="session-banner">
             <p>Atendimento encerrado · somente leitura</p>
           </div>
         )}
+        <ImageViewer image={openImage} onClose={closeViewer} />
       </div>
     </section>
   );
+}
+
+function resolveOpenImage(
+  viewer: OpenImage | null,
+  messages: ChatMessage[],
+): { url: string; alt: string; fileName: string } | null {
+  if (!viewer) {
+    return null;
+  }
+  const message = messages.find((item) => item.id === viewer.messageId);
+  if (!message || message.type !== 'image') {
+    return null;
+  }
+  return { url: message.url, alt: message.caption || viewer.alt, fileName: viewer.fileName };
 }
 
 function writeHistory(pane: MobilePane, conversationId: string, mode: 'push' | 'replace') {
@@ -260,11 +421,12 @@ function writeHistory(pane: MobilePane, conversationId: string, mode: 'push' | '
 function lastPreview(messages: ChatMessage[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message && isTextMessage(message)) {
-      const line = message.text.split('\n')[0]?.trim();
-      if (line) {
-        return line.length > 42 ? `${line.slice(0, 41)}…` : line;
-      }
+    if (!message) {
+      continue;
+    }
+    const line = previewOf(message).split('\n')[0]?.trim();
+    if (line) {
+      return line.length > 42 ? `${line.slice(0, 41)}…` : line;
     }
   }
   return 'ICS Pré-atendimento';

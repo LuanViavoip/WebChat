@@ -24,13 +24,7 @@ export function App({
     return (
       <div className="host-page">
         <header className="host-header">Instituto Curitiba de Saúde</header>
-        <main className="host-main">
-          <h2>Portal do paciente (exemplo)</h2>
-          <p>
-            O ChatWeb pode ser embutido como widget flutuante nesta página. Use o botão no canto
-            inferior direito para abrir o atendimento.
-          </p>
-        </main>
+        <HostPortal />
         <ChatWidget transport={transport} patientName={patientName} />
       </div>
     );
@@ -44,6 +38,56 @@ export function App({
         selectedConversationId={selectedConversationId}
         onSelectConversation={setSelectedConversationId}
       />
+    </main>
+  );
+}
+
+function HostPortal() {
+  const [received, setReceived] = useState<string | null>(null);
+
+  function receive(files: FileList | File[] | null | undefined) {
+    const file = files?.[0];
+    if (!file) {
+      return;
+    }
+    setReceived(file.name);
+  }
+
+  return (
+    <main className="host-main">
+      <h2>Portal do paciente (exemplo)</h2>
+      <p>
+        O ChatWeb pode ser embutido como widget flutuante nesta página. Use o botão no canto
+        inferior direito para abrir o atendimento.
+      </p>
+      <label className="host-file">
+        Anexo do portal
+        <input
+          type="file"
+          aria-label="Anexo do portal"
+          onChange={(event) => {
+            receive(event.currentTarget.files);
+          }}
+        />
+      </label>
+      <div
+        className="host-drop"
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) {
+            return;
+          }
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) {
+            return;
+          }
+          event.preventDefault();
+          receive(event.dataTransfer.files);
+        }}
+      >
+        {received ? `Portal recebeu ${received}` : 'Solte um arquivo no portal'}
+      </div>
     </main>
   );
 }

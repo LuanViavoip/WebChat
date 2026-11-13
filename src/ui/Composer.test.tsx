@@ -1,17 +1,28 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import { ACCEPT_ATTRIBUTE } from '../domain/attachment';
 import { Composer } from './Composer';
 
 function Harness({
   onSend = vi.fn(),
   disabled = false,
+  onPickFiles,
 }: {
   onSend?: (text: string) => void;
   disabled?: boolean;
+  onPickFiles?: (files: File[]) => void;
 }) {
   const [value, setValue] = useState('');
-  return <Composer value={value} onChange={setValue} onSend={onSend} disabled={disabled} />;
+  return (
+    <Composer
+      value={value}
+      onChange={setValue}
+      onSend={onSend}
+      disabled={disabled}
+      {...(onPickFiles ? { onPickFiles } : {})}
+    />
+  );
 }
 
 describe('Composer', () => {
@@ -95,5 +106,27 @@ describe('Composer', () => {
     listbox.focus();
     await user.keyboard('{ArrowRight}{Enter}');
     expect(field).toHaveValue('😁');
+  });
+
+  it('habilita Anexar arquivo e desabilita com disabled', () => {
+    const { rerender } = render(<Harness onPickFiles={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toBeEnabled();
+    rerender(<Harness onPickFiles={vi.fn()} disabled />);
+    expect(screen.getByRole('button', { name: 'Anexar arquivo' })).toBeDisabled();
+  });
+
+  it('o input file usa ACCEPT_ATTRIBUTE e dispara onPickFiles, inclusive o mesmo arquivo duas vezes', async () => {
+    const user = userEvent.setup();
+    const onPickFiles = vi.fn();
+    render(<Harness onPickFiles={onPickFiles} />);
+    const input = document.querySelector('input[type="file"]');
+    expect(input).toHaveAttribute('accept', ACCEPT_ATTRIBUTE);
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error('esperava input file');
+    }
+    const file = new File([new Uint8Array(8)], 'foto.png', { type: 'image/png' });
+    await user.upload(input, file);
+    await user.upload(input, file);
+    expect(onPickFiles).toHaveBeenCalledTimes(2);
   });
 });

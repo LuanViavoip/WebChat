@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChatSession, type ChatSessionState } from '../chat/ChatSession';
+import type { ValidAttachment } from '../domain/attachment';
 import type { MenuOption } from '../domain/message';
 import type { ChatTransport } from '../transport/ChatTransport';
+import type { ObjectUrlFactory } from '../transport/objectUrls';
 
 const EMPTY: ChatSessionState = {
   messages: [],
@@ -10,10 +12,16 @@ const EMPTY: ChatSessionState = {
   menu: [],
   ended: false,
   error: null,
+  uploads: {},
 };
 
-export function useChatSession(transport: ChatTransport, patientName: string) {
-  const session = useMemo(() => new ChatSession(transport), [transport]);
+export function useChatSession(
+  transport: ChatTransport,
+  patientName: string,
+  options?: { objectUrls?: ObjectUrlFactory },
+) {
+  const objectUrls = options?.objectUrls;
+  const session = useMemo(() => new ChatSession(transport, { objectUrls }), [transport, objectUrls]);
   const [state, setState] = useState<ChatSessionState>(EMPTY);
 
   useEffect(() => {
@@ -41,6 +49,12 @@ export function useChatSession(transport: ChatTransport, patientName: string) {
     },
     restart: () => {
       void session.start(patientName);
+    },
+    sendAttachment: (attachment: ValidAttachment, caption?: string) => {
+      void session.sendAttachment(attachment, caption);
+    },
+    cancelUpload: (messageId: string) => {
+      session.cancelUpload(messageId);
     },
   };
 }

@@ -65,5 +65,48 @@ test.describe('contraste computado', () => {
     expect(focusColors.outlineStyle).not.toBe('none');
     expect(Number.parseFloat(focusColors.outlineWidth)).toBeGreaterThan(0);
     expect(contrastRatioFromCss(focusColors.outlineColor, focusColors.background)).toBeGreaterThanOrEqual(3);
+
+    await page.goto('/?nome=Maria%20Silva');
+    await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
+    await page.locator('.wa-chat input[type="file"]').setInputFiles({
+      name: 'guia.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.1\n%%EOF\n'),
+    });
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    const docMeta = await paintedColors(page.locator('.doc-card-meta').first());
+    expect(contrastRatioFromCss(docMeta.color, docMeta.background)).toBeGreaterThanOrEqual(4.5);
+
+    await page.locator('.wa-chat').evaluate((node) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([1, 2, 3, 4])], 'foto.png', { type: 'image/png' }));
+      node.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    });
+    const overlay = await paintedColors(page.locator('.drop-overlay'));
+    expect(contrastRatioFromCss(overlay.color, overlay.background)).toBeGreaterThanOrEqual(4.5);
+
+    await page.locator('.wa-chat input[type="file"]').setInputFiles({
+      name: 'foto.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    });
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    const thumb = page.getByRole('button', { name: 'Abrir foto em tela cheia' }).last();
+    await thumb.focus();
+    const thumbFocus = await thumb.evaluate((node) => {
+      const style = getComputedStyle(node);
+      let painted: Element | null = node;
+      let background = style.backgroundColor;
+      while (painted && (/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(background) || background === 'transparent')) {
+        painted = painted.parentElement;
+        background = painted ? getComputedStyle(painted).backgroundColor : background;
+      }
+      return { outlineColor: style.outlineColor, background, outlineWidth: style.outlineWidth };
+    });
+    expect(Number.parseFloat(thumbFocus.outlineWidth)).toBeGreaterThan(0);
+    expect(contrastRatioFromCss(thumbFocus.outlineColor, thumbFocus.background)).toBeGreaterThanOrEqual(3);
   });
 });

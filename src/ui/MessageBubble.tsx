@@ -1,6 +1,8 @@
-import type { ChatMessage, MenuOption } from '../domain/message';
+import type { UploadView } from '../chat/uploads';
 import { formatTime } from '../chat/dates';
-import { isTextMessage } from '../domain/message';
+import type { ChatMessage, MenuOption } from '../domain/message';
+import { isTextMessage, previewOf } from '../domain/message';
+import { MediaBody, type OpenImage } from './attachments/MediaBody';
 import { StatusTicks } from './StatusTicks';
 
 export function MessageBubble({
@@ -10,6 +12,10 @@ export function MessageBubble({
   menu,
   menuDisabled,
   onMenuSelect,
+  upload,
+  onOpenImage,
+  onCancelUpload,
+  sessionEnded = false,
 }: {
   message: ChatMessage;
   onRetry?: (messageId: string) => void;
@@ -17,20 +23,25 @@ export function MessageBubble({
   menu?: MenuOption[];
   menuDisabled?: boolean;
   onMenuSelect?: (option: MenuOption) => void;
+  upload?: UploadView;
+  onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
+  onCancelUpload?: (id: string) => void;
+  sessionEnded?: boolean;
 }) {
   const outgoing = message.direction === 'client';
-  const body = renderBody(message);
+  const body = renderBody(message, { upload, onOpenImage, onCancelUpload, onRetry, sessionEnded });
   const hasMenu = Boolean(menu && menu.length > 0 && onMenuSelect);
+  const showGenericRetry = outgoing && message.status === 'error' && onRetry && !upload && !sessionEnded;
   return (
     <article
       className={`bubble bubble-${message.direction} ${outgoing ? 'outgoing' : 'incoming'}${showTail ? ' has-tail' : ''}`}
-      aria-label={`${message.author.name}: ${preview(message)}`}
+      aria-label={`${message.author.name}: ${previewOf(message)}`}
     >
       <div className="bubble-body">{body}</div>
       <p className="bubble-meta">
         <time dateTime={message.timestamp}>{formatTime(message.timestamp)}</time>
         {outgoing ? <StatusTicks status={message.status} /> : null}
-        {outgoing && message.status === 'error' && onRetry ? (
+        {showGenericRetry ? (
           <button
             type="button"
             className="retry-button"
@@ -64,26 +75,27 @@ export function MessageBubble({
   );
 }
 
-function renderBody(message: ChatMessage) {
-  switch (message.type) {
-    case 'text':
-      return <p className="bubble-text">{message.text}</p>;
-    case 'image':
-    case 'audio':
-    case 'video':
-    case 'document':
-    case 'sticker':
-      return <p className="bubble-text">Mensagem de {message.type} ainda não suportada nesta etapa.</p>;
-    default: {
-      const exhaustive: never = message;
-      return exhaustive;
-    }
-  }
-}
-
-function preview(message: ChatMessage): string {
+function renderBody(
+  message: ChatMessage,
+  extras: {
+    upload?: UploadView;
+    onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
+    onCancelUpload?: (id: string) => void;
+    onRetry?: (id: string) => void;
+    sessionEnded?: boolean;
+  },
+) {
   if (isTextMessage(message)) {
-    return message.text;
+    return <p className="bubble-text">{message.text}</p>;
   }
-  return message.type;
+  return (
+    <MediaBody
+      message={message}
+      {...(extras.upload ? { upload: extras.upload } : {})}
+      {...(extras.onOpenImage ? { onOpenImage: extras.onOpenImage } : {})}
+      {...(extras.onCancelUpload ? { onCancelUpload: extras.onCancelUpload } : {})}
+      {...(extras.onRetry ? { onRetry: extras.onRetry } : {})}
+      {...(extras.sessionEnded ? { sessionEnded: extras.sessionEnded } : {})}
+    />
+  );
 }

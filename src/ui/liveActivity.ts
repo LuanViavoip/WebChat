@@ -17,10 +17,11 @@ export type LiveActivityInput = {
   messages: ReadonlyArray<{ status: MessageStatus }>;
   unseen?: boolean;
   hadConnected?: boolean;
+  failedUpload?: boolean;
 };
 
 export function liveActivity(state: LiveActivityInput): LiveActivity {
-  if (state.error || state.connection === 'error') {
+  if (state.error || state.connection === 'error' || state.failedUpload) {
     return 'error';
   }
   if (state.connection === 'connecting') {

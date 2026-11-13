@@ -1,6 +1,7 @@
 import { Mic, Paperclip, SendHorizontal, Smile } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { insertAtCursor } from '../chat/textCursor';
+import { ACCEPT_ATTRIBUTE } from '../domain/attachment';
 import { EmojiPicker } from './EmojiPicker';
 
 export function Composer({
@@ -8,14 +9,17 @@ export function Composer({
   disabled,
   value,
   onChange,
+  onPickFiles,
 }: {
   onSend: (text: string) => void;
   disabled: boolean;
   value: string;
   onChange: (value: string) => void;
+  onPickFiles?: (files: File[]) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const canSend = value.trim().length > 0;
 
   function submit() {
@@ -70,12 +74,29 @@ export function Composer({
         <button
           type="button"
           className="icon-button"
-          aria-label="Anexar (em breve)"
-          title="em breve"
-          disabled
+          aria-label="Anexar arquivo"
+          disabled={disabled || !onPickFiles}
+          onClick={() => {
+            fileRef.current?.click();
+          }}
         >
           <Paperclip size={22} strokeWidth={1.6} aria-hidden="true" />
         </button>
+        <input
+          ref={fileRef}
+          type="file"
+          hidden
+          accept={ACCEPT_ATTRIBUTE}
+          aria-hidden="true"
+          tabIndex={-1}
+          onChange={(event) => {
+            const files = event.target.files ? [...event.target.files] : [];
+            event.target.value = '';
+            if (files.length > 0) {
+              onPickFiles?.(files);
+            }
+          }}
+        />
         <label className="composer-field">
           <span className="sr-only">Mensagem</span>
           <textarea
