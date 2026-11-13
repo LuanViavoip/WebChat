@@ -1,6 +1,6 @@
 import type { Conversation, ConversationId, DirectConversation } from '../../domain/conversation';
 import type { UserId } from '../../domain/identity';
-import type { ChatMessage } from '../../domain/message';
+import type { ChatMessage, MessageStatus } from '../../domain/message';
 import type { TenantId } from '../../domain/tenant';
 import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type {
@@ -303,6 +303,10 @@ export class MockTransport implements ChatTransport {
     }
     if (echoed) {
       void this.progressClient(result.value.message, result.value.conversation, conversationEpoch);
+    } else {
+      // Reenvio idempotente: o servidor já tinha a mensagem e não ecoou. Devolve o status atual dela
+      // para o cliente nunca ficar preso em 'sending'.
+      this.emitStatus(result.value.message, result.value.message.status);
     }
     return Promise.resolve();
   }
@@ -383,7 +387,7 @@ export class MockTransport implements ChatTransport {
     }
   }
 
-  private emitStatus(message: ChatMessage, status: 'sent' | 'error'): void {
+  private emitStatus(message: ChatMessage, status: MessageStatus): void {
     this.emit({
       type: 'status',
       tenantId: message.tenantId,

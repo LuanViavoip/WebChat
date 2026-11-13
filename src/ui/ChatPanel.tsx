@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { asConversationId } from '../domain/conversation';
 import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage } from '../domain/message';
 import { previewOf } from '../domain/message';
@@ -40,10 +41,6 @@ export function ChatPanel({
   onSelectConversation?: (id: string) => void;
   objectUrls?: ObjectUrlFactory;
 }) {
-  const { state, send, retry, reconnect, sendAttachment, cancelUpload } = useChatSession(
-    transport,
-    objectUrls ? { objectUrls } : undefined,
-  );
   const isMobile = useMediaQuery('(max-width: 900px)');
   const [mobilePane, setMobilePane] = useState<MobilePane>(() => historyPane(window.history.state));
   const [uncontrolledId, setUncontrolledId] = useState(
@@ -58,6 +55,11 @@ export function ChatPanel({
   const shellRef = useRef<HTMLElement>(null);
   const controlled = selectedConversationIdProp !== undefined;
   const selectedConversationId = resolveConversationId(selectedConversationIdProp ?? uncontrolledId);
+  const { state, send, retry, reconnect, sendAttachment, cancelUpload } = useChatSession(
+    transport,
+    asConversationId(selectedConversationId),
+    objectUrls ? { objectUrls } : undefined,
+  );
   const liveVisible = !isMobile || mobilePane === 'chat';
   const conversation = conversationById(selectedConversationId);
   const messages = state.messages;

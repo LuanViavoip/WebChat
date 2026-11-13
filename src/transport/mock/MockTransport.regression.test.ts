@@ -3,7 +3,7 @@ import { createFakeObjectUrls } from '../../test/fakeObjectUrls';
 import { SessionAbortedError } from '../abort';
 import type { ConnectRequest } from '../ChatTransport';
 import { MockTransport } from './MockTransport';
-import { DEFAULT_SESSION, ICS_USERS, LIVE_CONVERSATION_ID, OTHER_CONVERSATION_ID } from './seed';
+import { DEFAULT_SESSION, ICS_USERS, LIVE_CONVERSATION_ID } from './seed';
 
 const delays = { connectMs: 10, sentMs: 30, deliveredMs: 30, readMs: 30, uploadChunkMs: 0 };
 const ME = DEFAULT_SESSION;
@@ -24,13 +24,16 @@ describe('isolamento de operações entre sessões', () => {
   it.each([false, true])('não envia texto enfileirado à conversa nova (stop=%s)', async (stop) => {
     const transport = new MockTransport({ delays });
     const session = new ChatSession(transport, { createId: () => 'old' });
-    const first = session.start(LIVE_CONVERSATION_ID);
-    const sending = session.send({ type: 'text', text: 'oi' });
+    const first = session.start();
+    // Antes do Bootstrap a conversa é desconhecida: o envio é descartado, não "segue" a conexão nova.
+    const sending = session.send(LIVE_CONVERSATION_ID, { type: 'text', text: 'oi' });
     if (stop) session.stop();
-    const next = session.start(OTHER_CONVERSATION_ID);
+    const next = session.start();
     await Promise.all([first, sending, next]);
     await new Promise((resolve) => setTimeout(resolve, 140));
-    expect(session.getState().messages.some((message) => message.clientId === 'old')).toBe(false);
+    expect(
+      session.getState().conversations[LIVE_CONVERSATION_ID]?.messages.some((message) => message.clientId === 'old'),
+    ).toBe(false);
     session.stop();
   });
 
@@ -85,11 +88,11 @@ describe('isolamento de operações entre sessões', () => {
     transport.subscribe((event) => {
       if (event.type === 'message' && event.message.clientId === 'msg-1') echoes.push(event.message.clientId);
     });
-    await session.start(LIVE_CONVERSATION_ID);
-    await session.send({ type: 'text', text: '1' });
+    await session.start();
+    await session.send(LIVE_CONVERSATION_ID, { type: 'text', text: '1' });
     await transport.connect(ME);
     await new Promise((resolve) => setTimeout(resolve, 150));
-    const sent = session.getState().messages.filter((message) => message.clientId === 'msg-1');
+    const sent = (session.getState().conversations[LIVE_CONVERSATION_ID]?.messages ?? []).filter((message) => message.clientId === 'msg-1');
     expect(sent).toHaveLength(1);
     expect(sent[0]?.status).toBe('read');
     expect(echoes).toEqual(['msg-1']);

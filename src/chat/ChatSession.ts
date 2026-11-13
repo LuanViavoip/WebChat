@@ -1,6 +1,8 @@
 import { type ValidAttachment } from '../domain/attachment';
-import { asConversationId, type ConversationId } from '../domain/conversation';
-import type { ChatMessage, MessageStatus } from '../domain/message';
+import type { Conversation, ConversationId, ConversationSummary } from '../domain/conversation';
+import type { Directory, StaffUser, UserId } from '../domain/identity';
+import { previewOf, type ChatMessage, type MessageStatus } from '../domain/message';
+import type { Tenant } from '../domain/tenant';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import type {
   Bootstrap,
@@ -29,12 +31,29 @@ export type TypingState = {
   actorName: string;
 };
 
-export type ChatSessionState = {
+/** O que a UI enxerga de uma conversa. Nada aqui é compartilhado entre conversas. */
+export type ThreadState = {
+  conversation: Conversation;
   messages: ChatMessage[];
-  connection: TransportStatus;
   typing: TypingState;
-  error: string | null;
+  /** Uploads em andamento ou falhos, por clientId, só desta conversa. */
   uploads: Readonly<Record<string, UploadView>>;
+  unread: number;
+  /** ISO 8601. */
+  lastActivityAt: string;
+  preview?: string;
+};
+
+export type ChatSessionState = {
+  connection: TransportStatus;
+  error: string | null;
+  tenant: Tenant | null;
+  me: StaffUser | null;
+  directory: Directory | null;
+  conversations: Readonly<Record<ConversationId, ThreadState>>;
+  /** As conversas da sessão, da mais recente para a mais antiga (a seção fica a cargo da UI). */
+  summaries: readonly ConversationSummary[];
+  activeConversationId: ConversationId | null;
 };
 
 export type ChatSessionListener = (state: ChatSessionState) => void;
@@ -51,24 +70,36 @@ export type ChatSessionOptions = {
 
 const IDLE_TYPING: TypingState = { isTyping: false, actorName: '' };
 
+type Thread = {
+  conversation: Conversation;
+  messages: ChatMessage[];
+  typing: TypingState;
+  unread: number;
+  lastActivityAt: string;
+  preview: string | undefined;
+  readonly aliases: IdAliasIndex;
+  readonly pendingStatus: PendingStatusMap;
+  readonly uploads: Map<string, UploadEntry>;
+  readonly controllers: Map<string, AbortController>;
+};
+
 export class ChatSession {
-  private messages: ChatMessage[] = [];
   private connection: TransportStatus = 'disconnected';
-  private typing: TypingState = IDLE_TYPING;
   private error: string | null = null;
   private generation = 0;
-  private conversationId: ConversationId = asConversationId('conv-web');
-  private readonly identity: ConnectRequest;
-  private bootstrap: Bootstrap | undefined;
-  private readonly aliases = new IdAliasIndex();
-  private readonly pendingStatus: PendingStatusMap;
+  private identity: ConnectRequest;
+  private tenant: Tenant | null = null;
+  private me: StaffUser | null = null;
+  private directory: Directory | null = null;
+  private activeConversationId: ConversationId | null = null;
+  private threads = new Map<ConversationId, Thread>();
   private readonly listeners = new Set<ChatSessionListener>();
   private unsubscribeTransport: (() => void) | undefined;
   private readonly createId: () => string;
   private readonly now: () => string;
   private readonly objectUrls: ObjectUrlFactory;
-  private readonly uploads = new Map<string, UploadEntry>();
-  private readonly uploadControllers = new Map<string, AbortController>();
+  private readonly pendingLimit: number;
+  private readonly pendingTtlMs: number;
 
   constructor(
     private readonly transport: ChatTransport,
@@ -78,11 +109,8 @@ export class ChatSession {
     this.createId = options.createId ?? (() => crypto.randomUUID());
     this.now = options.now ?? (() => new Date().toISOString());
     this.objectUrls = options.objectUrls ?? browserObjectUrls;
-    this.pendingStatus = new PendingStatusMap(
-      options.pendingLimit ?? DEFAULT_PENDING_LIMIT,
-      options.pendingTtlMs ?? DEFAULT_PENDING_TTL_MS,
-      () => Date.parse(this.now()),
-    );
+    this.pendingLimit = options.pendingLimit ?? DEFAULT_PENDING_LIMIT;
+    this.pendingTtlMs = options.pendingTtlMs ?? DEFAULT_PENDING_TTL_MS;
   }
 
   subscribe(listener: ChatSessionListener): () => void {
@@ -97,28 +125,33 @@ export class ChatSession {
     return this.snapshot();
   }
 
-  async start(conversationId: ConversationId = nextConversationId()): Promise<void> {
+  /** Abre a conexão do usuário (uma por usuário) e recomeça do zero com o Bootstrap. */
+  async start(identity?: ConnectRequest): Promise<void> {
     this.generation += 1;
     const generation = this.generation;
-    this.clearUploads();
-    this.messages = [];
-    this.typing = IDLE_TYPING;
+    if (identity) {
+      this.identity = identity;
+    }
+    this.clearAllUploads();
+    this.threads = new Map();
+    this.tenant = null;
+    this.me = null;
+    this.directory = null;
+    this.activeConversationId = null;
     this.error = null;
-    this.pendingStatus.clear();
-    this.aliases.clear();
-    this.conversationId = conversationId;
-    this.bootstrap = undefined;
     this.connection = 'disconnected';
     this.bindTransport(generation);
     this.emit();
-    await this.openConnection(generation);
+    await this.openConnection(generation, true);
   }
 
   async reconnect(): Promise<void> {
     this.generation += 1;
     const generation = this.generation;
-    this.typing = IDLE_TYPING;
     this.error = null;
+    for (const thread of this.threads.values()) {
+      thread.typing = IDLE_TYPING;
+    }
     this.bindTransport(generation);
     if (this.transport.getStatus() === 'connected') {
       this.connection = 'connected';
@@ -127,47 +160,108 @@ export class ChatSession {
     }
     this.connection = 'disconnected';
     this.emit();
-    await this.openConnection(generation);
+    await this.openConnection(generation, false);
   }
 
   stop(): void {
     this.generation += 1;
-    this.clearUploads();
+    this.clearAllUploads();
     this.unsubscribeTransport?.();
     this.unsubscribeTransport = undefined;
     this.transport.disconnect();
   }
 
-  async send(payload: OutboundPayload): Promise<void> {
-    const normalized = normalizePayload(payload);
+  /** Torna a conversa ativa e marca como lidas as mensagens de outros. Antes do Bootstrap fica pendente. */
+  selectConversation(conversationId: ConversationId): void {
+    const thread = this.threads.get(conversationId);
+    if (!thread && this.me) {
+      return;
+    }
+    this.activeConversationId = conversationId;
+    if (thread && thread.unread > 0) {
+      this.markReadUpTo(conversationId, thread);
+    }
+    this.emit();
+  }
+
+  /** Abre (ou reaproveita) a direta com o colega e a seleciona. Devolve o id, ou `undefined` se falhar. */
+  async openDirect(userId: UserId): Promise<ConversationId | undefined> {
+    const generation = this.generation;
+    try {
+      const conversation = await this.transport.openDirect({ with: userId });
+      if (generation !== this.generation) {
+        return undefined;
+      }
+      if (!this.ensureThread(conversation)) {
+        this.error = 'Não foi possível abrir a conversa.';
+        this.emit();
+        return undefined;
+      }
+      this.selectConversation(conversation.id);
+      return conversation.id;
+    } catch (error) {
+      if (generation !== this.generation || isSessionAborted(error)) {
+        return undefined;
+      }
+      this.error = errorMessage(error, 'Não foi possível abrir a conversa.');
+      this.emit();
+      return undefined;
+    }
+  }
+
+  setTyping(conversationId: ConversationId, isTyping: boolean): void {
+    if (!this.threads.has(conversationId)) {
+      return;
+    }
+    this.transport.setTyping({ conversationId, isTyping });
+  }
+
+  async send(conversationId: ConversationId, input: string | OutboundPayload): Promise<void> {
+    const thread = this.threads.get(conversationId);
+    if (!thread) {
+      return;
+    }
+    const normalized = normalizePayload(typeof input === 'string' ? { type: 'text', text: input } : input);
     if (!normalized) {
       return;
     }
     const generation = this.generation;
     const clientId = this.createId();
-    this.aliases.link(clientId, clientId);
-    this.upsertMessage(messageFromPayload(this.origin(clientId), normalized, this.now(), 'sending'));
+    thread.aliases.link(clientId, clientId);
+    this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), normalized, this.now(), 'sending'));
     this.emit();
-    await this.dispatchSend(clientId, normalized, generation);
+    await this.dispatchSend(conversationId, thread, clientId, normalized, generation);
   }
 
-  async sendAttachment(attachment: ValidAttachment, caption?: string): Promise<void> {
+  async sendAttachment(
+    conversationId: ConversationId,
+    attachment: ValidAttachment,
+    caption?: string,
+  ): Promise<void> {
+    const thread = this.threads.get(conversationId);
+    if (!thread) {
+      return;
+    }
     const clientId = this.createId();
     const previewUrl = this.objectUrls.create(attachment.file);
     const payload = payloadForAttachment(attachment, previewUrl, caption);
-    this.aliases.link(clientId, clientId);
-    this.upsertMessage(messageFromPayload(this.origin(clientId), payload, this.now(), 'sending'));
-    this.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
+    thread.aliases.link(clientId, clientId);
+    this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), payload, this.now(), 'sending'));
+    thread.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
     this.emit();
-    await this.runUpload(clientId);
+    await this.runUpload(conversationId, thread, clientId);
   }
 
-  cancelUpload(messageId: string): void {
-    const key = this.uploadKey(messageId);
+  cancelUpload(conversationId: ConversationId, messageId: string): void {
+    const thread = this.threads.get(conversationId);
+    if (!thread) {
+      return;
+    }
+    const key = this.uploadKey(thread, messageId);
     if (!key) {
       return;
     }
-    const entry = this.uploads.get(key);
+    const entry = thread.uploads.get(key);
     if (!entry) {
       return;
     }
@@ -175,62 +269,67 @@ export class ChatSession {
     if (next !== 'removed' && next === entry) {
       return;
     }
-    this.uploadControllers.get(key)?.abort();
-    this.uploadControllers.delete(key);
-    this.uploads.delete(key);
+    thread.controllers.get(key)?.abort();
+    thread.controllers.delete(key);
+    thread.uploads.delete(key);
     this.objectUrls.revoke(entry.previewUrl);
-    this.messages = this.messages.filter((message) => !this.matchesId(message, key));
+    thread.messages = thread.messages.filter((message) => !this.matchesId(thread, message, key));
     this.emit();
   }
 
-  async retry(messageId: string): Promise<void> {
-    const uploadKey = this.uploadKey(messageId);
-    const upload = uploadKey ? this.uploads.get(uploadKey) : undefined;
+  async retry(conversationId: ConversationId, messageId: string): Promise<void> {
+    const thread = this.threads.get(conversationId);
+    if (!thread) {
+      return;
+    }
+    const uploadKey = this.uploadKey(thread, messageId);
+    const upload = uploadKey ? thread.uploads.get(uploadKey) : undefined;
     if (upload?.view.phase === 'failed' && uploadKey) {
       const next = nextUpload(upload, { type: 'retry' });
       if (next === 'removed') {
         return;
       }
-      this.uploads.set(uploadKey, next);
-      this.applyStatus(uploadKey, 'sending', true);
+      thread.uploads.set(uploadKey, next);
+      this.applyStatus(thread, uploadKey, 'sending', true);
       this.emit();
-      await this.runUpload(uploadKey);
+      await this.runUpload(conversationId, thread, uploadKey);
       return;
     }
-    const message = this.findMessage(messageId);
+    const message = this.findMessage(thread, messageId);
     if (!message || message.status !== 'error') {
       return;
     }
     const generation = this.generation;
     this.error = null;
-    this.applyStatus(message.id, 'sending', true);
+    this.applyStatus(thread, message.id, 'sending', true);
     this.emit();
     const clientId = message.clientId ?? message.id;
-    await this.dispatchSend(clientId, payloadFromMessage(message), generation);
+    await this.dispatchSend(conversationId, thread, clientId, payloadFromMessage(message), generation);
   }
 
-  private async runUpload(clientId: string): Promise<void> {
-    const entry = this.uploads.get(clientId);
+  private async runUpload(conversationId: ConversationId, thread: Thread, clientId: string): Promise<void> {
+    const entry = thread.uploads.get(clientId);
     if (!entry) {
       return;
     }
+    const generation = this.generation;
     const attempt = entry.attempt;
     const controller = new AbortController();
-    this.uploadControllers.set(clientId, controller);
+    thread.controllers.set(clientId, controller);
     const { attachment, caption } = entry;
     try {
       const { url } = await this.transport.upload({
-        conversationId: this.conversationId,
+        conversationId,
         clientId,
         file: attachment.file,
         fileName: attachment.fileName,
         mimeType: attachment.mimeType,
         signal: controller.signal,
         onProgress: ({ loaded }) => {
-          this.applyUploadProgress(clientId, attempt, loaded);
+          this.applyUploadProgress(thread, clientId, attempt, loaded);
         },
       });
-      const current = this.uploads.get(clientId);
+      const current = thread.uploads.get(clientId);
       if (!current || current.attempt !== attempt) {
         return;
       }
@@ -238,17 +337,17 @@ export class ChatSession {
       if (succeeded !== 'removed') {
         return;
       }
-      this.uploads.delete(clientId);
-      this.uploadControllers.delete(clientId);
+      thread.uploads.delete(clientId);
+      thread.controllers.delete(clientId);
       this.objectUrls.revoke(current.previewUrl);
-      this.replaceMessageUrl(clientId, url);
+      this.replaceMessageUrl(thread, clientId, url);
       this.emit();
-      await this.dispatchSend(clientId, payloadForAttachment(attachment, url, caption));
+      await this.dispatchSend(conversationId, thread, clientId, payloadForAttachment(attachment, url, caption), generation);
     } catch (error) {
       if (isUploadCanceled(error)) {
         return;
       }
-      const current = this.uploads.get(clientId);
+      const current = thread.uploads.get(clientId);
       if (!current || current.attempt !== attempt) {
         return;
       }
@@ -260,14 +359,14 @@ export class ChatSession {
       if (failed === 'removed' || failed === current) {
         return;
       }
-      this.uploads.set(clientId, failed);
-      this.applyStatus(clientId, 'error');
+      thread.uploads.set(clientId, failed);
+      this.applyStatus(thread, clientId, 'error');
       this.emit();
     }
   }
 
-  private applyUploadProgress(clientId: string, attempt: number, loaded: number): void {
-    const current = this.uploads.get(clientId);
+  private applyUploadProgress(thread: Thread, clientId: string, attempt: number, loaded: number): void {
+    const current = thread.uploads.get(clientId);
     if (!current) {
       return;
     }
@@ -276,19 +375,21 @@ export class ChatSession {
     if (next === 'removed' || next === current) {
       return;
     }
-    this.uploads.set(clientId, next);
+    thread.uploads.set(clientId, next);
     if (percentOf(next.view) !== previousPercent) {
       this.emit();
     }
   }
 
   private async dispatchSend(
+    conversationId: ConversationId,
+    thread: Thread,
     clientId: string,
     payload: OutboundPayload,
     generation?: number,
   ): Promise<void> {
     try {
-      await this.transport.send({ conversationId: this.conversationId, clientId, payload });
+      await this.transport.send({ conversationId, clientId, payload });
     } catch (error) {
       if (isSessionAborted(error)) {
         return;
@@ -296,10 +397,10 @@ export class ChatSession {
       if (generation !== undefined && generation !== this.generation) {
         return;
       }
-      if (!this.findMessage(clientId)) {
+      if (!this.findMessage(thread, clientId)) {
         return;
       }
-      this.applyStatus(clientId, 'error');
+      this.applyStatus(thread, clientId, 'error');
       this.error = errorMessage(error, 'Não foi possível enviar a mensagem.');
       this.emit();
     }
@@ -315,16 +416,13 @@ export class ChatSession {
     });
   }
 
-  private async openConnection(generation: number): Promise<void> {
+  private async openConnection(generation: number, fresh: boolean): Promise<void> {
     try {
       const bootstrap = await this.transport.connect(this.identity);
       if (generation !== this.generation) {
         return;
       }
-      this.bootstrap = bootstrap;
-      for (const message of bootstrap.recent[this.conversationId] ?? []) {
-        this.upsertMessage(message);
-      }
+      this.applyBootstrap(bootstrap, generation, fresh);
       this.emit();
     } catch (error) {
       if (generation !== this.generation || isSessionAborted(error)) {
@@ -336,61 +434,197 @@ export class ChatSession {
     }
   }
 
-  private origin(clientId: string): MessageOrigin {
+  private applyBootstrap(bootstrap: Bootstrap, generation: number, fresh: boolean): void {
+    this.tenant = bootstrap.tenant;
+    this.me = bootstrap.me;
+    this.directory = bootstrap.directory;
+    for (const summary of bootstrap.conversations) {
+      const thread = this.ensureThread(summary.conversation, summary.lastActivityAt);
+      if (!thread) {
+        continue;
+      }
+      for (const message of bootstrap.recent[summary.id] ?? []) {
+        this.upsertMessage(thread, message);
+      }
+      thread.unread = summary.unread;
+      thread.lastActivityAt = laterOf(thread.lastActivityAt, summary.lastActivityAt);
+      if (summary.preview && !thread.preview) {
+        thread.preview = summary.preview;
+      }
+    }
+    if (this.activeConversationId && !this.threads.has(this.activeConversationId)) {
+      this.activeConversationId = null;
+    }
+    const active = this.activeConversationId ? this.threads.get(this.activeConversationId) : undefined;
+    if (active && this.activeConversationId && active.unread > 0) {
+      this.markReadUpTo(this.activeConversationId, active);
+    }
+    if (!fresh) {
+      this.reconcileInFlight(bootstrap, generation);
+    }
+  }
+
+  /**
+   * Depois de reconectar, nada fica em 'sending': o que o servidor já tem herdou o status dele (via upsert),
+   * o que ele não tem é reenviado (o envio é idempotente por clientId) e, se falhar, vira 'error'.
+   * Mensagens com upload em andamento seguem com o próprio fluxo.
+   */
+  private reconcileInFlight(bootstrap: Bootstrap, generation: number): void {
+    const me = this.me;
+    if (!me) {
+      return;
+    }
+    for (const [conversationId, thread] of this.threads) {
+      const known = bootstrap.recent[conversationId] ?? [];
+      for (const message of [...thread.messages]) {
+        if (message.authorId !== me.id || message.status !== 'sending') {
+          continue;
+        }
+        if (this.uploadKey(thread, message.id)) {
+          continue;
+        }
+        const clientId = message.clientId ?? message.id;
+        const onServer = known.some((item) => item.id === message.id || (clientId && item.clientId === clientId));
+        if (onServer) {
+          continue;
+        }
+        void this.dispatchSend(conversationId, thread, clientId, payloadFromMessage(message), generation);
+      }
+    }
+  }
+
+  private origin(conversationId: ConversationId, clientId: string): MessageOrigin {
     return {
       id: clientId,
       clientId,
       tenantId: this.identity.tenantId,
-      conversationId: this.conversationId,
+      conversationId,
       authorId: this.identity.userId,
-      authorName: this.bootstrap?.me.name ?? 'Você',
+      authorName: this.me?.name ?? 'Você',
     };
   }
 
-  private apply(event: ChatEvent): void {
-    // Defesa em profundidade: o transporte já filtra, mas nada de outro tenant entra na sessão.
-    if (event.type !== 'connection' && event.tenantId !== this.identity.tenantId) {
+  /** Só aceita conversa do meu tenant da qual eu participo; o resto é ignorado. */
+  private ensureThread(conversation: Conversation, lastActivityAt?: string): Thread | undefined {
+    if (conversation.tenantId !== this.identity.tenantId || !participates(conversation, this.identity.userId)) {
+      return undefined;
+    }
+    const existing = this.threads.get(conversation.id);
+    if (existing) {
+      existing.conversation = conversation;
+      return existing;
+    }
+    const thread: Thread = {
+      conversation,
+      messages: [],
+      typing: IDLE_TYPING,
+      unread: 0,
+      lastActivityAt: lastActivityAt ?? this.now(),
+      preview: undefined,
+      aliases: new IdAliasIndex(),
+      pendingStatus: new PendingStatusMap(this.pendingLimit, this.pendingTtlMs, () => Date.parse(this.now())),
+      uploads: new Map(),
+      controllers: new Map(),
+    };
+    this.threads.set(conversation.id, thread);
+    return thread;
+  }
+
+  /** Marca como lida a última mensagem de outro usuário. A contagem local zera de imediato. */
+  private markReadUpTo(conversationId: ConversationId, thread: Thread): void {
+    const myId = this.identity.userId;
+    const last = [...thread.messages].reverse().find((message) => message.authorId !== myId);
+    thread.unread = 0;
+    if (!last) {
       return;
     }
+    void this.transport.markRead({ conversationId, upToMessageId: last.id }).catch(() => {
+      // Sem conexão agora: o servidor recalcula o não lido no próximo Bootstrap.
+    });
+  }
+
+  private apply(event: ChatEvent): void {
+    if (event.type === 'connection') {
+      this.connection = event.status;
+      if (event.status === 'connected') {
+        this.error = null;
+      }
+      if (event.status === 'error' && !this.error) {
+        this.error = 'Falha na conexão.';
+      }
+      this.emit();
+      return;
+    }
+    // Defesa em profundidade: o transporte já filtra, mas nada de outro tenant entra na sessão.
+    if (event.tenantId !== this.identity.tenantId) {
+      return;
+    }
+    const myId = this.identity.userId;
     switch (event.type) {
-      case 'message':
-        if (event.message.conversationId !== this.conversationId) {
+      case 'message': {
+        const thread = this.threads.get(event.message.conversationId);
+        if (!thread || event.message.tenantId !== this.identity.tenantId) {
           return;
         }
-        this.upsertMessage(event.message);
+        const added = this.upsertMessage(thread, event.message);
+        if (added && event.message.authorId !== myId) {
+          if (this.activeConversationId === event.message.conversationId) {
+            this.markReadUpTo(event.message.conversationId, thread);
+          } else {
+            thread.unread += 1;
+          }
+        }
         break;
-      case 'status':
-        if (event.conversationId !== this.conversationId) {
+      }
+      case 'status': {
+        const thread = this.threads.get(event.conversationId);
+        if (!thread) {
           return;
         }
-        this.aliases.link(event.clientId, event.messageId);
-        this.applyStatus(event.messageId, event.status);
+        thread.aliases.link(event.clientId, event.messageId);
+        this.applyStatus(thread, event.messageId, event.status);
         if (event.clientId) {
-          this.applyStatus(event.clientId, event.status);
+          this.applyStatus(thread, event.clientId, event.status);
         }
         break;
-      case 'typing':
-        if (event.conversationId !== this.conversationId || event.userId === this.identity.userId) {
+      }
+      case 'typing': {
+        const thread = this.threads.get(event.conversationId);
+        if (!thread || event.userId === myId) {
           return;
         }
-        this.typing = event.isTyping
-          ? { isTyping: true, actorName: this.bootstrap?.directory.users[event.userId]?.name ?? '' }
+        thread.typing = event.isTyping
+          ? { isTyping: true, actorName: this.directory?.users[event.userId]?.name ?? '' }
           : IDLE_TYPING;
         break;
-      // Multi-conversa chega no Bloco 3: por ora, leitura/conversas novas/grants não mudam esta sessão.
-      case 'read':
-      case 'conversation':
-      case 'grants':
-        return;
-      case 'connection':
-        this.connection = event.status;
-        if (event.status === 'connected') {
-          this.error = null;
+      }
+      case 'read': {
+        const thread = this.threads.get(event.conversationId);
+        if (!thread) {
+          return;
         }
-        if (event.status === 'error' && !this.error) {
-          this.error = 'Falha na conexão.';
+        if (event.userId === myId) {
+          // Li em outra aba: o não lido daqui some.
+          thread.unread = 0;
+        } else {
+          this.raiseOwnToRead(thread, event.upToMessageId);
         }
         break;
+      }
+      case 'conversation': {
+        if (!this.ensureThread(event.conversation)) {
+          return;
+        }
+        break;
+      }
+      case 'grants': {
+        const me = this.me;
+        if (!me || event.userId !== me.id) {
+          return;
+        }
+        this.me = { ...me, grants: new Set(event.grants) };
+        break;
+      }
       default: {
         const exhaustive: never = event;
         return exhaustive;
@@ -399,19 +633,36 @@ export class ChatSession {
     this.emit();
   }
 
-  private upsertMessage(incoming: ChatMessage): void {
-    this.aliases.link(incoming.clientId, incoming.id);
-    const keys = this.aliasKeys(incoming.id, incoming.clientId);
-    const pending = this.pendingStatus.take(keys);
-    const next = { ...incoming, status: pending ? mergeStatus(incoming.status, pending) : incoming.status };
-    const index = this.messages.findIndex((message) => this.sameMessage(message, incoming));
-    if (index === -1) {
-      this.messages = [...this.messages, next];
+  /** Um colega leu até aquela mensagem: as minhas até ali passam a 'read'. */
+  private raiseOwnToRead(thread: Thread, upToMessageId: string): void {
+    const myId = this.identity.userId;
+    const limit = thread.messages.findIndex((message) => this.matchesId(thread, message, upToMessageId));
+    if (limit === -1) {
       return;
     }
-    const current = this.messages[index];
+    thread.messages = thread.messages.map((message, index) =>
+      index <= limit && message.authorId === myId && message.status !== 'sending'
+        ? { ...message, status: mergeStatus(message.status, 'read') }
+        : message,
+    );
+  }
+
+  /** Devolve `true` se a mensagem é nova na conversa. */
+  private upsertMessage(thread: Thread, incoming: ChatMessage): boolean {
+    thread.aliases.link(incoming.clientId, incoming.id);
+    const keys = this.aliasKeys(thread, incoming.id, incoming.clientId);
+    const pending = thread.pendingStatus.take(keys);
+    const next = { ...incoming, status: pending ? mergeStatus(incoming.status, pending) : incoming.status };
+    const index = thread.messages.findIndex((message) => this.sameMessage(thread, message, incoming));
+    if (index === -1) {
+      thread.messages = [...thread.messages, next];
+      thread.lastActivityAt = laterOf(thread.lastActivityAt, incoming.timestamp);
+      thread.preview = previewLine(incoming);
+      return true;
+    }
+    const current = thread.messages[index];
     if (!current) {
-      return;
+      return false;
     }
     const merged: ChatMessage = {
       ...current,
@@ -424,17 +675,18 @@ export class ChatSession {
     } else if (incoming.clientId) {
       merged.clientId = incoming.clientId;
     }
-    this.messages = this.messages.map((message, position) => (position === index ? merged : message));
+    thread.messages = thread.messages.map((message, position) => (position === index ? merged : message));
+    return false;
   }
 
-  private applyStatus(id: string, status: MessageStatus, reset = false): void {
-    const index = this.messages.findIndex((message) => this.matchesId(message, id));
+  private applyStatus(thread: Thread, id: string, status: MessageStatus, reset = false): void {
+    const index = thread.messages.findIndex((message) => this.matchesId(thread, message, id));
     if (index === -1) {
-      this.pendingStatus.add(this.aliases.root(id), status);
-      this.pendingStatus.add(id, status);
+      thread.pendingStatus.add(thread.aliases.root(id), status);
+      thread.pendingStatus.add(id, status);
       return;
     }
-    const current = this.messages[index];
+    const current = thread.messages[index];
     if (!current) {
       return;
     }
@@ -442,65 +694,70 @@ export class ChatSession {
     if (nextStatus === current.status) {
       return;
     }
-    this.messages = this.messages.map((message, position) =>
+    thread.messages = thread.messages.map((message, position) =>
       position === index ? { ...message, status: nextStatus } : message,
     );
   }
 
-  private replaceMessageUrl(id: string, url: string): void {
-    this.messages = this.messages.map((message) => {
-      if (!this.matchesId(message, id) || !('url' in message)) {
+  private replaceMessageUrl(thread: Thread, id: string, url: string): void {
+    thread.messages = thread.messages.map((message) => {
+      if (!this.matchesId(thread, message, id) || !('url' in message)) {
         return message;
       }
       return { ...message, url };
     });
   }
 
-  private findMessage(id: string): ChatMessage | undefined {
-    return this.messages.find((message) => this.matchesId(message, id));
+  private findMessage(thread: Thread, id: string): ChatMessage | undefined {
+    return thread.messages.find((message) => this.matchesId(thread, message, id));
   }
 
-  private uploadKey(messageId: string): string | undefined {
-    if (this.uploads.has(messageId)) {
+  private uploadKey(thread: Thread, messageId: string): string | undefined {
+    if (thread.uploads.has(messageId)) {
       return messageId;
     }
-    for (const key of this.aliasKeys(messageId)) {
-      if (this.uploads.has(key)) {
+    for (const key of this.aliasKeys(thread, messageId)) {
+      if (thread.uploads.has(key)) {
         return key;
       }
     }
-    const message = this.findMessage(messageId);
-    if (message?.clientId && this.uploads.has(message.clientId)) {
+    const message = this.findMessage(thread, messageId);
+    if (message?.clientId && thread.uploads.has(message.clientId)) {
       return message.clientId;
     }
     return undefined;
   }
 
-  private clearUploads(): void {
-    for (const [id, entry] of this.uploads) {
-      this.uploadControllers.get(id)?.abort();
-      this.objectUrls.revoke(entry.previewUrl);
+  private clearAllUploads(): void {
+    for (const thread of this.threads.values()) {
+      for (const [id, entry] of thread.uploads) {
+        thread.controllers.get(id)?.abort();
+        this.objectUrls.revoke(entry.previewUrl);
+      }
+      thread.uploads.clear();
+      thread.controllers.clear();
     }
-    this.uploads.clear();
-    this.uploadControllers.clear();
   }
 
-  private matchesId(message: ChatMessage, id: string): boolean {
-    const keys = this.aliasKeys(id);
+  private matchesId(thread: Thread, message: ChatMessage, id: string): boolean {
+    const keys = this.aliasKeys(thread, id);
     return keys.has(message.id) || Boolean(message.clientId && keys.has(message.clientId));
   }
 
-  private sameMessage(existing: ChatMessage, incoming: ChatMessage): boolean {
-    return this.matchesId(existing, incoming.id) || Boolean(incoming.clientId && this.matchesId(existing, incoming.clientId));
+  private sameMessage(thread: Thread, existing: ChatMessage, incoming: ChatMessage): boolean {
+    return (
+      this.matchesId(thread, existing, incoming.id) ||
+      Boolean(incoming.clientId && this.matchesId(thread, existing, incoming.clientId))
+    );
   }
 
-  private aliasKeys(...ids: Array<string | undefined>): Set<string> {
+  private aliasKeys(thread: Thread, ...ids: Array<string | undefined>): Set<string> {
     const keys = new Set<string>();
     for (const id of ids) {
       if (!id) {
         continue;
       }
-      for (const member of this.aliases.group(id)) {
+      for (const member of thread.aliases.group(id)) {
         keys.add(member);
       }
     }
@@ -508,16 +765,46 @@ export class ChatSession {
   }
 
   private snapshot(): ChatSessionState {
-    const uploads: Record<string, UploadView> = {};
-    for (const [id, entry] of this.uploads) {
-      uploads[id] = entry.view;
+    const conversations: Record<string, ThreadState> = {};
+    const summaries: ConversationSummary[] = [];
+    for (const [id, thread] of this.threads) {
+      const uploads: Record<string, UploadView> = {};
+      for (const [clientId, entry] of thread.uploads) {
+        uploads[clientId] = entry.view;
+      }
+      conversations[id] = {
+        conversation: thread.conversation,
+        messages: thread.messages,
+        typing: thread.typing,
+        uploads,
+        unread: thread.unread,
+        lastActivityAt: thread.lastActivityAt,
+        ...(thread.preview ? { preview: thread.preview } : {}),
+      };
+      summaries.push({
+        id,
+        conversation: thread.conversation,
+        lastActivityAt: thread.lastActivityAt,
+        ...(thread.preview ? { preview: thread.preview } : {}),
+        unread: thread.unread,
+      });
     }
+    summaries.sort((a, b) => {
+      const diff = Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt);
+      if (diff !== 0 && !Number.isNaN(diff)) {
+        return diff;
+      }
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
     return {
-      messages: this.messages,
       connection: this.connection,
-      typing: this.typing,
       error: this.error,
-      uploads,
+      tenant: this.tenant,
+      me: this.me,
+      directory: this.directory,
+      conversations: conversations,
+      summaries,
+      activeConversationId: this.activeConversationId,
     };
   }
 
@@ -529,12 +816,30 @@ export class ChatSession {
   }
 }
 
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
+function participates(conversation: Conversation, userId: UserId): boolean {
+  return conversation.kind === 'direct'
+    ? conversation.participants.includes(userId)
+    : conversation.members.includes(userId);
 }
 
-function nextConversationId(): ConversationId {
-  return asConversationId(`conv-web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+function previewLine(message: ChatMessage): string | undefined {
+  return previewOf(message).split('\n')[0]?.trim() || undefined;
+}
+
+function laterOf(a: string, b: string): string {
+  const left = Date.parse(a);
+  const right = Date.parse(b);
+  if (Number.isNaN(left)) {
+    return b;
+  }
+  if (Number.isNaN(right)) {
+    return a;
+  }
+  return right > left ? b : a;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function percentOf(view: UploadView): number {

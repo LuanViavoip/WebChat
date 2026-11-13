@@ -1,5 +1,5 @@
 import { UploadCanceledError, UploadFailedError } from '../transport/abort';
-import type { ConversationId, DirectConversation } from '../domain/conversation';
+import { directConversation, type ConversationId, type ConversationSummary, type DirectConversation } from '../domain/conversation';
 import type { ChatMessage, MessageStatus } from '../domain/message';
 import type { UserId } from '../domain/identity';
 import type {
@@ -16,7 +16,14 @@ import type {
   UploadedMedia,
   UploadRequest,
 } from '../transport/ChatTransport';
-import { DEFAULT_SESSION, ICS_TENANT, LIVE_CONVERSATION_ID, icsDirectory } from '../transport/mock/seed';
+import {
+  DEFAULT_SESSION,
+  ICS_TENANT,
+  ICS_USERS,
+  LIVE_CONVERSATION_ID,
+  OTHER_CONVERSATION_ID,
+  icsDirectory,
+} from '../transport/mock/seed';
 
 /** Eventos de teste sem o escopo: tenant e conversa padrão são preenchidos. */
 export type ScriptedEvent =
@@ -49,6 +56,14 @@ export class ScriptedTransport implements ChatTransport {
   holdConnect = false;
   holdUpload = false;
   failUpload = false;
+  /** Mensagens que o "servidor" devolve no Bootstrap (por conversa), como em uma reconexão. */
+  recent: Record<string, readonly ChatMessage[]> = {};
+  /** Quem a próxima `openDirect` abre falha com este erro, se definido. */
+  openDirectError: Error | undefined;
+  /** Resposta forçada do `openDirect` (para testar conversa de outro tenant ou sem mim). */
+  openDirectResult: DirectConversation | undefined;
+  /** Conversas a mais no Bootstrap (ex.: uma "vazada" de outro tenant). */
+  extraConversations: ConversationSummary[] = [];
   private readonly held: HeldSend[] = [];
   private readonly heldUploads: HeldUpload[] = [];
   private connectHeld: { resolve: () => void } | undefined;
@@ -90,7 +105,16 @@ export class ScriptedTransport implements ChatTransport {
     if (!me) {
       throw new Error('seed sem o usuário padrão');
     }
-    return { tenant: ICS_TENANT, me, directory, conversations: [], recent: {}, unread: 0 };
+    const conversations: ConversationSummary[] = [LIVE_CONVERSATION_ID, OTHER_CONVERSATION_ID].map((id) => {
+      const other = id === LIVE_CONVERSATION_ID ? ICS_USERS.bruno : ICS_USERS.camila;
+      const target = directory.users[other];
+      const built = target ? directConversation(me, target) : undefined;
+      if (!built?.ok) {
+        throw new Error('seed sem a direta padrão');
+      }
+      return { id, conversation: built.value, lastActivityAt: '2026-11-10T11:00:00.000Z', unread: 0 };
+    });
+    return { tenant: ICS_TENANT, me, directory, conversations: [...conversations, ...this.extraConversations], recent: { ...this.recent }, unread: 0 };
   }
 
   markRead(request: MarkReadRequest): Promise<void> {
@@ -99,7 +123,17 @@ export class ScriptedTransport implements ChatTransport {
   }
 
   openDirect(request: OpenDirectRequest): Promise<DirectConversation> {
-    return Promise.reject(new Error(`openDirect não roteirizado: ${request.with}`));
+    if (this.openDirectError) {
+      return Promise.reject(this.openDirectError);
+    }
+    if (this.openDirectResult) {
+      return Promise.resolve(this.openDirectResult);
+    }
+    const directory = icsDirectory();
+    const me = directory.users[DEFAULT_SESSION.userId];
+    const target = directory.users[request.with];
+    const built = me && target ? directConversation(me, target) : undefined;
+    return built?.ok ? Promise.resolve(built.value) : Promise.reject(new Error(`openDirect inválido: ${request.with}`));
   }
 
   setTyping(request: TypingRequest): void {
