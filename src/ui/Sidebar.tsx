@@ -2,6 +2,7 @@ import { CircleDashed, MessageSquarePlus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   CLIENT_CONVERSATIONS,
+  conversationInitials,
   emptyConversationCopy,
   filterConversations,
   isLiveConversation,
@@ -101,8 +102,8 @@ export function Sidebar({
                     onSelect(item.id);
                   }}
                 >
-                  <div className="avatar avatar-ics" aria-hidden="true">
-                    ICS
+                  <div className="avatar avatar-contact" aria-hidden="true">
+                    {conversationInitials(item.title)}
                   </div>
                   <span className="conversation-copy">
                     <span className="conversation-row">
@@ -113,7 +114,6 @@ export function Sidebar({
                       <span className="conversation-preview">
                         {live ? preview : item.preview}
                       </span>
-                      {item.demo ? <span className="demo-badge">Demonstração</span> : null}
                       {live && activityLabel ? (
                         <span
                           className={`live-activity-badge${activity === 'error' ? ' is-error' : ''}${activity === 'unseen' ? ' is-unseen' : ''}`}

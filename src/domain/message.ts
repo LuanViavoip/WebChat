@@ -1,4 +1,4 @@
-export type MessageSender = 'client' | 'agent' | 'bot' | 'system';
+export type MessageSender = 'client' | 'agent' | 'system';
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'error';
 
@@ -7,11 +7,6 @@ export type MessageKind = 'text' | 'image' | 'audio' | 'video' | 'document' | 's
 export type MessageAuthor = {
   id: string;
   name: string;
-};
-
-export type MenuOption = {
-  key: string;
-  label: string;
 };
 
 type MessageBase = {
@@ -27,7 +22,6 @@ type MessageBase = {
 export type TextMessage = MessageBase & {
   type: 'text';
   text: string;
-  menu?: MenuOption[];
 };
 
 export type ImageMessage = MessageBase & {

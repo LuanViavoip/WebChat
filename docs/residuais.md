@@ -1,29 +1,28 @@
 # Residuais
 
-Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3 / 2):
+Itens **propositadamente não implementados** (Etapa 1 / 1.1 / 1.2 / 1.3 / 2 / 3):
 
 - Sticker (envio e render) e gravação de áudio (mic continua “em breve”)
 - Integração real com o SM / canal WhatsApp (hoje só `MockTransport`)
 - Mapear `clientId` → id definitivo do servidor quando o canal WhatsApp existir
 - Chat interno de agentes e supervisores
 - Grupos, pastas, transferência, fila, troca de fila
-- Encerramento com pesquisa de satisfação (NPS/CSAT) de ponta a ponta — o mock só encerra com a opção `0`
-- Autenticação do paciente, SSO, vínculo com prontuário
-- Persistência / histórico entre reloads (reconectar hoje recomeça a conversa; o histórico das outras conversas é mock só de front)
+- Autenticação, SSO, vínculo com prontuário
+- Persistência / histórico entre reloads (reconectar hoje recomeça a conversa; a lista tem uma **Conversa de teste**)
 - Internacionalização além de pt-BR
 - Biblioteca de emojis completa (seletor curto próprio, agora com setas de listbox)
 - PWA, push, notificações nativas
-- Widget SDK publicável (npm) — o modo widget continua `?modo=widget`
+- Widget SDK publicável (npm) — o modo widget saiu na Etapa 3; a tag `cliente-widget-v1` guarda a versão anterior
 - Busca na conversa, menu ⋮, comunidades, status e nova conversa da coluna esquerda (ícones visíveis, desabilitados, tooltip “em breve”)
 - Microfone / gravação real (MediaRecorder); o mic continua desabilitado e vira enviar ao digitar texto
-- Lista de conversas ligada ao SM — no canal do cliente a coluna esquerda é mock (sessão ao vivo + dois históricos simulados)
-- Rebrand do **nome** ICS → ViaVoip (esta etapa só aplica o visual; wordmark CSS “ViaVoip”, textos de negócio ICS permanecem)
+- Lista de conversas ligada ao SM — a coluna esquerda tem uma conversa de teste até a Etapa 4
+- Rebrand do **nome** ICS → ViaVoip (wordmark CSS “ViaVoip”; o canal do paciente saiu na Etapa 3)
 - Tema escuro — os tokens `[data-theme='dark']` da etapa 1.2 foram retirados do CSS (não estavam ligados). Ficam como residual até haver um interruptor real
 - Assets oficiais da ViaVoip ou do WhatsApp (wordmark em texto + Lucide; sem copiar logotipos)
 
 ## Etapa 1.3 — rodada 5 do PR #5
 
-- **N13** — o baseline de “não vista” no reload (N11) assume que as boas-vindas chegam **antes** do status `connected`, como o `MockTransport` faz. O contrato não garante essa ordem. Um transporte real que emita `connected` e só depois a primeira mensagem ainda pode marcar essa mensagem como “Nova mensagem” no reload sobre o histórico.
+- **N13** — o baseline de “não vista” no reload assume a ordem atual do mock. Um transporte real que emita `connected` e só depois a primeira mensagem ainda pode marcar essa mensagem como “Nova mensagem”.
 - **N14** — coberto por teste unitário (`depois do reload no histórico, mensagem nova fica não vista`): depois do baseline, uma mensagem real que chega com o histórico aberto vira “Nova mensagem”.
 - Validação manual com leitor de tela (NVDA/VoiceOver) no badge de atividade, no anúncio `aria-live` e no aviso de demonstração — o CI só tem axe + Testing Library.
 
@@ -71,7 +70,7 @@ Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (s
 
 3. **P3 (etapa 2) — testes de retry. Resolvido na Etapa 2:** o `MockTransport` aceita mídia simulada (`upload` + eco); `retry` depois de falha de upload reenvia o mesmo `File`/`clientId`; `retry` depois de falha de `send` reusa a URL remota; rejeição tardia de `retry` após `stop` é ignorada.
 
-4. **P3 (manual) — leitor de tela real (NVDA/VoiceOver).** Pendência da Etapa 1.2: não há NVDA/VoiceOver neste ambiente. O `role="log"` permanece sempre ativo; o teste de resposta após falha de envio cobre só a estrutura (mensagem no log vivo), não o anúncio único. Erros usam `role="alert"` no banner, sem desligar o log. Encerrado não usa `status`/`alert`. Confirmar no dispositivo do Luan se o leitor anuncia cada mensagem uma vez ou se log + alerta se repetem. Vale também para progressbar de upload, alerta de falha de mídia e o dialog do visualizador.
+4. **P3 (manual) — leitor de tela real (NVDA/VoiceOver).** Pendência da Etapa 1.2: não há NVDA/VoiceOver neste ambiente. O `role="log"` permanece sempre ativo; o teste de resposta após falha de envio cobre só a estrutura (mensagem no log vivo), não o anúncio único. Erros usam `role="alert"` no banner, sem desligar o log. Confirmar no dispositivo do Luan se o leitor anuncia cada mensagem uma vez ou se log + alerta se repetem. Vale também para progressbar de upload, alerta de falha de mídia e o dialog do visualizador.
 
 ## Etapa 2 — residuais de mídia
 
@@ -87,12 +86,12 @@ Parecer do Codex no head `a4a6b60`: **aprovado com ressalvas** para a Etapa 2 (s
 - **R10** Vários arquivos por envio, colar do clipboard, câmera, compressão, miniatura de vídeo.
 - **R11** Sticker.
 - **R12** Mídia recebida com URL externa / `download` cross-origin / CSP.
-- **R13** Bot do mock não responde a mídia.
-- **R14** Viewer no widget cobre a página hospedeira (é modal).
+- **R13** (resolvido na Etapa 3) O mock não responde automaticamente a texto nem a mídia.
+- **R14** (resolvido na Etapa 3) O modo widget saiu.
 - **R15** Índice de aliases e pendências P2 de integração real.
 - **N2** Mídia recebida em `image/webp`, `image/gif` ou com MIME em maiúsculas (`IMAGE/PNG`) baixa sem extensão. `extensionForMime` só casa o MIME minúsculo das regras desta etapa (JPG/PNG/MP4…); webp/gif não entram no envio e o download de recebidos cai no fallback `foto`. Não entra nesta correção.
-- **N7** No widget, soltar um arquivo sobre o launcher (`.widget-fab`) abre o arquivo no navegador: o `preventDefault` de drop fica na superfície `.wa-shell`, e o botão de abrir o chat fica fora dela.
-- **N8** Ao encerrar, a bolha do upload em andamento some sem avisar que a foto não foi enviada. O abort remove a mensagem otimista; não há toast nem linha no log.
+- **N7** (resolvido na Etapa 3) O launcher do widget saiu.
+- **N8** (resolvido na Etapa 3) Não há mais encerrar atendimento.
 
 ## Etapa 2 — QA do PR #6 (não são bugs)
 
@@ -100,5 +99,5 @@ Limitações conferidas na revisão independente do head `3be32f7`. Não entram 
 
 - **Tab no visualizador:** a ordem é Fechar → Baixar → chrome do navegador → Fechar. O fundo fica `inert` porque o dialog usa `showModal`. É o comportamento nativo do Chrome e está aceitável.
 - **Clique na própria foto:** clicar em (5,5) não fecha (é a barra superior). Clicar na imagem fecha, porque o stage tem `pointer-events: none`. UX menor.
-- **Lista oculta com o preview aberto:** respostas do bot nesse intervalo não ficam visíveis nem são anunciadas até fechar o preview.
+- **Lista oculta com o preview aberto:** mensagens que chegam nesse intervalo não ficam visíveis nem são anunciadas até fechar o preview.
 - **Factory injetável:** o `AttachmentPreview` não recebe a factory de `objectUrls` (`useObjectUrl` usa o default). Desvio pequeno do desenho, só afeta a costura de teste.

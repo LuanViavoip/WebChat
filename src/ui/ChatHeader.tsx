@@ -1,28 +1,25 @@
-import { ArrowLeft, MoreVertical, Search, X } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Search } from 'lucide-react';
 import type { TransportStatus } from '../transport/ChatTransport';
 import type { TypingState } from '../chat/ChatSession';
+import { conversationInitials } from './conversations';
 
 export function ChatHeader({
   title,
   connection,
   typing,
-  readOnly = false,
-  headingLevel = 'h1',
-  onClose,
+  headingLevel = 'h2',
   onBack,
   unseenLive = false,
 }: {
   title: string;
   connection: TransportStatus;
   typing: TypingState;
-  readOnly?: boolean;
   headingLevel?: 'h1' | 'h2';
-  onClose?: () => void;
   onBack?: () => void;
   unseenLive?: boolean;
 }) {
   const online = connection === 'connected';
-  const subtitle = readOnly ? 'Atendimento encerrado' : headerSubtitle(connection, typing);
+  const subtitle = headerSubtitle(connection, typing);
 
   return (
     <header className="chat-header" tabIndex={-1}>
@@ -37,13 +34,13 @@ export function ChatHeader({
           {unseenLive ? <span className="unseen-dot" aria-hidden="true" /> : null}
         </button>
       ) : null}
-      <div className="avatar avatar-ics" aria-hidden="true">
-        ICS
+      <div className="avatar avatar-contact" aria-hidden="true">
+        {conversationInitials(title)}
       </div>
       <div className="header-identity">
         <HeaderTitle level={headingLevel}>{title}</HeaderTitle>
         <p className="header-status">
-          <span className={`status-dot ${!readOnly && online ? 'online' : 'offline'}`} />
+          <span className={`status-dot ${online ? 'online' : 'offline'}`} />
           {subtitle}
         </p>
       </div>
@@ -54,11 +51,6 @@ export function ChatHeader({
         <button type="button" className="icon-button" aria-label="Menu da conversa (em breve)" title="em breve" disabled>
           <MoreVertical size={20} strokeWidth={1.7} aria-hidden="true" />
         </button>
-        {onClose ? (
-          <button type="button" className="icon-button" aria-label="Fechar chat" onClick={onClose}>
-            <X size={20} strokeWidth={1.7} aria-hidden="true" />
-          </button>
-        ) : null}
       </div>
     </header>
   );

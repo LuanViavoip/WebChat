@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { TypingState } from '../chat/ChatSession';
 import { formatDateSeparator, isSameCalendarDay } from '../chat/dates';
 import type { UploadView } from '../chat/uploads';
-import type { ChatMessage, MenuOption } from '../domain/message';
-import { isTextMessage } from '../domain/message';
+import type { ChatMessage } from '../domain/message';
 import type { OpenImage } from './attachments/MediaBody';
 import { MessageBubble } from './MessageBubble';
 
@@ -11,29 +10,22 @@ export function MessageList({
   messages,
   typing,
   onRetry,
-  menu,
-  menuDisabled,
-  onMenuSelect,
   hidden = false,
+  empty = false,
   uploads,
   onCancelUpload,
   onOpenImage,
-  sessionEnded = false,
 }: {
   messages: ChatMessage[];
   typing: TypingState;
   onRetry?: (messageId: string) => void;
-  menu: MenuOption[];
-  menuDisabled: boolean;
-  onMenuSelect: (option: MenuOption) => void;
   hidden?: boolean;
+  empty?: boolean;
   uploads?: Readonly<Record<string, UploadView>>;
   onCancelUpload?: (id: string) => void;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
-  sessionEnded?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const menuHostId = lastBotMenuHostId(messages, menu);
 
   useEffect(() => {
     const node = scrollerRef.current;
@@ -46,11 +38,11 @@ export function MessageList({
   return (
     <div className="message-list" ref={scrollerRef} hidden={hidden}>
       <div role="log" aria-label="Mensagens">
+        {empty ? <p className="conversation-empty">Nenhuma mensagem ainda</p> : null}
         {messages.map((message, index) => {
           const previous = messages[index - 1];
           const showDate = !previous || !isSameCalendarDay(previous.timestamp, message.timestamp);
           const showTail = isFirstInGroup(previous, message, showDate);
-          const showMenu = menuHostId === message.id;
           const upload = uploads?.[message.id] ?? (message.clientId ? uploads?.[message.clientId] : undefined);
           return (
             <div key={message.id} className={`message-row ${message.direction === 'client' ? 'out' : 'in'}`}>
@@ -62,14 +54,10 @@ export function MessageList({
               <MessageBubble
                 message={message}
                 showTail={showTail}
-                menuDisabled={menuDisabled}
-                onMenuSelect={onMenuSelect}
-                {...(showMenu ? { menu } : {})}
                 {...(onRetry ? { onRetry } : {})}
                 {...(upload ? { upload } : {})}
                 {...(onCancelUpload ? { onCancelUpload } : {})}
                 {...(onOpenImage ? { onOpenImage } : {})}
-                {...(sessionEnded ? { sessionEnded } : {})}
               />
             </div>
           );
@@ -87,22 +75,4 @@ function isFirstInGroup(previous: ChatMessage | undefined, current: ChatMessage,
     return true;
   }
   return previous.direction !== current.direction || previous.author.id !== current.author.id;
-}
-
-function lastBotMenuHostId(messages: ChatMessage[], menu: MenuOption[]): string | undefined {
-  if (menu.length === 0) {
-    return undefined;
-  }
-  let lastBotTextId: string | undefined;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message || !isTextMessage(message) || message.direction !== 'bot') {
-      continue;
-    }
-    lastBotTextId ??= message.id;
-    if (message.menu) {
-      return message.id;
-    }
-  }
-  return lastBotTextId;
 }

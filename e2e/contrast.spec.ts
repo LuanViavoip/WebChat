@@ -18,12 +18,12 @@ test.describe('contraste computado', () => {
   test('texto, badges, erro real, foco e ativo passam no WCAG', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== '1920', 'cenário de contraste em 1920');
 
-    await page.goto('/?nome=Maria%20Silva&falha=conectar');
+    await page.goto('/?falha=conectar');
     const alert = page.getByRole('alert');
     await expect(alert).toBeVisible();
     await expect(alert.locator('p')).toHaveText(/conectar/i);
 
-    const active = page.getByRole('button', { name: /ICS Pré-atendimento/ });
+    const active = page.getByRole('button', { name: /Conversa de teste/ });
     await expect(active).toHaveClass(/is-active/);
     const activeTitle = await paintedColors(active.locator('.conversation-title'));
     expect(contrastRatioFromCss(activeTitle.color, activeTitle.background)).toBeGreaterThanOrEqual(4.5);
@@ -34,20 +34,16 @@ test.describe('contraste computado', () => {
     const errorText = await paintedColors(alert.locator('p'));
     expect(contrastRatioFromCss(errorText.color, errorText.background)).toBeGreaterThanOrEqual(4.5);
 
-    const demoBadge = await paintedColors(page.locator('.demo-badge').first());
-    expect(contrastRatioFromCss(demoBadge.color, demoBadge.background)).toBeGreaterThanOrEqual(4.5);
-
-    const history = page.getByRole('button', { name: /Atendimento anterior/ });
     await page.getByRole('searchbox', { name: 'Pesquisar conversa' }).focus();
     for (let step = 0; step < 16; step += 1) {
-      const focused = await history.evaluate((node) => node === document.activeElement);
+      const focused = await active.evaluate((node) => node === document.activeElement);
       if (focused) {
         break;
       }
       await page.keyboard.press('Tab');
     }
-    await expect(history).toBeFocused();
-    const focusColors = await history.evaluate((node) => {
+    await expect(active).toBeFocused();
+    const focusColors = await active.evaluate((node) => {
       const style = getComputedStyle(node);
       let painted: Element | null = node;
       let background = style.backgroundColor;
@@ -66,8 +62,8 @@ test.describe('contraste computado', () => {
     expect(Number.parseFloat(focusColors.outlineWidth)).toBeGreaterThan(0);
     expect(contrastRatioFromCss(focusColors.outlineColor, focusColors.background)).toBeGreaterThanOrEqual(3);
 
-    await page.goto('/?nome=Maria%20Silva');
-    await expect(page.getByText(/Como posso ajudar/)).toBeVisible();
+    await page.goto('/');
+    await expect(page.getByLabel('Mensagem')).toBeEnabled();
     await page.locator('.wa-chat input[type="file"]').setInputFiles({
       name: 'guia.pdf',
       mimeType: 'application/pdf',

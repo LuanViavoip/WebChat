@@ -33,9 +33,5 @@ export default defineConfig({
       name: '390',
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
-    {
-      name: 'widget',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
-    },
   ],
 });

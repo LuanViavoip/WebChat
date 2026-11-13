@@ -1,6 +1,5 @@
 import { type ValidAttachment } from '../domain/attachment';
-import type { ChatMessage, MenuOption, MessageStatus } from '../domain/message';
-import { isTextMessage } from '../domain/message';
+import type { ChatMessage, MessageStatus } from '../domain/message';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import type {
   ChatEvent,
@@ -24,8 +23,6 @@ export type ChatSessionState = {
   messages: ChatMessage[];
   connection: TransportStatus;
   typing: TypingState;
-  menu: MenuOption[];
-  ended: boolean;
   error: string | null;
   uploads: Readonly<Record<string, UploadView>>;
 };
@@ -46,11 +43,9 @@ export class ChatSession {
   private messages: ChatMessage[] = [];
   private connection: TransportStatus = 'disconnected';
   private typing: TypingState = IDLE_TYPING;
-  private ended = false;
   private error: string | null = null;
   private generation = 0;
   private conversationId = 'conv-web';
-  private patientName = '';
   private readonly aliases = new IdAliasIndex();
   private readonly pendingStatus: PendingStatusMap;
   private readonly listeners = new Set<ChatSessionListener>();
@@ -87,18 +82,16 @@ export class ChatSession {
     return this.snapshot();
   }
 
-  async start(patientName: string, conversationId = nextConversationId()): Promise<void> {
+  async start(conversationId = nextConversationId()): Promise<void> {
     this.generation += 1;
     const generation = this.generation;
     this.clearUploads();
     this.messages = [];
     this.typing = IDLE_TYPING;
-    this.ended = false;
     this.error = null;
     this.pendingStatus.clear();
     this.aliases.clear();
     this.conversationId = conversationId;
-    this.patientName = patientName;
     this.connection = 'disconnected';
     this.bindTransport(generation);
     this.emit();
@@ -130,9 +123,6 @@ export class ChatSession {
   }
 
   async send(payload: OutboundPayload): Promise<void> {
-    if (this.ended) {
-      return;
-    }
     const normalized = normalizePayload(payload);
     if (!normalized) {
       return;
@@ -146,9 +136,6 @@ export class ChatSession {
   }
 
   async sendAttachment(attachment: ValidAttachment, caption?: string): Promise<void> {
-    if (this.ended) {
-      return;
-    }
     const clientId = this.createId();
     const previewUrl = this.objectUrls.create(attachment.file);
     const payload = payloadForAttachment(attachment, previewUrl, caption);
@@ -180,14 +167,7 @@ export class ChatSession {
     this.emit();
   }
 
-  async sendMenuOption(option: MenuOption): Promise<void> {
-    await this.send({ type: 'text', text: option.key });
-  }
-
   async retry(messageId: string): Promise<void> {
-    if (this.ended) {
-      return;
-    }
     const uploadKey = this.uploadKey(messageId);
     const upload = uploadKey ? this.uploads.get(uploadKey) : undefined;
     if (upload?.view.phase === 'failed' && uploadKey) {
@@ -251,9 +231,6 @@ export class ChatSession {
       if (isUploadCanceled(error)) {
         return;
       }
-      if (isSessionAborted(error) && this.ended) {
-        return;
-      }
       const current = this.uploads.get(clientId);
       if (!current || current.attempt !== attempt) {
         return;
@@ -293,9 +270,6 @@ export class ChatSession {
     payload: OutboundPayload,
     generation?: number,
   ): Promise<void> {
-    if (this.ended) {
-      return;
-    }
     try {
       await this.transport.send({ clientId, payload });
     } catch (error) {
@@ -326,7 +300,7 @@ export class ChatSession {
 
   private async openConnection(generation: number): Promise<void> {
     try {
-      await this.transport.connect({ conversationId: this.conversationId, patientName: this.patientName });
+      await this.transport.connect({ conversationId: this.conversationId });
     } catch (error) {
       if (generation !== this.generation || isSessionAborted(error)) {
         return;
@@ -362,11 +336,6 @@ export class ChatSession {
         if (event.status === 'error' && !this.error) {
           this.error = 'Falha na conexão.';
         }
-        break;
-      case 'ended':
-        this.ended = true;
-        this.typing = IDLE_TYPING;
-        this.abortInFlightUploads();
         break;
       default: {
         const exhaustive: never = event;
@@ -453,19 +422,6 @@ export class ChatSession {
     return undefined;
   }
 
-  private abortInFlightUploads(): void {
-    for (const [id, entry] of [...this.uploads]) {
-      if (entry.view.phase !== 'uploading') {
-        continue;
-      }
-      this.uploadControllers.get(id)?.abort();
-      this.uploadControllers.delete(id);
-      this.objectUrls.revoke(entry.previewUrl);
-      this.uploads.delete(id);
-      this.messages = this.messages.filter((message) => !this.matchesId(message, id));
-    }
-  }
-
   private clearUploads(): void {
     for (const [id, entry] of this.uploads) {
       this.uploadControllers.get(id)?.abort();
@@ -506,8 +462,6 @@ export class ChatSession {
       messages: this.messages,
       connection: this.connection,
       typing: this.typing,
-      menu: this.ended ? [] : lastBotMenu(this.messages),
-      ended: this.ended,
       error: this.error,
       uploads,
     };
@@ -519,16 +473,6 @@ export class ChatSession {
       listener(state);
     }
   }
-}
-
-function lastBotMenu(messages: ChatMessage[]): MenuOption[] {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message && isTextMessage(message) && message.direction === 'bot') {
-      return message.menu ?? [];
-    }
-  }
-  return [];
 }
 
 function errorMessage(error: unknown, fallback: string): string {

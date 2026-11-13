@@ -1,4 +1,4 @@
-import type { ChatMessage, MessageAuthor, TextMessage } from '../domain/message';
+import type { ChatMessage } from '../domain/message';
 import { messageFromPayload } from '../chat/outbound';
 import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from './abort';
 import type {
@@ -12,14 +12,12 @@ import type {
   UploadRequest,
 } from './ChatTransport';
 import { browserObjectUrls, type ObjectUrlFactory } from './objectUrls';
-import { PRE_ATENDIMENTO_MENU, replyForChoice, welcomeText } from './preAtendimento';
 
 export type MockDelays = {
-  typingMs: number;
+  connectMs: number;
   sentMs: number;
   deliveredMs: number;
   readMs: number;
-  replyMs: number;
   uploadChunkMs: number;
 };
 
@@ -28,7 +26,6 @@ export type MockUploadFailure = 'never' | 'once' | 'always';
 export type MockTransportOptions = {
   delays?: Partial<MockDelays>;
   now?: () => string;
-  createId?: () => string;
   failConnect?: boolean;
   failSend?: boolean;
   failUpload?: MockUploadFailure;
@@ -37,20 +34,16 @@ export type MockTransportOptions = {
 };
 
 const DEFAULT_DELAYS: MockDelays = {
-  typingMs: 450,
+  connectMs: 0,
   sentMs: 120,
   deliveredMs: 280,
   readMs: 520,
-  replyMs: 700,
   uploadChunkMs: 150,
 };
-
-const BOT: MessageAuthor = { id: 'bot-preatendimento', name: 'ICS Pré-atendimento' };
 
 export class MockTransport implements ChatTransport {
   private readonly delays: MockDelays;
   private readonly now: () => string;
-  private readonly createId: () => string;
   private readonly uploadChunks: number;
   private readonly objectUrls: ObjectUrlFactory;
   failConnect: boolean;
@@ -65,12 +58,8 @@ export class MockTransport implements ChatTransport {
   private conversationEpoch = 0;
   private status: TransportStatus = 'disconnected';
   private conversationId = '';
-  private patientName = 'Paciente';
-  private ended = false;
-  private botQueue: Promise<void> = Promise.resolve();
-  private welcomeGate: Promise<void> = Promise.resolve();
-  private unlockWelcome: (() => void) | undefined;
-  private idSeq = 0;
+  private readyGate: Promise<void> = Promise.resolve();
+  private unlockReady: (() => void) | undefined;
   private readonly uploadAttempts = new Map<string, number>();
   private readonly remoteUrlsByConversation = new Map<string, string[]>();
 
@@ -82,12 +71,6 @@ export class MockTransport implements ChatTransport {
     this.failUpload = options.failUpload ?? 'never';
     this.uploadChunks = options.uploadChunks ?? 5;
     this.objectUrls = options.objectUrls ?? browserObjectUrls;
-    this.createId =
-      options.createId ??
-      (() => {
-        this.idSeq += 1;
-        return `msg-${String(this.idSeq)}`;
-      });
   }
 
   subscribe(handler: ChatEventHandler): () => void {
@@ -112,25 +95,22 @@ export class MockTransport implements ChatTransport {
       }
     }
     this.conversationId = session.conversationId;
-    this.patientName = session.patientName;
-    this.ended = false;
     this.setStatus('connecting');
     releasePreviousGate();
     if (this.failConnect) {
       this.setStatus('error');
-      this.unlockWelcome?.();
+      this.unlockReady?.();
       throw new Error('Falha ao conectar');
     }
     const epoch = this.epoch;
-    this.botQueue = this.botQueue.then(() =>
-      this.runBotTurn(epoch, () => {
-        this.emitMessage(this.botText(welcomeText(this.patientName), PRE_ATENDIMENTO_MENU));
-      }),
-    );
-    await this.botQueue;
+    if (this.delays.connectMs > 0) {
+      await this.wait(this.delays.connectMs);
+    } else {
+      await Promise.resolve();
+    }
     this.guard(epoch);
     this.setStatus('connected');
-    this.unlockWelcome?.();
+    this.unlockReady?.();
   }
 
   disconnect(): void {
@@ -138,7 +118,7 @@ export class MockTransport implements ChatTransport {
     this.conversationEpoch += 1;
     this.revokeRemoteUrls();
     this.setStatus('disconnected');
-    this.unlockWelcome?.();
+    this.unlockReady?.();
   }
 
   send(request: SendRequest): Promise<void> {
@@ -209,7 +189,6 @@ export class MockTransport implements ChatTransport {
     if (request.payload.type === 'text' && !request.payload.text.trim()) {
       return Promise.resolve();
     }
-    const epoch = this.epoch;
     const conversationEpoch = this.conversationEpoch;
     const message = messageFromPayload(
       request.clientId,
@@ -219,11 +198,11 @@ export class MockTransport implements ChatTransport {
       'sending',
     );
     this.emit({ type: 'message', message });
-    void this.progressClient(message, epoch, conversationEpoch);
+    void this.progressClient(message, conversationEpoch);
     return Promise.resolve();
   }
 
-  private async progressClient(message: ChatMessage, epoch: number, conversationEpoch: number): Promise<void> {
+  private async progressClient(message: ChatMessage, conversationEpoch: number): Promise<void> {
     try {
       await this.wait(this.delays.sentMs, undefined, 'conversation');
       this.guardConversation(conversationEpoch);
@@ -234,75 +213,12 @@ export class MockTransport implements ChatTransport {
       await this.wait(this.delays.readMs, undefined, 'conversation');
       this.guardConversation(conversationEpoch);
       this.emitStatus(message.id, message.clientId, 'read');
-      if (this.ended || message.type !== 'text') {
-        return;
-      }
-      this.guard(epoch);
-      const text = message.text;
-      this.botQueue = this.botQueue.then(
-        () => this.replyAsBot(text, epoch),
-        () => this.replyAsBot(text, epoch),
-      );
-      await this.botQueue;
     } catch (error) {
       if (isSessionAborted(error)) {
         return;
       }
       this.emitStatus(message.id, message.clientId, 'error');
     }
-  }
-
-  private async replyAsBot(text: string, epoch: number): Promise<void> {
-    this.guard(epoch);
-    if (this.ended) {
-      return;
-    }
-    const reply = replyForChoice(text);
-    this.ended = reply.ended;
-    await this.runBotTurn(epoch, () => {
-      this.emitMessage(this.botText(reply.text, reply.menu));
-      if (reply.ended) {
-        this.emit({ type: 'ended', conversationId: this.conversationId });
-      }
-    });
-  }
-
-  private async runBotTurn(epoch: number, emit: () => void): Promise<void> {
-    this.guard(epoch);
-    this.emit({
-      type: 'typing',
-      conversationId: this.conversationId,
-      actor: BOT,
-      isTyping: true,
-    });
-    await this.wait(this.delays.typingMs);
-    this.guard(epoch);
-    this.emit({
-      type: 'typing',
-      conversationId: this.conversationId,
-      actor: BOT,
-      isTyping: false,
-    });
-    await this.wait(this.delays.replyMs);
-    this.guard(epoch);
-    emit();
-  }
-
-  private botText(text: string, menu?: TextMessage['menu']): TextMessage {
-    const message: TextMessage = {
-      id: this.createId(),
-      conversationId: this.conversationId,
-      direction: 'bot',
-      author: BOT,
-      timestamp: this.now(),
-      status: 'delivered',
-      type: 'text',
-      text,
-    };
-    if (menu) {
-      message.menu = menu;
-    }
-    return message;
   }
 
   private emitStatus(
@@ -318,10 +234,6 @@ export class MockTransport implements ChatTransport {
     });
   }
 
-  private emitMessage(message: TextMessage): void {
-    this.emit({ type: 'message', message });
-  }
-
   private setStatus(status: TransportStatus): void {
     this.status = status;
     this.emit({ type: 'connection', status });
@@ -334,16 +246,15 @@ export class MockTransport implements ChatTransport {
   }
 
   private beginConnection(): () => void {
-    const releasePreviousGate = this.unlockWelcome ?? (() => {});
+    const releasePreviousGate = this.unlockReady ?? (() => {});
     this.abortPending(false);
     this.epoch += 1;
     this.abort = new AbortController();
     if (this.lifetime.signal.aborted) {
       this.lifetime = new AbortController();
     }
-    this.botQueue = Promise.resolve();
-    this.welcomeGate = new Promise((resolve) => {
-      this.unlockWelcome = resolve;
+    this.readyGate = new Promise((resolve) => {
+      this.unlockReady = resolve;
     });
     return releasePreviousGate;
   }
@@ -374,7 +285,6 @@ export class MockTransport implements ChatTransport {
       }
       this.conversationTimers.clear();
     }
-    this.botQueue = Promise.resolve();
   }
 
   private revokeRemoteUrls(): void {
@@ -399,7 +309,7 @@ export class MockTransport implements ChatTransport {
       return Promise.resolve();
     }
     if (this.status === 'connecting') {
-      return this.welcomeGate.then(() => this.whenReady());
+      return this.readyGate.then(() => this.whenReady());
     }
     return Promise.reject(new Error('Não conectado'));
   }

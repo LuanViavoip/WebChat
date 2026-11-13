@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { ChatMessage, TextMessage } from '../domain/message';
 import { MessageList } from './MessageList';
 
-const BOT = { id: 'bot', name: 'Bot' };
+const AGENT = { id: 'agent', name: 'Colega' };
 const CLIENT = { id: 'client', name: 'Você' };
 
 function text(
@@ -35,23 +35,17 @@ function bubble(name: string | RegExp): HTMLElement {
 describe('MessageList caudas', () => {
   it('marca só a primeira mensagem de um grupo consecutivo', () => {
     const messages: ChatMessage[] = [
-      text('a', 'bot', BOT, '2026-11-10T10:00:00.000Z', 'primeiro bot'),
-      text('b', 'bot', BOT, '2026-11-10T10:00:10.000Z', 'segundo bot'),
+      text('a', 'agent', AGENT, '2026-11-10T10:00:00.000Z', 'primeiro colega'),
+      text('b', 'agent', AGENT, '2026-11-10T10:00:10.000Z', 'segundo colega'),
       text('c', 'client', CLIENT, '2026-11-10T10:00:20.000Z', 'cliente'),
-      text('d', 'bot', BOT, '2026-11-11T10:00:00.000Z', 'outro dia'),
+      text('d', 'agent', AGENT, '2026-11-11T10:00:00.000Z', 'outro dia'),
     ];
     render(
-      <MessageList
-        messages={messages}
-        typing={{ isTyping: false, actorName: '' }}
-        menu={[]}
-        menuDisabled
-        onMenuSelect={() => {}}
-      />,
+      <MessageList messages={messages} typing={{ isTyping: false, actorName: '' }} />,
     );
 
-    expect(bubble(/primeiro bot/)).toHaveClass('has-tail');
-    expect(bubble(/segundo bot/)).not.toHaveClass('has-tail');
+    expect(bubble(/primeiro colega/)).toHaveClass('has-tail');
+    expect(bubble(/segundo colega/)).not.toHaveClass('has-tail');
     expect(bubble(/^Você: cliente$/)).toHaveClass('has-tail');
     expect(bubble(/outro dia/)).toHaveClass('has-tail');
   });
