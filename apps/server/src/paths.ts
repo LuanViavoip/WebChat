@@ -18,3 +18,4 @@ export const migrationsDirectory = path.join(serverRoot, 'migrations');
 export const seedFile = path.join(repoRoot, 'infra', 'seed', 'seed.sql');
 export const widgetDist = path.join(repoRoot, 'apps', 'widget', 'dist');
 export const consoleDist = path.join(repoRoot, 'apps', 'console', 'dist');
+export const internalDist = path.join(repoRoot, 'apps', 'internal', 'dist');
