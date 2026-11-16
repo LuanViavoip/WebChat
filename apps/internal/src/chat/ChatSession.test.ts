@@ -1,6 +1,6 @@
-import { validateFiles } from '../domain/attachment';
-import type { ConversationId } from '../domain/conversation';
-import type { ChatMessage, TextMessage } from '../domain/message';
+import { validateFiles } from '@viavoip/internal-domain';
+import type { ConversationId } from '@viavoip/internal-domain';
+import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { SessionAbortedError } from '../transport/abort';

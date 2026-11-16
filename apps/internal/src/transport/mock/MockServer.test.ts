@@ -1,6 +1,6 @@
-import { directConversationId, type ConversationId } from '../../domain/conversation';
-import type { UserId } from '../../domain/identity';
-import type { Result } from '../../domain/result';
+import { directConversationId, type ConversationId } from '@viavoip/internal-domain';
+import type { UserId } from '@viavoip/internal-domain';
+import type { Result } from '@viavoip/internal-domain';
 import { ForbiddenError } from '../errors';
 import { MockServer, type Delivery, type Outcome, type Session } from './MockServer';
 import {

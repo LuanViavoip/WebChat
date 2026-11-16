@@ -1,10 +1,10 @@
-import { canReadGrantLog, visibleGrantLog } from '../../domain/grantLog';
-import type { UserId } from '../../domain/identity';
-import type { Result } from '../../domain/result';
-import type { TenantId } from '../../domain/tenant';
+import { canReadGrantLog, visibleGrantLog } from '@viavoip/internal-domain';
+import type { UserId } from '@viavoip/internal-domain';
+import type { Result } from '@viavoip/internal-domain';
+import type { TenantId } from '@viavoip/internal-domain';
 import type { ConnectRequest } from '../ChatTransport';
 import type { ForbiddenError } from '../errors';
-import { own } from '../../domain/records';
+import { own } from '@viavoip/internal-domain';
 import { MockServer, participantsOf, type Delivery, type Outcome, type ServerEvent } from './MockServer';
 import { MemoryMockStore, type MockStore } from './MockStore';
 import { createSeedState } from './seed';

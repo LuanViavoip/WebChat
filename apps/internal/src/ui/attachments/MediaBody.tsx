@@ -1,6 +1,6 @@
 import type { UploadView } from '../../chat/uploads';
-import { extensionForMime } from '../../domain/attachment';
-import type { ChatMessage, ImageMessage, TextMessage } from '../../domain/message';
+import { extensionForMime } from '@viavoip/internal-domain';
+import type { ChatMessage, ImageMessage, TextMessage } from '@viavoip/internal-domain';
 import { DocumentCard } from './DocumentCard';
 import { UploadStatus } from './UploadStatus';
 

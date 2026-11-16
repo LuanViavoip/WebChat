@@ -1,4 +1,4 @@
-import type { ValidAttachment } from '../domain/attachment';
+import type { ValidAttachment } from '@viavoip/internal-domain';
 
 export type UploadView =
   | { phase: 'uploading'; loaded: number; total: number; fileName: string }

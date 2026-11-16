@@ -1,7 +1,7 @@
 import { ChatSession, SESSION_DEACTIVATED_TEXT } from '../../chat/ChatSession';
 import { Lab, type Probe } from '../../test/adminProbe';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
-import type { UserId } from '../../domain/identity';
+import type { UserId } from '@viavoip/internal-domain';
 import type { ChatEvent, ConnectRequest } from '../ChatTransport';
 import { ACCOUNT_DEACTIVATED, ForbiddenError } from '../errors';
 import { MockTransport } from './MockTransport';

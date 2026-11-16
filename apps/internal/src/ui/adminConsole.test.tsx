@@ -1,12 +1,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CAPABILITIES } from '../domain/capabilities';
+import { CAPABILITIES } from '@viavoip/internal-domain';
 import { stubDesktopMatchMedia, stubMobileMatchMedia } from '../test/matchMedia';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { ForbiddenError } from '../transport/errors';
 import { MockBackend } from '../transport/mock/MockBackend';
 import { MemoryMockStore } from '../transport/mock/MockStore';
-import type { StaffUser } from '../domain/identity';
+import type { StaffUser } from '@viavoip/internal-domain';
 import { MockTransport } from '../transport/mock/MockTransport';
 import { ICS_ILHAS, ICS_TENANT_ID, ICS_USERS } from '../transport/mock/seed';
 import { CAPABILITY_TEXT } from './admin/capabilityLabels';

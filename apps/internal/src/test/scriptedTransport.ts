@@ -1,8 +1,8 @@
 import { UploadCanceledError, UploadFailedError } from '../transport/abort';
-import { directConversation, type ConversationId, type ConversationSummary, type DirectConversation } from '../domain/conversation';
-import type { ChatMessage, MessageStatus } from '../domain/message';
-import type { GrantLogEntry } from '../domain/directoryOps';
-import type { Ilha, IlhaId, StaffUser, UserId } from '../domain/identity';
+import { directConversation, type ConversationId, type ConversationSummary, type DirectConversation } from '@viavoip/internal-domain';
+import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
+import type { Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
 import type {
   Bootstrap,
   ChatEvent,

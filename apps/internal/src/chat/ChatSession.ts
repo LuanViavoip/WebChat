@@ -1,10 +1,10 @@
-import { type ValidAttachment } from '../domain/attachment';
-import type { Conversation, ConversationId, ConversationSummary } from '../domain/conversation';
-import type { Capability } from '../domain/capabilities';
-import { describeDenial, DENIAL_TEXT, type GrantLogEntry, type OpError } from '../domain/directoryOps';
-import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '../domain/identity';
-import { previewOf, type ChatMessage, type MessageStatus } from '../domain/message';
-import type { Tenant } from '../domain/tenant';
+import { type ValidAttachment } from '@viavoip/internal-domain';
+import type { Conversation, ConversationId, ConversationSummary } from '@viavoip/internal-domain';
+import type { Capability } from '@viavoip/internal-domain';
+import { describeDenial, DENIAL_TEXT, type GrantLogEntry, type OpError } from '@viavoip/internal-domain';
+import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
+import { previewOf, type ChatMessage, type MessageStatus } from '@viavoip/internal-domain';
+import type { Tenant } from '@viavoip/internal-domain';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import { ACCOUNT_DEACTIVATED, isForbidden } from '../transport/errors';
 import type {

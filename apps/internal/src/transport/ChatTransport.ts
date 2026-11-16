@@ -3,12 +3,12 @@ import type {
   ConversationId,
   ConversationSummary,
   DirectConversation,
-} from '../domain/conversation';
-import type { Capability } from '../domain/capabilities';
-import type { GrantLogEntry } from '../domain/directoryOps';
-import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '../domain/identity';
-import type { ChatMessage, MessageStatus } from '../domain/message';
-import type { Tenant, TenantId } from '../domain/tenant';
+} from '@viavoip/internal-domain';
+import type { Capability } from '@viavoip/internal-domain';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
+import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
+import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
+import type { Tenant, TenantId } from '@viavoip/internal-domain';
 
 export type TransportStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 

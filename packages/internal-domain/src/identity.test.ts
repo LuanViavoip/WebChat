@@ -1,4 +1,4 @@
-import { makeDirectory, makeIlha, makeUser, seedDirectory, T1, T2, uid, iid } from '../test/domainFixtures';
+import { makeDirectory, makeIlha, makeUser, seedDirectory, T1, T2, uid, iid } from './testing/domainFixtures';
 import { CAPABILITIES } from './capabilities';
 import { parseStaffUser, supervisorOf, validateDirectory, type Agent } from './identity';
 

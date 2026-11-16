@@ -1,4 +1,4 @@
-import type { MessageStatus } from '../domain/message';
+import type { MessageStatus } from '@viavoip/internal-domain';
 
 const FORWARD: MessageStatus[] = ['sending', 'sent', 'delivered', 'read'];
 

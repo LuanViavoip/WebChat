@@ -1,7 +1,7 @@
 import { CircleDashed, LogOut, MessageSquarePlus, Search, Settings, Users, UsersRound } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { ConversationId } from '../domain/conversation';
-import type { Ilha, StaffUser } from '../domain/identity';
+import type { ConversationId } from '@viavoip/internal-domain';
+import type { Ilha, StaffUser } from '@viavoip/internal-domain';
 import {
   conversationInitials,
   emptyConversationCopy,

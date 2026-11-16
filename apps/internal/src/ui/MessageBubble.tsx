@@ -1,7 +1,7 @@
 import type { UploadView } from '../chat/uploads';
 import { formatTime } from '../chat/dates';
-import type { ChatMessage } from '../domain/message';
-import { isTextMessage, previewOf } from '../domain/message';
+import type { ChatMessage } from '@viavoip/internal-domain';
+import { isTextMessage, previewOf } from '@viavoip/internal-domain';
 import { MediaBody, type OpenImage } from './attachments/MediaBody';
 import { StatusTicks } from './StatusTicks';
 

@@ -1,6 +1,6 @@
 import { Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import type { Ilha } from '../../domain/identity';
+import type { Ilha } from '@viavoip/internal-domain';
 
 /**
  * "Novo grupo" e o seletor de ilha. Só aparece para quem tem `group.manage` (quem monta decide, pelo

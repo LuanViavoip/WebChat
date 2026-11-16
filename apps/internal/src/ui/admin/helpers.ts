@@ -1,4 +1,4 @@
-import { validName } from '../../domain/directoryOps';
+import { validName } from '@viavoip/internal-domain';
 
 export function nameProblem(name: string): string | undefined {
   if (name.trim() === '') {

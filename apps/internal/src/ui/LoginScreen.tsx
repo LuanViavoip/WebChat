@@ -1,4 +1,4 @@
-import type { StaffUser } from '../domain/identity';
+import type { StaffUser } from '@viavoip/internal-domain';
 import { roleLabel } from './conversations';
 import { loginGroups, type LoginGroup } from './sessionIdentity';
 

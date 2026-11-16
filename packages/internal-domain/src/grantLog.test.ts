@@ -1,6 +1,6 @@
 import { moveAgent, type GrantLogEntry } from './directoryOps';
 import { canReadGrantLog, visibleGrantLog } from './grantLog';
-import { iid, seedDirectory, T1, T2, uid, user } from '../test/domainFixtures';
+import { iid, seedDirectory, T1, T2, uid, user } from './testing/domainFixtures';
 
 const d = seedDirectory();
 const entry = (actor: string, target: string, tenantId = T1): GrantLogEntry => ({

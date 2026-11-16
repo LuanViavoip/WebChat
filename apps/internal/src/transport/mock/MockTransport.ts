@@ -1,8 +1,8 @@
-import type { Conversation, ConversationId, DirectConversation } from '../../domain/conversation';
-import type { GrantLogEntry } from '../../domain/directoryOps';
-import type { Ilha, StaffUser, UserId } from '../../domain/identity';
-import type { ChatMessage, MessageStatus } from '../../domain/message';
-import type { TenantId } from '../../domain/tenant';
+import type { Conversation, ConversationId, DirectConversation } from '@viavoip/internal-domain';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
+import type { Ilha, StaffUser, UserId } from '@viavoip/internal-domain';
+import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
+import type { TenantId } from '@viavoip/internal-domain';
 import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type {
   AssignIlhaSupervisorRequest,

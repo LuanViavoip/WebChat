@@ -1,5 +1,5 @@
-import { ROLE_CEILING } from '../../domain/capabilities';
-import { directConversationId } from '../../domain/conversation';
+import { ROLE_CEILING } from '@viavoip/internal-domain';
+import { directConversationId } from '@viavoip/internal-domain';
 import { MockBackend } from './MockBackend';
 import { MemoryMockStore } from './MockStore';
 import { MockTransport } from './MockTransport';

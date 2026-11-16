@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import type { StaffUser } from '../domain/identity';
+import type { StaffUser } from '@viavoip/internal-domain';
 import { conversationInitials, roleLabel } from './conversations';
 
 /**

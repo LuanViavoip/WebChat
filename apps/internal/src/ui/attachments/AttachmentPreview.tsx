@@ -6,7 +6,7 @@ import {
   clampCaption,
   formatBytes,
   type ValidAttachment,
-} from '../../domain/attachment';
+} from '@viavoip/internal-domain';
 import { DocumentCard } from './DocumentCard';
 import { useObjectUrl } from './useObjectUrl';
 

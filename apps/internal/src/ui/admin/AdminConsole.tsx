@@ -1,16 +1,16 @@
 import { ArrowLeft, Plus } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { AdminActionResult } from '../../chat/ChatSession';
-import { inManagementScope } from '../../domain/capabilities';
+import { inManagementScope } from '@viavoip/internal-domain';
 import {
   canManageIlhasIn,
   canRegisterSupervisorIn,
   canUseCapabilityIn,
   type GrantLogEntry,
-} from '../../domain/directoryOps';
-import { canReadGrantLog } from '../../domain/grantLog';
-import type { Directory, Ilha, StaffUser } from '../../domain/identity';
-import { own } from '../../domain/records';
+} from '@viavoip/internal-domain';
+import { canReadGrantLog } from '@viavoip/internal-domain';
+import type { Directory, Ilha, StaffUser } from '@viavoip/internal-domain';
+import { own } from '@viavoip/internal-domain';
 import { conversationInitials, roleLabel } from '../conversations';
 import { useMediaQuery } from '../useMediaQuery';
 import { DetailScroll, IlhaDetail, SCROLL_FOCUSABLE, NewDetailHeader, UserDetail } from './details';

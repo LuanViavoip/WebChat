@@ -1,6 +1,6 @@
 import { ChatSession } from '../../chat/ChatSession';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
-import { can } from '../../domain/permissions';
+import { can } from '@viavoip/internal-domain';
 import { MockBackend } from './MockBackend';
 import { MemoryMockStore } from './MockStore';
 import { MockTransport } from './MockTransport';

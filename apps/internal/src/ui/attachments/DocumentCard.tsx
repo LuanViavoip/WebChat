@@ -1,5 +1,5 @@
 import { FileText } from 'lucide-react';
-import { formatBytes } from '../../domain/attachment';
+import { formatBytes } from '@viavoip/internal-domain';
 
 export function DocumentCard({
   fileName,

@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { validateFiles } from '../../domain/attachment';
+import { validateFiles } from '@viavoip/internal-domain';
 import { AttachmentPreview } from './AttachmentPreview';
 
 function attach(name: string, type: string) {

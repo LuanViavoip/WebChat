@@ -11,6 +11,7 @@ Monorepo pnpm (Node ≥ 22, TypeScript estrito). Diagramas: [contexto](../diagra
 | `apps/console` | Central do agente e do supervisor (`/console/`) | React 19, Vite 8 |
 | `apps/internal` | Chat interno estilo WhatsApp Web (`/chat/`), importado do sm-webchat. Só `MockTransport` e `localStorage`: ainda não fala com o servidor | React 19, Vite 6, Vitest 3, TypeScript 5.9 |
 | `packages/protocol` | Schemas Zod de HTTP, eventos, modelos, erros e postMessage | Zod |
+| `packages/internal-domain` | Domínio do chat interno (identidade, capacidades, permissões, conversas, mensagens, anexos, operações de diretório), puro e sem DOM em runtime; usado só pelo `apps/internal` por ora. Subpath `/testing` com fixtures de teste | TypeScript 5.9 |
 | `packages/sm-adapter` | Interface `SMAdapter`, `MockSMAdapter`, fábrica | TypeScript |
 | `infra/` | `seed/seed.sql` e página demo (nginx) | — |
 

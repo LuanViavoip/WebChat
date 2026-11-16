@@ -1,6 +1,6 @@
-import { ROLE_DEFAULT, type Capability } from '../domain/capabilities';
-import type { Agent, Directory, Ilha, IlhaId, StaffRole, StaffUser, UserId } from '../domain/identity';
-import type { TenantId } from '../domain/tenant';
+import { ROLE_DEFAULT, type Capability } from '../capabilities';
+import type { Agent, Directory, Ilha, IlhaId, StaffRole, StaffUser, UserId } from '../identity';
+import type { TenantId } from '../tenant';
 
 export const T1 = 'empresa-1' as TenantId;
 export const T2 = 'empresa-2' as TenantId;

@@ -1,5 +1,5 @@
-import { CAPABILITIES, ROLE_DEFAULT, type Capability } from '../../domain/capabilities';
-import type { IlhaId, UserId } from '../../domain/identity';
+import { CAPABILITIES, ROLE_DEFAULT, type Capability } from '@viavoip/internal-domain';
+import type { IlhaId, UserId } from '@viavoip/internal-domain';
 import { ForbiddenError } from '../errors';
 import { MockServer, type Delivery, type Outcome, type Session } from './MockServer';
 import { BV_ILHAS, BV_TENANT_ID, BV_USERS, createSeedState, ICS_ILHAS, ICS_TENANT_ID, ICS_USERS } from './seed';

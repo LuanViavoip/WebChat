@@ -1,4 +1,4 @@
-import { iid, makeDirectory, makeIlha, makeUser, seedDirectory, T1, T2, uid } from '../test/domainFixtures';
+import { iid, makeDirectory, makeIlha, makeUser, seedDirectory, T1, T2, uid } from './testing/domainFixtures';
 import { canUseCapabilityIn, canViewTeamIn, manageableIlhas } from './directoryOps';
 import type { Directory, StaffUser } from './identity';
 

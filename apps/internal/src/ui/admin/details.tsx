@@ -1,14 +1,14 @@
 import { ArrowLeft } from 'lucide-react';
 import { useId, useRef, useState, type SyntheticEvent, type ReactNode } from 'react';
-import type { Capability } from '../../domain/capabilities';
+import type { Capability } from '@viavoip/internal-domain';
 import {
   canManageIlhasIn,
   canMoveAgentIn,
   canSetActiveIn,
   describeDenial,
-} from '../../domain/directoryOps';
-import type { Ilha, StaffUser } from '../../domain/identity';
-import { own } from '../../domain/records';
+} from '@viavoip/internal-domain';
+import type { Ilha, StaffUser } from '@viavoip/internal-domain';
+import { own } from '@viavoip/internal-domain';
 import { conversationInitials, roleLabel } from '../conversations';
 import { capabilityLabel } from './capabilityLabels';
 import { SelectField, TextField } from './forms';

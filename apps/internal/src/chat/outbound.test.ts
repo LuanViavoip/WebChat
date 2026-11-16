@@ -1,4 +1,4 @@
-import { validateFiles, type ValidAttachment } from '../domain/attachment';
+import { validateFiles, type ValidAttachment } from '@viavoip/internal-domain';
 import { payloadForAttachment } from './outbound';
 
 function png(): ValidAttachment {

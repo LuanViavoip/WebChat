@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { asConversationId, sortConversations, type ConversationId } from '../domain/conversation';
-import type { StaffUser } from '../domain/identity';
-import { canUseCapabilityIn, canViewTeamIn, manageableIlhas } from '../domain/directoryOps';
-import { can } from '../domain/permissions';
-import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
-import type { ChatMessage } from '../domain/message';
+import { asConversationId, sortConversations, type ConversationId } from '@viavoip/internal-domain';
+import type { StaffUser } from '@viavoip/internal-domain';
+import { canUseCapabilityIn, canViewTeamIn, manageableIlhas } from '@viavoip/internal-domain';
+import { can } from '@viavoip/internal-domain';
+import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '@viavoip/internal-domain';
+import type { ChatMessage } from '@viavoip/internal-domain';
 import type { ChatTransport, ConnectRequest, TransportStatus } from '../transport/ChatTransport';
 import { DEFAULT_SESSION } from '../transport/mock/seed';
 import type { ObjectUrlFactory } from '../transport/objectUrls';

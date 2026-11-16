@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChatSession, type ChatSessionState, type TypingState } from '../chat/ChatSession';
 import type { UploadView } from '../chat/uploads';
-import type { ConversationId } from '../domain/conversation';
-import type { ChatMessage } from '../domain/message';
+import type { ConversationId } from '@viavoip/internal-domain';
+import type { ChatMessage } from '@viavoip/internal-domain';
 import type { ChatTransport, ConnectRequest, TransportStatus } from '../transport/ChatTransport';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
 

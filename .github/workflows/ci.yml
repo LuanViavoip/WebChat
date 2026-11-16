@@ -41,8 +41,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build do pacote de domínio (o app resolve pelo dist)
+        run: pnpm --filter @viavoip/internal-domain build
       - name: Lint do app interno
         run: pnpm --filter @viavoip/internal lint
+      - name: Lint do pacote de domínio
+        run: pnpm --filter @viavoip/internal-domain lint
       - name: Gate de hex (cores só pelos tokens de chat.css)
         working-directory: apps/internal
         run: |

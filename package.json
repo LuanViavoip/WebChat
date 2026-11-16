@@ -7,9 +7,9 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm -r exec tsc -p tsconfig.json --noEmit",
-    "test": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm -r --if-present test",
-    "dev": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm --filter @viavoip/server dev",
-    "seed": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm --filter @viavoip/server seed"
+    "typecheck": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm --filter @viavoip/internal-domain build && pnpm -r exec tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm --filter @viavoip/internal-domain build && pnpm -r --if-present test",
+    "dev": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm --filter @viavoip/internal-domain build && pnpm --filter @viavoip/server dev",
+    "seed": "pnpm --filter @viavoip/protocol build && pnpm --filter @viavoip/sm-adapter build && pnpm --filter @viavoip/internal-domain build && pnpm --filter @viavoip/server seed"
   }
 }

@@ -1,4 +1,4 @@
-import { validateFiles } from '../domain/attachment';
+import { validateFiles } from '@viavoip/internal-domain';
 import { beginUpload, nextUpload, type UploadEntry } from './uploads';
 
 function png(): UploadEntry {

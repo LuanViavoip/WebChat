@@ -1,6 +1,6 @@
 import type { AdminActionResult, ChatSession } from '../../chat/ChatSession';
-import type { GrantLogEntry } from '../../domain/directoryOps';
-import type { Directory, IlhaId, StaffUser, UserId } from '../../domain/identity';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
+import type { Directory, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
 
 /** As ações que o console usa; `ChatSession` as cumpre (e o resultado de sucesso traz o usuário/ilha criado). */
 export type AdminActions = Pick<

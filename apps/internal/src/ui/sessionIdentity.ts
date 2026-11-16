@@ -1,5 +1,5 @@
-import type { StaffUser } from '../domain/identity';
-import type { Tenant } from '../domain/tenant';
+import type { StaffUser } from '@viavoip/internal-domain';
+import type { Tenant } from '@viavoip/internal-domain';
 import type { ConnectRequest, LoginGroup } from '../transport/ChatTransport';
 
 /** Chave do `sessionStorage`: a sessão é por aba e sobrevive ao reload dela. */

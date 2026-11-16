@@ -1,4 +1,4 @@
-import type { Capability } from '../../domain/capabilities';
+import type { Capability } from '@viavoip/internal-domain';
 
 /**
  * Rótulo e explicação de cada capacidade. É um `Record` exaustivo de propósito: capacidade nova no catálogo

@@ -8,6 +8,7 @@ O monorepo tem quatro aplicações e dois pacotes:
 - `apps/internal` — chat interno estilo WhatsApp Web (sm-webchat importado), servido em `/chat/`; só dados simulados, ainda sem ligação com o servidor
 - `packages/protocol` — schemas Zod dos payloads
 - `packages/sm-adapter` — interface do SM e implementação mock
+- `packages/internal-domain` — domínio do chat interno (movido de `apps/internal/src/domain`); só o `apps/internal` o importa
 
 Um processo HTTP serve a API, os sockets, o widget, o console, o chat interno (`/chat/`) e o loader. Postgres é a fonte da verdade. Redis só replica eventos do Socket.IO entre instâncias.
 

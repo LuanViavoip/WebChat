@@ -1,6 +1,6 @@
 import { icsDirectory, ICS_ILHAS, ICS_TENANT_ID, ICS_USERS, BV_TENANT_ID, BV_USERS, DEFAULT_SESSION } from '../transport/mock/seed';
-import type { GrantLogEntry } from '../domain/directoryOps';
-import type { Directory } from '../domain/identity';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
+import type { Directory } from '@viavoip/internal-domain';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { ForbiddenError, ACCOUNT_DEACTIVATED } from '../transport/errors';
 import { ChatSession, SESSION_DEACTIVATED_TEXT } from './ChatSession';

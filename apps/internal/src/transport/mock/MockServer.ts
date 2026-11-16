@@ -5,7 +5,7 @@ import {
   type ConversationId,
   type ConversationSummary,
   type DirectConversation,
-} from '../../domain/conversation';
+} from '@viavoip/internal-domain';
 import {
   assignIlhaSupervisor,
   canConnect,
@@ -23,14 +23,14 @@ import {
   type GrantLogEntry,
   type OpDeps,
   type OpError,
-} from '../../domain/directoryOps';
-import { canReadGrantLog, visibleGrantLog } from '../../domain/grantLog';
-import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '../../domain/identity';
-import { previewOf, type ChatMessage } from '../../domain/message';
-import { can, type PermissionDenial } from '../../domain/permissions';
-import { own } from '../../domain/records';
-import { err, ok, type Result } from '../../domain/result';
-import type { LocalDate, TenantId } from '../../domain/tenant';
+} from '@viavoip/internal-domain';
+import { canReadGrantLog, visibleGrantLog } from '@viavoip/internal-domain';
+import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
+import { previewOf, type ChatMessage } from '@viavoip/internal-domain';
+import { can, type PermissionDenial } from '@viavoip/internal-domain';
+import { own } from '@viavoip/internal-domain';
+import { err, ok, type Result } from '@viavoip/internal-domain';
+import type { LocalDate, TenantId } from '@viavoip/internal-domain';
 import type {
   AssignIlhaSupervisorRequest,
   Bootstrap,
