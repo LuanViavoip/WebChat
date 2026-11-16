@@ -55,7 +55,7 @@ test.describe('artefatos visuais', () => {
     await page.screenshot({ path: `${DIR}/agente-1366.png` });
     await page.getByRole('button', { name: 'Trocar usuário' }).click();
     await page.getByRole('button', { name: /Marcos Dono/ }).click();
-    await expect(page.getByRole('button', { name: /Administração \(Etapa 5\)/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Administração' })).toBeVisible();
     await page.screenshot({ path: `${DIR}/admin-1366.png` });
   });
 });

@@ -331,6 +331,35 @@ export function canManageIlhasIn(d: Directory, actorId: UserId): Verdict {
   return actor.ok ? ok(true) : actor;
 }
 
+/** Ator ativo do tenant com a capacidade (posse efetiva). Para a UI esconder/mostrar entradas (ex.: "Novo grupo"). */
+export function canUseCapabilityIn(d: Directory, actorId: UserId, capability: Capability): Verdict {
+  const actor = authorizeAdmin(d, actorId, capability);
+  return actor.ok ? ok(true) : actor;
+}
+
+/** As ilhas que o ator gere: admin, todas do tenant; supervisor, as que ele supervisiona; agente, nenhuma. */
+export function manageableIlhas(d: Directory, actorId: UserId): readonly Ilha[] {
+  const actor = own(d.users, actorId);
+  if (!actor || actor.tenantId !== d.tenantId || !actor.active) {
+    return [];
+  }
+  const ilhas = Object.values(d.ilhas).filter((ilha) => ilha.tenantId === d.tenantId);
+  if (actor.role === 'admin') {
+    return ilhas;
+  }
+  const mine = supervisedIlhaIds(d, actor.id);
+  return actor.role === 'supervisor' ? ilhas.filter((ilha) => mine.has(ilha.id)) : [];
+}
+
+/** Tela "Equipe": quem cadastra agentes (`agents.manage`) E supervisiona ilhas. O admin (sem ilhas próprias) usa a Administração. */
+export function canViewTeamIn(d: Directory, actorId: UserId): Verdict {
+  const allowed = canUseCapabilityIn(d, actorId, 'agents.manage');
+  if (!allowed.ok) {
+    return allowed;
+  }
+  return supervisedIlhaIds(d, actorId).size > 0 ? ok(true) : err('outside-islands');
+}
+
 /** Desativar ou reativar o alvo. */
 export function canSetActiveIn(d: Directory, actorId: UserId, targetId: UserId): Verdict {
   const authorized = authorizeTarget(d, actorId, targetId);

@@ -123,3 +123,46 @@ describe('App: Entrar como lê o estado do servidor', () => {
     expect(screen.getByText('Agente · ICS Saúde')).toBeInTheDocument();
   });
 });
+
+describe('App: a tela "Entrar como" relê o servidor quando outra aba mexe', () => {
+  it('cadastro e desativação feitos em outra aba aparecem ao voltar o foco e com o evento storage', async () => {
+    const backend = new MockBackend({ store: new MemoryMockStore() });
+    render(<App transport={new MockTransport({ backend, delays: instant })} />);
+    const ics = () => within(screen.getByRole('region', { name: 'ICS Saúde' }));
+    expect(ics().queryByRole('button', { name: /Zélia Outra Aba/ })).not.toBeInTheDocument();
+
+    const otherTab = new MockTransport({ backend, delays: instant });
+    await otherTab.connect(MARCOS);
+    await otherTab.registerAgent({ name: 'Zélia Outra Aba', ilhaId: ICS_ILHAS.sul });
+    // Nada mudou ainda: a tela só relê quando há motivo (foco, visibilidade, storage).
+    expect(ics().queryByRole('button', { name: /Zélia Outra Aba/ })).not.toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(await ics().findByRole('button', { name: /Zélia Outra Aba/ })).toBeInTheDocument();
+
+    await otherTab.deactivateUser({ userId: ICS_USERS.bruno });
+    act(() => {
+      window.dispatchEvent(new Event('storage'));
+    });
+    await waitFor(() => {
+      expect(ics().queryByRole('button', { name: /Bruno Costa/ })).not.toBeInTheDocument();
+    });
+    otherTab.disconnect();
+  });
+
+  it('depois de entrar no chat a tela de login não relê mais (os ouvintes saem)', async () => {
+    const backend = new MockBackend({ store: new MemoryMockStore() });
+    const transport = new MockTransport({ backend, delays: instant });
+    const spy = vi.spyOn(transport, 'loginGroups');
+    window.history.replaceState(null, '', '/?como=ics-bruno');
+    render(<App transport={transport} />);
+    await screen.findByLabelText('Lista de conversas');
+    spy.mockClear();
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(spy).not.toHaveBeenCalled();
+    window.history.replaceState(null, '', '/');
+  });
+});

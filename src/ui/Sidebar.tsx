@@ -1,7 +1,7 @@
-import { CircleDashed, LogOut, MessageSquarePlus, Search, Settings, Users } from 'lucide-react';
+import { CircleDashed, LogOut, MessageSquarePlus, Search, Settings, Users, UsersRound } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ConversationId } from '../domain/conversation';
-import type { StaffUser } from '../domain/identity';
+import type { Ilha, StaffUser } from '../domain/identity';
 import {
   conversationInitials,
   emptyConversationCopy,
@@ -11,6 +11,7 @@ import {
 } from './conversations';
 import { liveActivityLabel } from './liveActivity';
 import { NewConversationDialog } from './NewConversationDialog';
+import { NewGroupControls } from './admin/NewGroupControls';
 
 export type ConversationSections = {
   priority: readonly ConversationItem[];
@@ -28,6 +29,8 @@ export function Sidebar({
   onOpenDirect,
   onSwitchUser,
   onOpenAdmin,
+  onOpenTeam,
+  groupIlhas,
 }: {
   me: StaffUser | null;
   tenantName: string;
@@ -42,6 +45,10 @@ export function Sidebar({
   onSwitchUser: () => void;
   /** Presente só quando `me` tem `admin.console`. */
   onOpenAdmin?: () => void;
+  /** Presente só quando `me` tem `agents.manage` e supervisiona ilhas (tela Equipe). */
+  onOpenTeam?: () => void;
+  /** Presente só quando `me` tem `group.manage`: as ilhas que ele pode escolher para o grupo. */
+  groupIlhas?: readonly Ilha[];
 }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -109,13 +116,20 @@ export function Sidebar({
             </span>
           </p>
           {onOpenAdmin ? (
-            <button type="button" className="sidebar-admin-link" onClick={onOpenAdmin}>
+            <button type="button" className="sidebar-admin-link" data-open-view="admin" onClick={onOpenAdmin}>
               <Settings size={16} strokeWidth={1.8} aria-hidden="true" />
-              Administração (Etapa 5)
+              Administração
+            </button>
+          ) : null}
+          {onOpenTeam ? (
+            <button type="button" className="sidebar-admin-link" data-open-view="team" onClick={onOpenTeam}>
+              <UsersRound size={16} strokeWidth={1.8} aria-hidden="true" />
+              Equipe
             </button>
           ) : null}
         </div>
       ) : null}
+      {groupIlhas ? <NewGroupControls ilhas={groupIlhas} /> : null}
       <div className="sidebar-search">
         <Search size={16} strokeWidth={1.8} aria-hidden="true" />
         <label className="sidebar-search-field">

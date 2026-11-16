@@ -71,7 +71,7 @@ describe('ChatSession: ações de administração', () => {
   it('o resultado de sucesso é ok e não mexe no estado local (quem muda o estado são os eventos)', async () => {
     const { session } = await started();
     const before = session.getState();
-    expect(await session.renameIlha(ICS_ILHAS.norte, 'Outro')).toEqual({ ok: true });
+    expect(await session.renameIlha(ICS_ILHAS.norte, 'Outro')).toMatchObject({ ok: true, value: { id: ICS_ILHAS.norte } });
     expect(session.getState().directory).toEqual(before.directory);
     session.stop();
   });
@@ -179,6 +179,35 @@ describe('ChatSession: sessão encerrada pelo servidor', () => {
     expect(session.getState().connection).toBe('disconnected');
     await session.start();
     expect(session.getState().sessionEnded).toBeNull();
+    session.stop();
+  });
+
+  it('um bootstrap aplicado com sucesso (reconexão depois de reativada) zera o sessionEnded', async () => {
+    const { session, transport } = await started();
+    transport.emit({ type: 'session-ended', tenantId: ICS_TENANT_ID, reason: 'deactivated' });
+    expect(session.getState().sessionEnded).not.toBeNull();
+    transport.disconnect();
+    await session.reconnect();
+    const state = session.getState();
+    expect(state.sessionEnded).toBeNull();
+    expect(state.connection).toBe('connected');
+    expect(state.me?.id).toBe(DEFAULT_SESSION.userId);
+    session.stop();
+  });
+
+  it('um connect que falha NÃO zera o sessionEnded (só o bootstrap aceito zera)', async () => {
+    const { session, transport } = await started();
+    transport.emit({ type: 'session-ended', tenantId: ICS_TENANT_ID, reason: 'deactivated' });
+    transport.disconnect();
+    transport.connectError = new ForbiddenError();
+    await session.reconnect();
+    expect(session.getState().sessionEnded).not.toBeNull();
+    session.stop();
+  });
+
+  it('as ações devolvem o usuário/ilha que o servidor criou (a UI seleciona o item novo)', async () => {
+    const { session } = await started();
+    expect(await session.registerAgent('Zélia', ICS_ILHAS.norte)).toMatchObject({ ok: true, value: { id: ICS_USERS.ana, role: 'agent' } });
     session.stop();
   });
 

@@ -72,6 +72,8 @@ export class ScriptedTransport implements ChatTransport {
   readonly sent: SendRequest[] = [];
   readonly uploads: UploadRequest[] = [];
   lastSession: ConnectRequest | undefined;
+  /** Quem o Bootstrap devolve como `me` (padrão: o usuário da seed). Só para testes de UI de outros papéis. */
+  asUser: UserId | undefined;
   readonly marked: MarkReadRequest[] = [];
   readonly typing: TypingRequest[] = [];
   failConnect = false;
@@ -125,7 +127,7 @@ export class ScriptedTransport implements ChatTransport {
 
   private bootstrap(): Bootstrap {
     const directory = icsDirectory();
-    const me = directory.users[DEFAULT_SESSION.userId];
+    const me = directory.users[this.asUser ?? DEFAULT_SESSION.userId];
     if (!me) {
       throw new Error('seed sem o usuário padrão');
     }

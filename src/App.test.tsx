@@ -106,12 +106,12 @@ describe('App: Trocar usuário', () => {
 });
 
 describe('App: Administração', () => {
-  it('o admin vê o link, abre o placeholder e volta ao chat', async () => {
+  it('o admin vê o link, abre o console e volta ao chat', async () => {
     const user = userEvent.setup();
     window.history.replaceState(null, '', '/?como=ics-marcos');
     render(<App transport={transport()} />);
     await waitForChat();
-    await user.click(screen.getByRole('button', { name: /Administração \(Etapa 5\)/ }));
+    await user.click(screen.getByRole('button', { name: 'Administração' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Administração' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Voltar ao chat' }));
     await waitForChat();

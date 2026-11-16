@@ -110,7 +110,10 @@ export interface ChatTransport {
   setTyping(request: TypingRequest): void;
   subscribe(handler: ChatEventHandler): () => void;
   getStatus(): TransportStatus;
-  /** Usuários cadastrados por empresa (estado do servidor, inclusive desativados): a tela "Entrar como". */
+  /**
+   * Somente mock/dev: o SM real autentica por credencial e não expõe a lista de usuários.
+   * Usuários cadastrados por empresa (estado do servidor, inclusive desativados): a tela "Entrar como".
+   */
   loginGroups(): readonly LoginGroup[];
 
   // Etapa 5. O ator é SEMPRE o usuário da sessão; nenhum request leva ator ou tenant.

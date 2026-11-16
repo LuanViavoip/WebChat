@@ -2,7 +2,7 @@ import { type ValidAttachment } from '../domain/attachment';
 import type { Conversation, ConversationId, ConversationSummary } from '../domain/conversation';
 import type { Capability } from '../domain/capabilities';
 import { describeDenial, DENIAL_TEXT, type GrantLogEntry, type OpError } from '../domain/directoryOps';
-import type { Directory, IlhaId, StaffUser, UserId } from '../domain/identity';
+import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '../domain/identity';
 import { previewOf, type ChatMessage, type MessageStatus } from '../domain/message';
 import type { Tenant } from '../domain/tenant';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
@@ -54,7 +54,9 @@ export type SessionEnded = { readonly reason: SessionEndReason; readonly message
 export const SESSION_DEACTIVATED_TEXT = 'Sua conta foi desativada. Fale com o administrador.';
 
 /** Resultado de uma ação de administração. `message` é pt-BR, pronta para a UI (nunca revela outra empresa). */
-export type AdminActionResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
+export type AdminActionResult<T = undefined> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly message: string };
 
 const FORBIDDEN_TEXT = 'Operação não permitida.';
 
@@ -62,7 +64,7 @@ function isOpError(reason: string): reason is OpError {
   return Object.hasOwn(DENIAL_TEXT, reason);
 }
 
-function adminFailure(error: unknown): AdminActionResult {
+function adminFailure(error: unknown): { readonly ok: false; readonly message: string } {
   if (isForbidden(error) && isOpError(error.reason)) {
     const text = describeDenial(error.reason);
     return { ok: false, message: `Operação não permitida: ${text}.` };
@@ -210,39 +212,39 @@ export class ChatSession {
   // Administração (Etapa 5). O ator é a sessão no servidor; o resultado de cada ação volta pronto para a UI e o
   // estado muda pelos eventos `directory`/`grants`/`grantLog` (também nas outras abas), nunca por escrita local.
 
-  registerSupervisor(name: string, ilhaIds: readonly IlhaId[]): Promise<AdminActionResult> {
+  registerSupervisor(name: string, ilhaIds: readonly IlhaId[]): Promise<AdminActionResult<StaffUser>> {
     return this.adminAction(() => this.transport.registerSupervisor({ name, ilhaIds }));
   }
 
-  registerAgent(name: string, ilhaId: IlhaId): Promise<AdminActionResult> {
+  registerAgent(name: string, ilhaId: IlhaId): Promise<AdminActionResult<StaffUser>> {
     return this.adminAction(() => this.transport.registerAgent({ name, ilhaId }));
   }
 
-  deactivateUser(userId: UserId): Promise<AdminActionResult> {
+  deactivateUser(userId: UserId): Promise<AdminActionResult<StaffUser>> {
     return this.adminAction(() => this.transport.deactivateUser({ userId }));
   }
 
-  reactivateUser(userId: UserId): Promise<AdminActionResult> {
+  reactivateUser(userId: UserId): Promise<AdminActionResult<StaffUser>> {
     return this.adminAction(() => this.transport.reactivateUser({ userId }));
   }
 
-  createIlha(name: string, supervisorId: UserId): Promise<AdminActionResult> {
+  createIlha(name: string, supervisorId: UserId): Promise<AdminActionResult<Ilha>> {
     return this.adminAction(() => this.transport.createIlha({ name, supervisorId }));
   }
 
-  renameIlha(ilhaId: IlhaId, name: string): Promise<AdminActionResult> {
+  renameIlha(ilhaId: IlhaId, name: string): Promise<AdminActionResult<Ilha>> {
     return this.adminAction(() => this.transport.renameIlha({ ilhaId, name }));
   }
 
-  assignIlhaSupervisor(ilhaId: IlhaId, supervisorId: UserId): Promise<AdminActionResult> {
+  assignIlhaSupervisor(ilhaId: IlhaId, supervisorId: UserId): Promise<AdminActionResult<Ilha>> {
     return this.adminAction(() => this.transport.assignIlhaSupervisor({ ilhaId, supervisorId }));
   }
 
-  moveAgent(userId: UserId, ilhaId: IlhaId): Promise<AdminActionResult> {
+  moveAgent(userId: UserId, ilhaId: IlhaId): Promise<AdminActionResult<StaffUser>> {
     return this.adminAction(() => this.transport.moveAgent({ userId, ilhaId }));
   }
 
-  setGrant(userId: UserId, capability: Capability, granted: boolean): Promise<AdminActionResult> {
+  setGrant(userId: UserId, capability: Capability, granted: boolean): Promise<AdminActionResult<StaffUser>> {
     return this.adminAction(() => this.transport.setGrant({ userId, capability, granted }));
   }
 
@@ -256,16 +258,16 @@ export class ChatSession {
         this.grantLog = entries;
         this.emit();
       }
-      return { ok: true };
+      return { ok: true, value: undefined };
     } catch (error) {
       return adminFailure(error);
     }
   }
 
-  private async adminAction(call: () => Promise<unknown>): Promise<AdminActionResult> {
+  /** Devolve o que o servidor criou/alterou (usuário ou ilha), para a UI selecionar o item novo. */
+  private async adminAction<T>(call: () => Promise<T>): Promise<AdminActionResult<T>> {
     try {
-      await call();
-      return { ok: true };
+      return { ok: true, value: await call() };
     } catch (error) {
       return adminFailure(error);
     }
@@ -568,6 +570,8 @@ export class ChatSession {
     this.tenant = bootstrap.tenant;
     this.me = bootstrap.me;
     this.directory = bootstrap.directory;
+    // Um bootstrap aceito é uma conexão viva: um `sessionEnded` de antes (reconexão após conta reativada) não vale mais.
+    this.sessionEnded = null;
     for (const summary of bootstrap.conversations) {
       const thread = this.ensureThread(summary.conversation, summary.lastActivityAt);
       if (!thread) {
