@@ -72,6 +72,20 @@ test.describe('axe nos 4 viewports', () => {
     await expectMediaA11y(page, 'página');
   });
 
+  test('Entrar como com o aviso de conta desativada sem violações serious/critical', async ({ context }) => {
+    const admin = await context.newPage();
+    await enterAs(admin, USERS.marcos, { reset: true });
+    const diego = await context.newPage();
+    await enterAs(diego, USERS.diego);
+    await admin.getByRole('button', { name: 'Administração' }).click();
+    await admin.getByRole('group', { name: 'Seções' }).getByRole('button', { name: 'Agentes', exact: true }).click();
+    await admin.getByTestId(`admin-user-${USERS.diego}`).click();
+    await admin.getByRole('button', { name: 'Desativar' }).click();
+    await expect(admin.getByRole('button', { name: 'Reativar' })).toBeVisible();
+    await expect(diego.getByRole('alert')).toHaveText('Sua conta foi desativada. Fale com o administrador.');
+    await expectNoSeriousOrCritical(diego, 'Entrar como com aviso de conta desativada');
+  });
+
   test('administração (console) sem violações serious/critical', async ({ page }) => {
     await enterAs(page, USERS.marcos, { reset: true });
     await page.getByRole('button', { name: 'Administração' }).click();
