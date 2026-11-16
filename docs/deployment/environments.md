@@ -1,6 +1,6 @@
 # Ambientes
 
-Somente o que é verificável no repositório (`Dockerfile`, `docker-compose.yml`, `.env.example`, `apps/server/src/config.ts`).
+Somente o que é verificável no repositório (`Dockerfile`, `docker-compose.yml`, `docker-compose.hml.yml`, `.env.example`, `apps/server/src/config.ts`).
 
 ## Desenvolvimento / demonstração — verificável
 
@@ -44,6 +44,18 @@ O workflow `.github/workflows/ci.yml` roda em todo pull request e em todo push n
 O job `verify` usa `ubuntu-latest`, Node 22 e o pnpm da chave `packageManager` do `package.json` raiz. Os passos são, nesta ordem: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm build`, `docker pull` de `postgres:16-alpine` e `redis:7-alpine`, e `pnpm test`.
 
 O workflow não declara `services:` nem variáveis de ambiente. A suíte do servidor sobe o PostgreSQL e o Redis por Testcontainers. Não há lint no repositório.
+
+## Homologação (docker-compose.hml.yml): parcialmente verificável
+
+O arquivo `docker-compose.hml.yml` (nome do projeto `viavoip-webchat`) define três serviços:
+
+- `postgres`: `postgres:16-alpine`, volume `pgdata`, sem porta publicada e com healthcheck `pg_isready`;
+- `redis`: `redis:7-alpine`, com healthcheck `redis-cli ping`;
+- `server`: build local (contexto `.`, com os args `GIT_SHA` e `BUILT_AT`, padrão `unknown`, descritos acima), porta `3010:3000`, `env_file: .env.hml`, espera `postgres` e `redis` saudáveis e tem healthcheck em `/health`.
+
+O `.env.hml` não está no repositório: o `.gitignore` ignora `.env.*` (só `.env.example` é versionado). O arquivo não define `container_name`, então o nome padrão do Compose v2 seria `viavoip-webchat-server-1`.
+
+O que roda de fato no hml (nome do container, proxy TLS, SHA implantado) **não é verificável pelo repositório**.
 
 ## Produção — NÃO verificável
 
