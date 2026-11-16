@@ -87,6 +87,8 @@ export async function buildApp(
   registerHttp(app, {
     sessions,
     smAdapter: config.smAdapter,
+    gitSha: config.gitSha,
+    builtAt: config.builtAt,
     limiter,
     sessionCreateLimit: config.sessionCreateLimit,
     loginLimit: config.loginLimit,

@@ -23,6 +23,8 @@ export function registerHttp(
   deps: {
     sessions: SessionService;
     smAdapter: string;
+    gitSha: string;
+    builtAt: string;
     limiter: SlidingWindowLimiter;
     sessionCreateLimit: number;
     loginLimit: number;
@@ -43,6 +45,8 @@ export function registerHttp(
   });
 
   app.get('/health', async () => ({ ok: true, smAdapter: deps.smAdapter }));
+
+  app.get('/version', async () => ({ sha: deps.gitSha, builtAt: deps.builtAt }));
 
   app.get('/public/widgets/:publicId', async (request) => {
     const publicId = (request.params as { publicId?: string }).publicId ?? '';
