@@ -1,7 +1,8 @@
 import {
   canAssignRole,
+  canGrantIn,
   effectiveGrants,
-  canGrant,
+  inManagementScope,
   type AssignableRole,
   type Capability,
   type GrantDenial,
@@ -88,9 +89,17 @@ export function can(claimedActor: StaffUser, action: Action, d: Directory): Resu
     case 'admin.console':
       return held.has('admin.console') ? ok(true) : err('no-capability');
     case 'grant':
-      return canGrant(actor, act.target, act.capability);
-    case 'assignRole':
-      return canAssignRole(actor, act.target, act.role);
+      return canGrantIn(d, actor.id, act.target.id, act.capability);
+    case 'assignRole': {
+      const verdict = canAssignRole(actor, act.target, act.role);
+      if (!verdict.ok) {
+        return verdict;
+      }
+      const existing = 'id' in act.target ? act.target : undefined;
+      return actor.role === 'supervisor' && existing && !inManagementScope(d, actor, existing)
+        ? err('outside-islands')
+        : verdict;
+    }
   }
 }
 

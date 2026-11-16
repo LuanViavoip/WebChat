@@ -201,7 +201,7 @@ describe('P5: fechamento sobre sequências de operações aceitas', () => {
           }
         }
       }),
-      { numRuns: 400 },
+      { numRuns: 1000 },
     );
     for (const kind of ['grant', 'revoke', 'assign', 'create'] as const) {
       expect(accepted[kind], `operações ${kind} aceitas`).toBeGreaterThanOrEqual(20);

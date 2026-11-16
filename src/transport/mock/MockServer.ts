@@ -340,7 +340,7 @@ export class MockServer {
     const next = apply(ts.directory, actor.id, request.userId, request.capability);
     if (!next.ok) {
       const denial = next.error;
-      return fail(denial === 'unknown-target' || denial === 'unknown-actor' || denial === 'cross-tenant' ? undefined : denial);
+      return fail(denial === 'unknown-actor' || denial === 'cross-tenant' ? undefined : denial);
     }
     ts.directory = next.value;
     const target = own(ts.directory.users, request.userId);
