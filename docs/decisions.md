@@ -40,6 +40,38 @@ O papel `admin` enxerga o tenant inteiro. O supervisor opera nos setores em que 
 
 Presença e atividade não se alteram mutuamente. A presença efetiva continua a fórmula das conexões e do estado desejado, agora com um intervalo por transição. A alocação ativa é uma por agente.
 
+Revisão prevista: ver "Fusão com o chat interno (sm-webchat)". A conversa direta entre agentes passa a ser permitida no namespace `/internal`.
+
 ## Página demo em outra origem
 
 O site de exemplo sobe na porta 8090 e o webchat na 3000. Isso exercita iframe, `postMessage` e a allowlist do site sem cookie de terceiros.
+
+## Fusão com o chat interno (sm-webchat)
+
+Decisão: o monorepo WebChat é a base. Ele tem Postgres com RLS, sessão opaca com revogação, Socket.IO com Redis, idempotência, auditoria e o canal do cliente. O chat interno do repositório externo `Luanzzzz/sm-webchat` (React, interface estilo WhatsApp Web, mock em `localStorage`) entra no monorepo, e não o contrário. O plano detalhado por fases ainda não está neste repositório.
+
+Como entra:
+
+- app novo `apps/internal`, servido em `/chat/`;
+- pacote novo `@viavoip/internal-domain`, com as funções puras de domínio (tenant, identidade, capacidades, permissões, conversa, mensagem, anexos), importado pelo app e pelo servidor;
+- namespace Socket.IO novo `/internal`, com contrato igual ao `ChatTransport` do sm-webchat, e um `SocketTransport` no app no lugar do mock.
+
+O console continua sendo a central de atendimento, supervisão e administração da empresa.
+
+Haverá dois acessos: o cliente pelo site (`widget.js` → `/visitor`, atendido no console; bot futuro só aqui) e o chat interno das empresas (`/chat/` → `/internal`). Dados, auth, rotas e eventos ficam isolados, como em "Chat interno separado do atendimento".
+
+Decisões fixadas pelo Luan em 16/11/2026:
+
+- D1: ilha = setor, N:N; o supervisor gerencia o agente se supervisiona alguma ilha dele.
+- D2: o código vem por `git subtree` com histórico; o sm-webchat fica congelado após a F2 e é arquivado após a F7.
+- D3: mídia em disco no hml atrás de `MediaStore`, S3 compatível em produção, sem antivírus nesta fase.
+- D4: o supervisor cadastra, move, desativa/reativa e concede `chat.use` a agentes das ilhas dele, sem filas nem senha; o cadastro de pessoas fica na tela Equipe do `/chat/`, e o console fica com filas, atividade e credencial.
+- D5: o supervisor com `announcement.publish` publica para todos.
+- D6: cada aba do chat pede login (`sessionStorage`).
+- D8: os grupos automáticos por setor continuam.
+- D9: os anúncios existentes são migrados (`tenant → all`, `sectors → groups`).
+- D10: um admin por empresa; o seed ganha um admin no tenant B, e a migration que impõe isso aborta se encontrar dois.
+
+(D7 foi retirada: o hml já tem HTTPS.)
+
+Consequência declarada: a regra "agente com agente fica de fora" deixa de valer quando o namespace `/internal` entrar (fase F6). Estas são decisões, não estado do código: até lá, nada muda no código.
