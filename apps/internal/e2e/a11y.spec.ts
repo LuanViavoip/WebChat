@@ -35,7 +35,7 @@ async function expectMediaA11y(page: Page, label: string) {
 
 test.describe('axe nos 4 viewports', () => {
   test('Entrar como sem violações serious/critical', async ({ page }) => {
-    await page.goto('/?reset=1');
+    await page.goto('./?reset=1');
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar como' })).toBeVisible();
     await expectNoSeriousOrCritical(page, 'Entrar como');
   });

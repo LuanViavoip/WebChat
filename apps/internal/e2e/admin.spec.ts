@@ -88,7 +88,7 @@ async function setGroupManage(admin: Page, on: boolean) {
 /** Uma segunda página, no mesmo contexto, entra como Paula pelo "Entrar como" (o cadastro já está no servidor). */
 async function enterAsPaula(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('button', { name: new RegExp(PAULA) }).click();
   await expect(page.getByLabel('Lista de conversas')).toBeVisible();
   return page;
@@ -236,7 +236,7 @@ test.describe('console de administração com duas páginas', () => {
 
     // URL direta com a conta desativada: mesma mensagem.
     const direct = await context.newPage();
-    await direct.goto(`/?como=${USERS.diego}`);
+    await direct.goto(`./?como=${USERS.diego}`);
     await expect(direct.getByRole('heading', { level: 1, name: 'Entrar como' })).toBeVisible();
     await expect(direct.getByRole('alert')).toHaveText(DEACTIVATED_TEXT);
     await expect(direct.getByLabel('Lista de conversas')).toHaveCount(0);

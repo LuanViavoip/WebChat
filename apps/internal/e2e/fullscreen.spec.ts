@@ -74,7 +74,7 @@ test.describe('tela cheia no modo página', () => {
     if (!viewport) {
       return;
     }
-    await page.goto('/?reset=1');
+    await page.goto('./?reset=1');
     const screen = page.locator('.login-screen');
     await expect(screen).toBeVisible();
     const box = await screen.boundingBox();

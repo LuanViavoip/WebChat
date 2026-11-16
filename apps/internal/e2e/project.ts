@@ -39,7 +39,7 @@ export async function enterAs(
   if (options.reset) {
     params.set('reset', '1');
   }
-  await page.goto(`/?${params.toString()}`);
+  await page.goto(`./?${params.toString()}`);
   await expect(page.getByLabel('Lista de conversas')).toBeVisible();
 }
 

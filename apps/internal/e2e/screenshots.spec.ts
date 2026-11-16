@@ -11,7 +11,7 @@ test.describe('artefatos visuais', () => {
     mkdirSync(DIR, { recursive: true });
     const name = testInfo.project.name;
 
-    await page.goto('/?reset=1');
+    await page.goto('./?reset=1');
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar como' })).toBeVisible();
     await page.screenshot({ path: `${DIR}/entrar-como-${name}.png` });
 

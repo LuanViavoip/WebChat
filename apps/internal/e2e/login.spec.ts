@@ -3,7 +3,7 @@ import { enterAs, USERS } from './project';
 
 test.describe('Entrar como', () => {
   test('lista os usuários ativos agrupados por empresa, com nome e role em português', async ({ page }) => {
-    await page.goto('/?reset=1');
+    await page.goto('./?reset=1');
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar como' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['ICS Saúde', 'Clínica Boa Vista']);
 
@@ -20,7 +20,7 @@ test.describe('Entrar como', () => {
   });
 
   test('clicar entra no chat do usuário; o reload mantém a sessão da aba', async ({ page }, testInfo) => {
-    await page.goto('/?reset=1');
+    await page.goto('./?reset=1');
     await page.getByRole('button', { name: /Bruno Costa/ }).click();
     const sidebar = page.getByLabel('Lista de conversas');
     await expect(sidebar).toBeVisible();
@@ -51,7 +51,7 @@ test.describe('Entrar como', () => {
   });
 
   test('?como= inválido mostra Entrar como', async ({ page }) => {
-    await page.goto('/?como=ninguem');
+    await page.goto('./?como=ninguem');
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar como' })).toBeVisible();
     await expect(page.getByLabel('Lista de conversas')).toHaveCount(0);
   });

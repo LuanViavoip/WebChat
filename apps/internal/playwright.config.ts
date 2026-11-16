@@ -8,12 +8,12 @@ export default defineConfig({
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 1 : 0,
   use: {
-    baseURL: `http://127.0.0.1:${String(port)}`,
+    baseURL: `http://127.0.0.1:${String(port)}/chat/`,
     trace: 'on-first-retry',
   },
   webServer: {
-    command: `npm run dev -- --host 127.0.0.1 --port ${String(port)}`,
-    url: `http://127.0.0.1:${String(port)}`,
+    command: `pnpm run dev --host 127.0.0.1 --port ${String(port)}`,
+    url: `http://127.0.0.1:${String(port)}/chat/`,
     reuseExistingServer: false,
   },
   projects: [
