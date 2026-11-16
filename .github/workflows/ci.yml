@@ -29,3 +29,48 @@ jobs:
       - name: Pré-carregar imagens dos Testcontainers
         run: docker pull postgres:16-alpine && docker pull redis:7-alpine
       - run: pnpm test
+
+  internal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint do app interno
+        run: pnpm --filter @viavoip/internal lint
+      - name: Gate de hex (cores só pelos tokens de chat.css)
+        working-directory: apps/internal
+        run: |
+          if grep -rnE '#[0-9a-fA-F]{3,8}\b' src --exclude=chat.css --exclude=contrast.ts --exclude=contrast.test.ts; then
+            echo "Hex fora de src/styles/chat.css, contrast.ts e contrast.test.ts." >&2
+            exit 1
+          fi
+      - name: Cache dos navegadores do Playwright
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Instalar o Chromium do Playwright
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: apps/internal
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Dependências do sistema do Chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/internal
+        run: pnpm exec playwright install-deps chromium
+      - name: Playwright (1366, 1920, 2560 e 390, com axe)
+        working-directory: apps/internal
+        run: pnpm exec playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: internal-e2e
+          path: |
+            apps/internal/playwright-report/
+            apps/internal/test-results/
