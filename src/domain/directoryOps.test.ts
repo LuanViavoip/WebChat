@@ -536,3 +536,22 @@ describe('supervisor desativado continua dono das ilhas', () => {
     expect(outcome(assignIlhaSupervisor(off.value, uid('admin'), iid('ilha-2'), uid('sup-1')))).toBe('invalid-supervisor');
   });
 });
+
+describe('sem revogação em cascata', () => {
+  it('revogar do supervisor não tira a capacidade que ele já concedeu ao agente', () => {
+    const deps = makeDeps();
+    const start: AdminState = { directory: baseDirectory(withGrants([])), grantLog: [] };
+    const granted = grantCapability(start, uid('sup-1'), uid('ag-1'), 'chat.use', deps);
+    expect(granted.ok).toBe(true);
+    if (!granted.ok) return;
+    const revoked = revokeCapability(granted.value, uid('admin'), uid('sup-1'), 'chat.use', deps);
+    expect(revoked.ok).toBe(true);
+    if (!revoked.ok) return;
+    expect(user(revoked.value.directory, 'sup-1').grants.has('chat.use')).toBe(false);
+    expect(user(revoked.value.directory, 'ag-1').grants.has('chat.use')).toBe(true);
+    expect(revoked.value.grantLog.map((e) => [e.targetId, e.granted])).toEqual([
+      ['ag-1', true],
+      ['sup-1', false],
+    ]);
+  });
+});
