@@ -48,7 +48,7 @@ O site de exemplo sobe na porta 8090 e o webchat na 3000. Isso exercita iframe, 
 
 ## Fusão com o chat interno (sm-webchat)
 
-Decisão: o monorepo WebChat é a base. Ele tem Postgres com RLS, sessão opaca com revogação, Socket.IO com Redis, idempotência, auditoria e o canal do cliente. O chat interno do repositório externo `Luanzzzz/sm-webchat` (React, interface estilo WhatsApp Web, mock em `localStorage`) entra no monorepo, e não o contrário. O plano detalhado por fases ainda não está neste repositório.
+Decisão: o monorepo WebChat é a base. Ele tem Postgres com RLS, sessão opaca com revogação, Socket.IO com Redis, idempotência, auditoria e o canal do cliente. O chat interno do repositório externo `Luanzzzz/sm-webchat` (React, interface estilo WhatsApp Web, mock em `localStorage`) entra no monorepo, e não o contrário.
 
 Como entra:
 
@@ -59,6 +59,8 @@ Como entra:
 O console continua sendo a central de atendimento, supervisão e administração da empresa.
 
 Haverá dois acessos: o cliente pelo site (`widget.js` → `/visitor`, atendido no console; bot futuro só aqui) e o chat interno das empresas (`/chat/` → `/internal`). Dados, auth, rotas e eventos ficam isolados, como em "Chat interno separado do atendimento".
+
+O plano por fases está em [plano de fusão](fusao/plano-fusao.md).
 
 Decisões fixadas pelo Luan em 16/11/2026:
 
@@ -71,7 +73,8 @@ Decisões fixadas pelo Luan em 16/11/2026:
 - D8: os grupos automáticos por setor continuam.
 - D9: os anúncios existentes são migrados (`tenant → all`, `sectors → groups`).
 - D10: um admin por empresa; o seed ganha um admin no tenant B, e a migration que impõe isso aborta se encontrar dois.
+- D11: `/sm-webchat/`, publicado no hml, redireciona para `/chat/` na F7, e a publicação estática antiga sai.
 
-(D7 foi retirada pelo Luan em 16/11/2026.)
+A D7 foi retirada porque o hml já roda em HTTPS (conferido na VPS; não verificável pelo repo), então as notificações do navegador funcionam lá. A numeração foi preservada.
 
 Consequência declarada: a regra "agente com agente fica de fora" deixa de valer quando o namespace `/internal` entrar (fase F6). Estas são decisões, não estado do código: até lá, nada muda no código.

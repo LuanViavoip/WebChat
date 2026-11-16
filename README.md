@@ -71,6 +71,7 @@ node scripts/verify-visual.mjs    # cinco viewports, console e widget em :8090 e
 - [Desenvolvimento local](docs/local-development.md)
 - [Documentação técnica (Docs Helper)](docs/README.md) e [relatório da Fase 5.5](docs/fase-5.5/RELATORIO.md)
 - [Integração com o SM](docs/sm-integration.md)
+- [Plano de fusão com o chat interno](docs/fusao/plano-fusao.md)
 
 ## Demonstração
 
