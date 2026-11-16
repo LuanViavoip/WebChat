@@ -1,5 +1,14 @@
 # Changelog da documentação
 
+## 2026-11-16 — main em d94be4a e decisão de fusão
+
+- PR #5 (`3a01f3d`): cabeçalho da migration 009 corrigido; só o comentário mudou.
+- PR #6 (`3fd580b`): `uuid.ts` no widget e no console (UUID com `getRandomValues`), nome do visitante pedido antes da fila, `require_visitor_name = true` em `site_a` e `site_b` no seed e `docker-compose.hml.yml`.
+- `docs/decisions.md`: nova seção "Fusão com o chat interno (sm-webchat)" com as decisões D1 a D10 de 16/11/2026, e linha de revisão em "Chat interno separado do atendimento". São decisões, não código implementado.
+- `docs/deployment/environments.md`: seção do compose de homologação.
+- `STATUS.md`, `README.md` e `docs/README.md` passam a referenciar `d94be4a`.
+- `pnpm test` reexecutado sobre `d94be4a`: 193 testes passaram (protocol 11, adaptador SM 2, widget 19, console 61, servidor 100). `scripts/verify-browser.mjs` e `scripts/verify-visual.mjs` não foram reexecutados; o último registro é de 29/10/2026 sobre `3d9e2cf`.
+
 ## 2026-10-29 — Fase 5.5: redesign do console, widget corrigido e demo no site
 
 - Novos documentos em `docs/fase-5.5/`: `DEMO_SITE_LOCAL.md` (serviços, portas, variáveis, origens pelo admin e roteiro de teste), `DESIGN_SYSTEM.md` (tokens, componentes e padrões) e `RELATORIO.md` (relatório final com testes reais, capturas e pendências).

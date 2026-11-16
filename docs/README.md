@@ -1,6 +1,6 @@
 # Documentação técnica — ViaVoip Webchat
 
-**Versão documentada:** Fase 5.5, commit `3d9e2cf`: console redesenhado sobre o design system ViaVoip, widget corrigido pela causa raiz e demo no site institucional, sobre a Fase 5 (`02f5373`, PR #2: gestão administrativa, configuração por empresa, qualidade operacional, auditoria e revogação de sessão) e a base da Fase 4. A entrega durável após falha de publicação continua pendente; ver [STATUS.md](STATUS.md).
+**Versão documentada:** `main` em `d94be4a` (Fase 5.5 `3d9e2cf` + PRs #5 e #6): console redesenhado sobre o design system ViaVoip, widget corrigido pela causa raiz e demo no site institucional, sobre a Fase 5 (`02f5373`, PR #2: gestão administrativa, configuração por empresa, qualidade operacional, auditoria e revogação de sessão) e a base da Fase 4. A entrega durável após falha de publicação continua pendente; ver [STATUS.md](STATUS.md).
 
 ## Como ler
 
@@ -18,6 +18,7 @@
 | Ver os diagramas | [diagrams/README.md](diagrams/README.md) |
 | Ver o webchat no site institucional e testar a interface | [demo local](fase-5.5/DEMO_SITE_LOCAL.md), [testes visuais](fase-5.5/testes-visuais.md), [relatório da Fase 5.5](fase-5.5/RELATORIO.md) |
 | Subir o ambiente | [deployment/local-setup.md](deployment/local-setup.md), [environments.md](deployment/environments.md), [migrations 009–011](deployment/migrations-009-011.md) |
+| Entender a fusão com o chat interno | [decisions.md](<decisions.md#fusão-com-o-chat-interno-(sm-webchat)>) |
 | Atualizar esta documentação | [MAINTENANCE.md](MAINTENANCE.md) |
 | Publicar no Docs Helper | [docs-helper/PUBLICATION-BLOCKER.md](docs-helper/PUBLICATION-BLOCKER.md) |
 

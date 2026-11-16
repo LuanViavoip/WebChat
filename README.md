@@ -1,6 +1,6 @@
 # ViaVoip Webchat
 
-Webchat multi-tenant distribuído como widget. Cobre o canal de atendimento, o isolamento entre tenants, a central do agente, o chat interno, setores, anúncios, presença e atividades, a supervisão, a administração da empresa e a qualidade operacional, com um adaptador mock do SM. Estado atual: **Fase 5.5** (console redesenhado sobre o design system ViaVoip, widget corrigido e demo no site institucional); ver [docs/STATUS.md](docs/STATUS.md).
+Webchat multi-tenant distribuído como widget. Cobre o canal de atendimento, o isolamento entre tenants, a central do agente, o chat interno, setores, anúncios, presença e atividades, a supervisão, a administração da empresa e a qualidade operacional, com um adaptador mock do SM. Estado atual: **Fase 5.5** (console redesenhado sobre o design system ViaVoip, widget corrigido e demo no site institucional), `main` em `d94be4a`; ver [docs/STATUS.md](docs/STATUS.md).
 
 ## Subir localmente
 
@@ -75,7 +75,7 @@ node scripts/verify-visual.mjs    # cinco viewports, console e widget em :8090 e
 ## Demonstração
 
 1. Abra http://localhost:8090 e o console em http://localhost:3000/console/.
-2. No site, abra o chat, escolha Suporte e envie uma mensagem.
+2. No site, abra o chat, informe seu nome, escolha Suporte e envie uma mensagem.
 3. Entre como Ana, assuma a conversa e responda.
 4. Encerre com uma classificação. A pesquisa aparece no widget.
 5. Envie a nota. A conversa fica encerrada.
@@ -86,10 +86,10 @@ node scripts/verify-visual.mjs    # cinco viewports, console e widget em :8090 e
 
 ## Resultados da verificação
 
-Executado em 29 de outubro de 2026 sobre o commit `3d9e2cf` (Fase 5.5).
+Testes executados em 16 de novembro de 2026 sobre `main` em `d94be4a` (Fase 5.5 mais os PRs #5 e #6).
 
-- `pnpm test` passou com 192 testes: 11 do protocol, 2 do adaptador SM, 18 do widget, 61 do console e 100 do servidor. A suíte do servidor sobe um Postgres descartável e cobre isolamento, setores, chat interno, anúncios, presença, atividades, supervisão, gestão da empresa, qualidade e revogação de sessão. `pnpm build` terminou sem erros.
-- `scripts/verify-browser.mjs` terminou com saída 0 e `scripts/verify-visual.mjs` registrou 155 verificações, 0 falhas e 0 erros de console, em containers descartáveis.
+- `pnpm test` passou com 193 testes: 11 do protocol, 2 do adaptador SM, 19 do widget, 61 do console e 100 do servidor. A suíte do servidor sobe um Postgres descartável e cobre isolamento, setores, chat interno, anúncios, presença, atividades, supervisão, gestão da empresa, qualidade e revogação de sessão. `pnpm build` terminou sem erros.
+- Não executados de novo em 16/11/2026. O último registro é de 29 de outubro de 2026 sobre `3d9e2cf` (Fase 5.5): `scripts/verify-browser.mjs` terminou com saída 0 e `scripts/verify-visual.mjs` registrou 155 verificações, 0 falhas e 0 erros de console, em containers descartáveis.
 
 Registro da verificação da Fase 4 (27 de outubro de 2026):
 - A API, o widget e o console sobem em http://localhost:3000; a página cliente, em http://localhost:8090. O Postgres do Compose fica na porta 5434 do host.
