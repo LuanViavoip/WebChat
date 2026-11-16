@@ -5,6 +5,7 @@
 > - `Luanzzzz/sm-webchat` lido na `main` @ `db9b221` (merge do PR #11, 16/11), clone de leitura.
 > - Os dois repos foram acessíveis com o token do box. Nada ficou sem leitura.
 > - Plano do chat interno: plano v2.2 do sm-webchat, que não está neste repositório.
+> - Nota do repositório: o texto abaixo reflete a `main` em `d94be4a`. A F1 e a F1.1 já entraram (PR #7, `main` em `ed89e11`): hoje o repo tem CI, `pnpm typecheck`, `GET /version` e 195 testes.
 
 ---
 
