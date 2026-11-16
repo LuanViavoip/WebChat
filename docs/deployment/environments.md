@@ -31,6 +31,14 @@ O Compose usa credenciais de banco **de desenvolvimento** e `SEED=true`. Não as
 | `SERVE_STATIC` | não | Ligado; `false` desliga servir widget/console (**ausente do `.env.example`**) |
 | `LOG` | não | `false` desliga o logger (**ausente do `.env.example`**) |
 
+## Integração contínua (CI)
+
+O workflow `.github/workflows/ci.yml` roda em todo pull request e em todo push na `main`. Ele não implanta nada. Um push novo no mesmo pull request cancela a execução anterior.
+
+O job `verify` usa `ubuntu-latest`, Node 22 e o pnpm da chave `packageManager` do `package.json` raiz. Os passos são, nesta ordem: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm build`, `docker pull` de `postgres:16-alpine` e `redis:7-alpine`, e `pnpm test`.
+
+O workflow não declara `services:` nem variáveis de ambiente. A suíte do servidor sobe o PostgreSQL e o Redis por Testcontainers. Não há lint no repositório.
+
 ## Produção — NÃO verificável
 
-O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é **proposta futura**. Antes de produção, configure o mesmo `LOGIN_RATE_LIMIT_SECRET` em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, `NOTIFY` e varredura em lote; esses caminhos não se desligam por variável de ambiente. `SESSION_CREATE_LIMIT` e `MESSAGE_LIMIT` ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.
+O repositório não contém Terraform, Kubernetes, pipeline de implantação (CD) nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é **proposta futura**. Antes de produção, configure o mesmo `LOGIN_RATE_LIMIT_SECRET` em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, `NOTIFY` e varredura em lote; esses caminhos não se desligam por variável de ambiente. `SESSION_CREATE_LIMIT` e `MESSAGE_LIMIT` ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.

@@ -104,8 +104,12 @@
 </tr>
 </tbody>
 </table>
+<h2 id="integra%C3%A7%C3%A3o-cont%C3%ADnua-(ci)" tabindex="-1">Integração contínua (CI)</h2>
+<p>O workflow <code>.github/workflows/ci.yml</code> roda em todo pull request e em todo push na <code>main</code>. Ele não implanta nada. Um push novo no mesmo pull request cancela a execução anterior.</p>
+<p>O job <code>verify</code> usa <code>ubuntu-latest</code>, Node 22 e o pnpm da chave <code>packageManager</code> do <code>package.json</code> raiz. Os passos são, nesta ordem: <code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>docker pull</code> de <code>postgres:16-alpine</code> e <code>redis:7-alpine</code>, e <code>pnpm test</code>.</p>
+<p>O workflow não declara <code>services:</code> nem variáveis de ambiente. A suíte do servidor sobe o PostgreSQL e o Redis por Testcontainers. Não há lint no repositório.</p>
 <h2 id="produ%C3%A7%C3%A3o-%E2%80%94-n%C3%A3o-verific%C3%A1vel" tabindex="-1">Produção — NÃO verificável</h2>
-<p>O repositório não contém Terraform, Kubernetes, CI/CD nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Antes de produção, configure o mesmo <code>LOGIN_RATE_LIMIT_SECRET</code> em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, <code>NOTIFY</code> e varredura em lote; esses caminhos não se desligam por variável de ambiente. <code>SESSION_CREATE_LIMIT</code> e <code>MESSAGE_LIMIT</code> ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.</p>
+<p>O repositório não contém Terraform, Kubernetes, pipeline de implantação (CD) nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Antes de produção, configure o mesmo <code>LOGIN_RATE_LIMIT_SECRET</code> em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, <code>NOTIFY</code> e varredura em lote; esses caminhos não se desligam por variável de ambiente. <code>SESSION_CREATE_LIMIT</code> e <code>MESSAGE_LIMIT</code> ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
 <figure><img src="../../assets/infrastructure.png" alt="Infraestrutura"><figcaption>Infraestrutura</figcaption></figure>
 </section>
