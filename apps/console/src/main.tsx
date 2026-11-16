@@ -14,3 +14,5 @@ import './auth/login.css';
 const root = document.getElementById('root');
 if (!root) throw new Error('Elemento raiz ausente');
 createRoot(root).render(<ConsoleApp />);
+
+const x: number = 'a';
