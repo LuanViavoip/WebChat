@@ -24,7 +24,11 @@ services:
       retries: 30
 
   server:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILT_AT: ${BUILT_AT:-unknown}
     ports:
       - "3010:3000"
     env_file:
