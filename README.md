@@ -54,6 +54,8 @@ pnpm test
 
 A suíte sobe PostgreSQL e Redis descartáveis, aplica as migrations, carrega o seed e cobre isolamento, concorrência, reconexão, mensagens e comunicação entre réplicas. Uma falha pós-commit ainda pode impedir a entrega de eventos.
 
+O `pnpm typecheck` roda `tsc --noEmit` em todos os pacotes e só cobre `src`; os testes não são checados por tipo. O workflow `.github/workflows/ci.yml` roda `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm build` e `pnpm test` em cada pull request e em cada push na `main`, com Node 22 e o pnpm de `packageManager`. Não há `services:` no workflow: o servidor sobe PostgreSQL e Redis por Testcontainers no runner. Detalhes em [docs/deployment/environments.md](docs/deployment/environments.md).
+
 Verificações em navegador (Playwright, com containers descartáveis recém-criados; passo a passo em `.cursor/skills/verify/SKILL.md` e [docs/fase-5.5/testes-visuais.md](docs/fase-5.5/testes-visuais.md)):
 
 ```bash

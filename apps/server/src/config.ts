@@ -18,6 +18,8 @@ export type AppConfig = {
   corsOrigins: string[];
   serveStatic: boolean;
   logger: boolean;
+  gitSha: string;
+  builtAt: string;
 };
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -80,5 +82,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     corsOrigins: cors,
     serveStatic: env.SERVE_STATIC !== 'false',
     logger: env.LOG !== 'false',
+    gitSha: env.GIT_SHA?.trim() || 'unknown',
+    builtAt: env.BUILT_AT?.trim() || 'unknown',
   };
 }

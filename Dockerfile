@@ -17,4 +17,9 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 EXPOSE 3000
 
+ARG GIT_SHA=unknown
+ARG BUILT_AT=unknown
+ENV GIT_SHA=$GIT_SHA
+ENV BUILT_AT=$BUILT_AT
+
 CMD ["pnpm", "--filter", "@viavoip/server", "start"]

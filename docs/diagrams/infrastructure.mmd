@@ -10,7 +10,7 @@ flowchart TB
     SRV -.->|opcional| RD
   end
   subgraph PROD["Produção"]
-    UNK["NÃO verificável no repositório<br/>sem Terraform, Kubernetes, CI ou manifests"]
+    UNK["NÃO verificável no repositório<br/>sem Terraform, Kubernetes, pipeline de implantação (CD) ou manifests"]
   end
   subgraph FUT["Futuro (proposta)"]
     SMX["SM real<br/>contrato pendente"]
