@@ -351,7 +351,7 @@ describe('administração: persistência e login', () => {
     expect(reloaded.server.loginGroups().find((group) => group.tenant.id === BV_TENANT_ID)?.users).toHaveLength(4);
   });
 
-  it('migra o estado salvo pela Etapa 4 (versão 2, sem grantLog) sem perder nada', async () => {
+  it('migra o estado salvo pela Etapa 4 (versão 2, sem grantLog nem épocas) sem perder nada', async () => {
     const seeded = lab.tab();
     const persisted = seeded.server.toPersisted();
     const legacy = {
@@ -371,7 +371,7 @@ describe('administração: persistência e login', () => {
     const transport = new MockTransport({ backend: migrated, delays: { connectMs: 0 } });
     await transport.connect(MARCOS);
     await transport.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false });
-    expect(migrated.server.toPersisted().version).toBe(3);
+    expect(migrated.server.toPersisted().version).toBe(4);
     expect(migrated.server.getState().get(ICS_TENANT_ID)?.grantLog).toHaveLength(1);
     transport.disconnect();
     migrated.close();

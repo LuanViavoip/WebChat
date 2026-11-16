@@ -1,4 +1,3 @@
-import { canConnect } from '../../domain/directoryOps';
 import { canReadGrantLog, visibleGrantLog } from '../../domain/grantLog';
 import type { UserId } from '../../domain/identity';
 import type { Result } from '../../domain/result';
@@ -16,6 +15,8 @@ import { noopTabSync, type TabSync } from './TabSync';
 export interface BackendClient {
   readonly tenantId: TenantId;
   readonly userId: UserId;
+  /** Época de sessão capturada no `join` (ver `TenantState.sessionEpochs`). */
+  epoch?: number | undefined;
   receive(event: ServerEvent): void;
 }
 
@@ -71,13 +72,16 @@ export class MockBackend {
   /** Leitura (sem persistir), já com o estado mais recente. */
   query<T>(operation: (server: MockServer) => T): T {
     this.sync();
-    return operation(this.server);
+    const value = operation(this.server);
+    this.enforce();
+    return value;
   }
 
   /** Entra: registra a presença, entrega o que estava pendente e devolve o Bootstrap. */
   join(client: BackendClient, request: ConnectRequest) {
     const result = this.run((server) => server.connect(request));
     if (result.ok) {
+      client.epoch = this.server.epochOf(client.tenantId, client.userId);
       this.clients.add(client);
       this.snapshots.set(client, this.server.toPersisted());
       if (this.tabSync !== noopTabSync) {
@@ -118,13 +122,12 @@ export class MockBackend {
   }
 
   /**
-   * O estado manda: cliente cuja conta deixou de poder conectar (desativada em qualquer aba) perde a sessão
-   * agora. Não depende de nenhum aviso entre abas, que pode se perder ou chegar antes do estado.
+   * O estado manda: cliente cuja conta deixou de poder conectar (desativada em qualquer aba) ou cuja época
+   * de sessão mudou (desativada e reativada antes de esta aba ver) perde a sessão agora. Não depende de nenhum aviso entre abas, que pode se perder ou chegar antes do estado.
    */
   private enforce(): void {
     for (const client of [...this.clients]) {
-      const ts = this.server.getState().get(client.tenantId);
-      if (!ts || !canConnect(ts.directory, client.userId)) {
+      if (!this.server.isLive({ tenantId: client.tenantId, userId: client.userId, epoch: client.epoch })) {
         this.drop(client);
       }
     }

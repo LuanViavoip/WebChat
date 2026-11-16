@@ -1,3 +1,4 @@
+import { ROLE_CEILING } from '../../domain/capabilities';
 import { directConversationId } from '../../domain/conversation';
 import { MockBackend } from './MockBackend';
 import { MemoryMockStore } from './MockStore';
@@ -24,6 +25,15 @@ const tampering: Array<[string, (state: PersistedState) => void]> = [
       Object.assign(ics(state).createdAt, foreign.createdAt);
     },
   ],
+  [
+    'admin rebaixado a supervisor (empresa sem administrador), com grants ajustados ao teto',
+    (state) => {
+      const marcos = ics(state).directory.users[ICS_USERS.marcos];
+      marcos.role = 'supervisor';
+      marcos.grants = [...ROLE_CEILING.supervisor];
+    },
+  ],
+  ['único admin inativo', (s) => { ics(s).directory.users[ICS_USERS.marcos].active = false; }],
   ['conversa com tenantId de outro tenant', (s) => { ics(s).conversations[ANA_CARLA].tenantId = BV_TENANT_ID; }],
   ['chave da conversa diferente do id', (s) => { ics(s).conversations[ANA_CARLA].id = 'dm:ics:outro'; }],
   ['direta com participantes repetidos', (s) => { ics(s).conversations[ANA_CARLA].participants = [ICS_USERS.ana, ICS_USERS.ana]; }],

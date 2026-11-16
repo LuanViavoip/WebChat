@@ -52,8 +52,13 @@ import type {
 import { ACCOUNT_DEACTIVATED, ForbiddenError } from '../errors';
 import { toPersisted, type PersistedState, type ServerState, type TenantState } from './state';
 
-/** Resolvida no `connect`; as operações a revalidam contra a partição do tenant. */
-export type Session = ConnectRequest;
+/**
+ * Resolvida no `connect`; as operações a revalidam contra a partição do tenant. `epoch` é a época de
+ * sessão do usuário capturada no connect (ver `TenantState.sessionEpochs`): se divergir da atual, a sessão
+ * foi encerrada por uma desativação e não opera mais, mesmo com a conta reativada. Sem `epoch` = ação
+ * interna do servidor (entrega simulada a pares), que só exige conta ativa.
+ */
+export type Session = ConnectRequest & { readonly epoch?: number | undefined };
 
 export type ServerEvent = Exclude<ChatEvent, { type: 'connection' }>;
 /** Endereçada SEMPRE a um usuário do mesmo tenant do evento. */
@@ -157,12 +162,28 @@ export class MockServer {
     return toPersisted(this.state);
   }
 
+  /** Época de sessão atual do usuário (0 se nunca foi desativado ou se o tenant não existe). */
+  epochOf(tenantId: TenantId, userId: UserId): number {
+    const ts = this.state.get(tenantId);
+    return (ts && own(ts.sessionEpochs, userId)) ?? 0;
+  }
+
+  /** A sessão ainda vale? Única regra: conta ativa E época igual à capturada no connect. */
+  isLive(session: Session): boolean {
+    const ts = this.state.get(session.tenantId);
+    if (!ts || !canConnect(ts.directory, session.userId)) {
+      return false;
+    }
+    return session.epoch === undefined || session.epoch === this.epochOf(session.tenantId, session.userId);
+  }
+
   isOnline(tenantId: TenantId, userId: UserId): boolean {
     return (this.online.get(presenceKey(tenantId, userId)) ?? 0) > 0;
   }
 
   connect(request: ConnectRequest): Outcome<Bootstrap> {
-    const resolved = this.resolve(request);
+    // Login novo: a época é a atual, não a do request.
+    const resolved = this.resolve({ tenantId: request.tenantId, userId: request.userId });
     if (!resolved.ok) {
       // Só quem acerta tenant E id de uma conta desativada recebe o motivo; o resto é `forbidden`.
       const ts = this.state.get(request.tenantId);
@@ -483,6 +504,12 @@ export class MockServer {
     if (!next.ok) {
       return succeed(structuredClone(value));
     }
+    // Desativação aceita encerra, para sempre, as sessões abertas do usuário: sobe a época dele.
+    for (const user of Object.values(after.directory.users)) {
+      if (!user.active && own(before.directory.users, user.id)?.active) {
+        ts.sessionEpochs[user.id] = (own(ts.sessionEpochs, user.id) ?? 0) + 1;
+      }
+    }
     ts.directory = after.directory;
     ts.grantLog = [...after.grantLog];
     return succeed(structuredClone(value), this.adminDeliveries(ts, kind, before, after));
@@ -525,8 +552,8 @@ export class MockServer {
       return err(new ForbiddenError());
     }
     const actor = own(ts.directory.users, session.userId);
-    // Cada método revalida: sessão de usuário desativado (ou removido) não opera mais.
-    if (!actor || !canConnect(ts.directory, actor.id)) {
+    // Cada método revalida: sessão de usuário desativado (ou removido, ou desativado e reativado) não opera mais.
+    if (!actor || !this.isLive(session)) {
       return err(new ForbiddenError());
     }
     return ok({ ts, actor });

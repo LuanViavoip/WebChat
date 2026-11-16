@@ -117,6 +117,7 @@ export class MockTransport implements ChatTransport {
     this.objectUrls = options.objectUrls ?? browserObjectUrls;
     const identity = () => this.identity;
     this.client = {
+      epoch: undefined,
       get tenantId(): TenantId {
         return identity()?.tenantId ?? ('' as TenantId);
       },
@@ -281,7 +282,7 @@ export class MockTransport implements ChatTransport {
     if (this.status !== 'connected' || !this.identity) {
       return;
     }
-    const session = this.identity;
+    const session = this.requireSession();
     this.backend.run((server) => server.setTyping(session, request));
   }
 
@@ -300,11 +301,11 @@ export class MockTransport implements ChatTransport {
     });
   }
 
-  private requireSession(): ConnectRequest {
+  private requireSession(): Session {
     if (this.status !== 'connected' || !this.identity) {
       throw new Error('Não conectado');
     }
-    return this.identity;
+    return { ...this.identity, epoch: this.client.epoch };
   }
 
   private leave(): void {
@@ -318,7 +319,7 @@ export class MockTransport implements ChatTransport {
     if (this.status !== 'connected' || !this.identity) {
       throw new Error('Não conectado');
     }
-    const session = this.identity;
+    const session = this.requireSession();
     const allowed = this.backend.query((server) => server.authorize(session, request.conversationId));
     if (!allowed.ok) {
       throw allowed.error;
@@ -359,7 +360,7 @@ export class MockTransport implements ChatTransport {
     if (request.payload.type === 'text' && !request.payload.text.trim()) {
       return Promise.resolve();
     }
-    const session = this.identity;
+    const session = this.requireSession();
     const conversationEpoch = this.conversationEpoch;
     this.pendingEcho.add(request.clientId);
     const result = this.backend.run((server) => server.send(session, request));

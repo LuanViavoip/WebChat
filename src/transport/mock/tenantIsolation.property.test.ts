@@ -90,9 +90,11 @@ type Stats = {
   changedByKind: Map<string, number>;
   crossAttempts: number;
   crossRejected: number;
+  /** Sessões obsoletas (desativação aceita depois do connect) cujas operações foram todas tentadas e recusadas. */
+  staleChecked: number;
 };
 
-const newStats = (): Stats => ({ steps: 0, accepted: 0, acceptedByKind: new Map(), changedByKind: new Map(), crossAttempts: 0, crossRejected: 0 });
+const newStats = (): Stats => ({ steps: 0, accepted: 0, acceptedByKind: new Map(), changedByKind: new Map(), crossAttempts: 0, crossRejected: 0, staleChecked: 0 });
 
 /** Roda uma campanha de sequências aleatórias com contadores PRÓPRIOS (cada teste tem a sua). */
 function campaign(numRuns: number, seed?: number): Stats {
@@ -106,6 +108,7 @@ function campaign(numRuns: number, seed?: number): Stats {
         checkDeliveries(world, deliveries);
         checkBootstraps(world);
         checkAdminInvariants(world);
+        checkStaleSessions(world, stats);
       }
     }),
     { numRuns, ...(seed === undefined ? {} : { seed }) },
@@ -122,6 +125,8 @@ class World {
   readonly tenantOfUser = new Map<UserId, TenantId>();
   readonly users: UserId[] = [];
   readonly admins = new Map<TenantId, UserId>();
+  /** Toda sessão aceita no `connect`, com a época capturada (o que o transporte guardaria). */
+  readonly opened: Session[] = [];
   /** Nomes novos têm de ser únicos só para não cair em `no-change` (renomear igual). */
   private names = 0;
 
@@ -309,8 +314,61 @@ function checkAdminInvariants(world: World): void {
     expect(validateDirectory(ts.directory).ok, `diretório de ${tenantId} inválido`).toBe(true);
     expect(ts.grantLog.every((entry) => entry.tenantId === tenantId)).toBe(true);
     expect(ts.grantLog.every((entry) => world.tenant(entry.actorId) === tenantId && world.tenant(entry.targetId) === tenantId)).toBe(true);
-    expect(Object.values(ts.directory.users).filter((user) => user.role === 'admin')).toHaveLength(1);
+    const admins = Object.values(ts.directory.users).filter((user) => user.role === 'admin');
+    expect(admins).toHaveLength(1);
+    expect(admins[0]?.active).toBe(true);
     expect(Object.values(ts.directory.ilhas).every((ilha) => ts.directory.users[ilha.supervisorId]?.role === 'supervisor')).toBe(true);
+  }
+}
+
+/**
+ * Invariante de sessão: sessão aberta ANTES de uma desativação aceita do seu usuário (época capturada menor
+ * que a atual) nunca mais completa operação nenhuma, mesmo com a conta reativada depois.
+ */
+function checkStaleSessions(world: World, stats: Stats): void {
+  const { server } = world;
+  for (const session of world.opened) {
+    if (session.epoch === undefined || session.epoch === server.epochOf(session.tenantId, session.userId)) {
+      continue;
+    }
+    const ts = server.getState().get(session.tenantId);
+    if (!ts) {
+      continue;
+    }
+    const before = JSON.stringify(server.toPersisted());
+    const conversationId = Object.keys(ts.conversations)[0] as ConversationId | undefined;
+    const other = Object.keys(ts.directory.users).find((id) => id !== session.userId) as UserId;
+    const ilhaId = Object.keys(ts.directory.ilhas)[0] as IlhaId;
+    const outcomes: Array<Outcome<unknown>> = [
+      server.deliverPending(session),
+      server.openDirect(session, { with: other }),
+      server.setGrant(session, { userId: other, capability: 'chat.use', granted: false }),
+      server.deactivateUser(session, { userId: other }),
+      server.reactivateUser(session, { userId: other }),
+      server.registerAgent(session, { name: 'Fantasma', ilhaId }),
+      server.registerSupervisor(session, { name: 'Fantasma', ilhaIds: [] }),
+      server.createIlha(session, { name: 'Fantasma', supervisorId: other }),
+      server.renameIlha(session, { ilhaId, name: 'Fantasma' }),
+      server.assignIlhaSupervisor(session, { ilhaId, supervisorId: other }),
+      server.moveAgent(session, { userId: other, ilhaId }),
+    ];
+    if (conversationId) {
+      const firstMessage = ts.messages[conversationId]?.[0]?.id ?? 'nenhuma';
+      outcomes.push(
+        server.send(session, { conversationId, clientId: 'stale', payload: { type: 'text', text: 'fantasma' } }),
+        server.markRead(session, { conversationId, upToMessageId: firstMessage }),
+        server.setTyping(session, { conversationId, isTyping: true }),
+      );
+      expect(server.authorize(session, conversationId).ok).toBe(false);
+    }
+    for (const outcome of outcomes) {
+      expect(outcome.result.ok).toBe(false);
+      expect(outcome.deliveries).toEqual([]);
+    }
+    expect(server.bootstrap(session).ok).toBe(false);
+    expect(server.grantLog(session).ok).toBe(false);
+    expect(JSON.stringify(server.toPersisted())).toBe(before);
+    stats.staleChecked += 1;
   }
 }
 
@@ -350,6 +408,9 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       const outcome = server.connect({ tenantId: claimed, userId });
       deliveries = outcome.deliveries;
       accepted = outcome.result.ok;
+      if (accepted) {
+        world.opened.push({ tenantId: claimed, userId, epoch: server.epochOf(claimed, userId) });
+      }
       break;
     }
     case 'send': {
@@ -534,6 +595,7 @@ describe('isolamento entre tenants (propriedade)', () => {
     for (const kind of ['registerSupervisor', 'registerAgent', 'setActive', 'createIlha', 'renameIlha', 'assignSupervisor', 'moveAgent']) {
       expect(stats.changedByKind.get(kind) ?? 0, `aceitas e com efeito: ${kind}`).toBeGreaterThan(0);
     }
+    expect(stats.staleChecked, 'sessões obsoletas verificadas').toBeGreaterThan(0);
     expect(stats.crossAttempts).toBeGreaterThan(50);
     expect(stats.crossRejected).toBe(stats.crossAttempts);
   }, 60_000);

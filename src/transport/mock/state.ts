@@ -26,15 +26,24 @@ export type TenantState = {
   logins: Record<UserId, LoginRecord>;
   /** Concessões e revogações aceitas (Etapa 5). Só cresce; só entradas deste tenant. */
   grantLog: GrantLogEntry[];
+  /**
+   * Época de sessão por usuário (só do servidor simulado; nunca vai ao cliente): sobe a cada desativação.
+   * Ausente = 0. Sessão aberta com época menor que a atual foi encerrada por uma desativação e não volta,
+   * mesmo que a conta seja reativada: reativar só permite um login NOVO.
+   */
+  sessionEpochs: Record<UserId, number>;
   /** Contador dos ids de mensagem. */
   seq: number;
 };
 
 export type ServerState = Map<TenantId, TenantState>;
 
-/** v3 (Etapa 5): o tenant ganha `grantLog`. A v2 (Etapa 4) ainda carrega, com o log vazio. */
-export const PERSIST_VERSION = 3;
-const LEGACY_VERSION = 2;
+/**
+ * v4: o tenant ganha `sessionEpochs`. A v3 (grantLog, sem épocas) e a v2 (Etapa 4, sem grantLog)
+ * ainda carregam: época 0 para todos e, na v2, log vazio.
+ */
+export const PERSIST_VERSION = 4;
+const OLDER_VERSIONS: readonly unknown[] = [3, 2];
 
 type PersistedUser = Omit<StaffUser, 'grants'> & { grants: string[] };
 type PersistedTenant = Omit<TenantState, 'directory'> & {
@@ -64,12 +73,12 @@ export function fromPersisted(raw: unknown): ServerState | undefined {
     return undefined;
   }
   const { version, tenants } = raw as { version?: unknown; tenants?: unknown };
-  if ((version !== PERSIST_VERSION && version !== LEGACY_VERSION) || !Array.isArray(tenants)) {
+  if ((version !== PERSIST_VERSION && !OLDER_VERSIONS.includes(version)) || !Array.isArray(tenants)) {
     return undefined;
   }
   const state: ServerState = new Map();
   for (const item of tenants as unknown[]) {
-    const parsed = parseTenant(item, version === LEGACY_VERSION);
+    const parsed = parseTenant(item, version === 2);
     if (!parsed) {
       return undefined;
     }
@@ -88,6 +97,7 @@ function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
   }
   const { tenant, directory, conversations, createdAt, messages, reads, logins, seq } = raw;
   const grantLog = legacy ? [] : raw.grantLog;
+  const sessionEpochs = raw.sessionEpochs ?? {};
   if (
     typeof tenant.id !== 'string' ||
     typeof tenant.name !== 'string' ||
@@ -100,6 +110,7 @@ function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
     !isRecord(reads) ||
     !isRecord(logins) ||
     !Array.isArray(grantLog) ||
+    !isRecord(sessionEpochs) ||
     typeof seq !== 'number'
   ) {
     return undefined;
@@ -118,6 +129,7 @@ function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
     users: users,
     ilhas: directory.ilhas as Directory['ilhas'],
   };
+  // Inclui exatamente um admin ativo: estado sem ele é incoerente como qualquer outro (o mock recria a seed).
   if (!validateDirectory(dir).ok) {
     return undefined;
   }
@@ -130,6 +142,7 @@ function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
     reads: reads as TenantState['reads'],
     logins: logins as TenantState['logins'],
     grantLog: grantLog as TenantState['grantLog'],
+    sessionEpochs: sessionEpochs as TenantState['sessionEpochs'],
     seq,
   };
   return coherent(state) ? state : undefined;
@@ -228,6 +241,11 @@ function coherent(ts: TenantState): boolean {
       if (!participants.get(key)?.includes(userId) || !list.some((message) => message.id === messageId)) {
         return false;
       }
+    }
+  }
+  for (const [userId, epoch] of Object.entries(ts.sessionEpochs)) {
+    if (!hasUser(userId) || typeof epoch !== 'number' || !Number.isSafeInteger(epoch) || epoch < 0) {
+      return false;
     }
   }
   for (const [userId, login] of Object.entries(ts.logins)) {
