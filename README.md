@@ -1,6 +1,6 @@
 # ViaVoip Webchat
 
-Webchat multi-tenant distribuído como widget. Cobre o canal de atendimento, o isolamento entre tenants, a central do agente, o chat interno, setores, anúncios, presença e atividades, a supervisão, a administração da empresa e a qualidade operacional, com um adaptador mock do SM. Estado atual: **Fase 5.5** (console redesenhado sobre o design system ViaVoip, widget corrigido e demo no site institucional), `main` em `d94be4a`; ver [docs/STATUS.md](docs/STATUS.md).
+Webchat multi-tenant distribuído como widget. Cobre o canal de atendimento, o isolamento entre tenants, a central do agente, o chat interno, setores, anúncios, presença e atividades, a supervisão, a administração da empresa e a qualidade operacional, com um adaptador mock do SM. Estado atual: **Fase 5.5** (console redesenhado sobre o design system ViaVoip, widget corrigido e demo no site institucional), `main` em `ed89e11` (`d94be4a` mais o PR #7); ver [docs/STATUS.md](docs/STATUS.md).
 
 ## Subir localmente
 
@@ -87,9 +87,9 @@ node scripts/verify-visual.mjs    # cinco viewports, console e widget em :8090 e
 
 ## Resultados da verificação
 
-Testes executados em 16 de novembro de 2026 sobre `main` em `d94be4a` (Fase 5.5 mais os PRs #5 e #6).
+Testes executados em 16 de novembro de 2026 sobre `main` em `ed89e11`: o `d94be4a` (Fase 5.5 mais os PRs #5 e #6) mais o PR #7 (`typecheck`, CI e `GET /version`).
 
-- `pnpm test` passou com 193 testes: 11 do protocol, 2 do adaptador SM, 19 do widget, 61 do console e 100 do servidor. A suíte do servidor sobe um Postgres descartável e cobre isolamento, setores, chat interno, anúncios, presença, atividades, supervisão, gestão da empresa, qualidade e revogação de sessão. `pnpm build` terminou sem erros.
+- `pnpm typecheck` e `pnpm build` terminaram sem erros, e `pnpm test` passou com 195 testes: 11 do protocol, 2 do adaptador SM, 19 do widget, 61 do console e 102 do servidor. A suíte do servidor sobe um Postgres descartável e cobre isolamento, setores, chat interno, anúncios, presença, atividades, supervisão, gestão da empresa, qualidade e revogação de sessão.
 - Não executados de novo em 16/11/2026. O último registro é de 29 de outubro de 2026 sobre `3d9e2cf` (Fase 5.5): `scripts/verify-browser.mjs` terminou com saída 0 e `scripts/verify-visual.mjs` registrou 155 verificações, 0 falhas e 0 erros de console, em containers descartáveis.
 
 Registro da verificação da Fase 4 (27 de outubro de 2026):

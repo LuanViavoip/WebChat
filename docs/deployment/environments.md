@@ -8,12 +8,6 @@ Somente o que é verificável no repositório (`Dockerfile`, `docker-compose.yml
 
 `Dockerfile`: `node:22-bookworm-slim`, `corepack` com pnpm 12.15.0, `pnpm install --frozen-lockfile`, `pnpm build`, `NODE_ENV=production`, porta 3000, `CMD pnpm --filter @viavoip/server start`.
 
-`Dockerfile` e `docker-compose.hml.yml` aceitam as build args `GIT_SHA` e `BUILT_AT` (padrão `unknown`). O servidor as expõe em `GET /version`. Para que o SHA fique rastreável, rode o build na máquina que tem o checkout:
-
-```bash
-GIT_SHA=$(git rev-parse HEAD) BUILT_AT=$(date -u +%FT%TZ) docker compose -f docker-compose.hml.yml up -d --build
-```
-
 O Compose usa credenciais de banco **de desenvolvimento** e `SEED=true`. Não as use fora do ambiente local.
 
 ## Variáveis de ambiente (apenas nomes e padrões)
@@ -51,11 +45,22 @@ O arquivo `docker-compose.hml.yml` (nome do projeto `viavoip-webchat`) define tr
 
 - `postgres`: `postgres:16-alpine`, volume `pgdata`, sem porta publicada e com healthcheck `pg_isready`;
 - `redis`: `redis:7-alpine`, com healthcheck `redis-cli ping`;
-- `server`: build local (contexto `.`, com os args `GIT_SHA` e `BUILT_AT`, padrão `unknown`, descritos acima), porta `3010:3000`, `env_file: .env.hml`, espera `postgres` e `redis` saudáveis e tem healthcheck em `/health`.
+- `server`: build local (`build` com `context: .` e `args` `GIT_SHA` e `BUILT_AT`, ambos com padrão `unknown`), porta `3010:3000`, `env_file: .env.hml`, espera `postgres` e `redis` saudáveis e tem healthcheck em `/health`.
+
+O `Dockerfile` e o compose aceitam as build args `GIT_SHA` e `BUILT_AT` (padrão `unknown`). O servidor as expõe em `GET /version`. Para que o SHA fique rastreável, rode o build numa máquina que tenha o checkout git:
+
+```bash
+GIT_SHA=$(git rev-parse HEAD) BUILT_AT=$(date -u +%FT%TZ) docker compose -f docker-compose.hml.yml up -d --build
+```
 
 O `.env.hml` não está no repositório: o `.gitignore` ignora `.env.*` (só `.env.example` é versionado). O arquivo não define `container_name`, então o nome padrão do Compose v2 seria `viavoip-webchat-server-1`.
 
 O que roda de fato no hml (nome do container, proxy TLS, SHA implantado) **não é verificável pelo repositório**.
+
+Aviso sobre a VPS (informação do Luan, conferida na VPS; **não verificável pelo repositório**):
+
+- Na VPS, `~/webchat` não é um checkout git. O `git rev-parse HEAD` não funciona lá, então o `GIT_SHA` precisa ser passado explicitamente no build.
+- Não rode este compose na VPS antes de alinhar o nome do container atual (`viavoip-webchat-server`). Como o arquivo não define `container_name`, o Compose criaria `viavoip-webchat-server-1` e subiria um segundo container na porta 3010.
 
 ## Produção — NÃO verificável
 

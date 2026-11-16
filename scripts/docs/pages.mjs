@@ -1,7 +1,7 @@
 // Hierarquia de importação: Sistema → Módulo → Página. Fonte única para build e validação.
 export const SYSTEM = {
   name: 'ViaVoip Webchat',
-  description: 'Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código da main em d94be4a (Fase 5.5 e PRs #5 e #6): console redesenhado, widget corrigido, administração e qualidade.',
+  description: 'Documentação técnica do ViaVoip Webchat (servidor, widget ChatWeb, console, banco de dados e integrações), conforme o código da main em ed89e11 (d94be4a, Fase 5.5 e PRs #5 e #6, mais o PR #7): console redesenhado, widget corrigido, administração e qualidade.',
 };
 
 // [arquivo md relativo a docs/, título, slug]

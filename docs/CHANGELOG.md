@@ -1,13 +1,15 @@
 # Changelog da documentação
 
-## 2026-11-16 — main em d94be4a e decisão de fusão
+## 2026-11-16 — main em ed89e11 (d94be4a e PR #7) e decisão de fusão
 
 - PR #5 (`3a01f3d`): cabeçalho da migration 009 corrigido; só o comentário do SQL mudou.
 - PR #6 (`3fd580b`): `uuid.ts` no widget e no console (UUID com `getRandomValues`), nome do visitante pedido antes da fila, `require_visitor_name = true` em `site_a` e `site_b` no seed e `docker-compose.hml.yml`.
-- `docs/decisions.md`: nova seção "Fusão com o chat interno (sm-webchat)" com as decisões D1 a D10 de 16/11/2026, e linha de revisão em "Chat interno separado do atendimento". São decisões, não código implementado.
-- `docs/deployment/environments.md`: seção do compose de homologação.
-- `STATUS.md`, `README.md` e `docs/README.md` passam a referenciar `d94be4a`.
-- `pnpm test` reexecutado sobre `d94be4a`: 193 testes passaram (protocol 11, adaptador SM 2, widget 19, console 61, servidor 100). `scripts/verify-browser.mjs` e `scripts/verify-visual.mjs` não foram reexecutados; o último registro é de 29/10/2026 sobre `3d9e2cf`.
+- PR #7 (`ed89e11`): script `pnpm typecheck`, CI em `.github/workflows/ci.yml` (sem deploy), `GET /version` e build args `GIT_SHA`/`BUILT_AT` no `Dockerfile` e no `docker-compose.hml.yml`.
+- `docs/decisions.md`: nova seção "Fusão com o chat interno (sm-webchat)" com as decisões D1 a D11 de 16/11/2026 (a D7 foi retirada), e linha de revisão em "Chat interno separado do atendimento". São decisões, não código implementado.
+- `docs/fusao/plano-fusao.md`: plano de fusão v1.1.
+- `docs/deployment/environments.md`: seção do compose de homologação, com os build args e um aviso sobre a VPS.
+- `STATUS.md`, `README.md` e `docs/README.md` passam a referenciar `ed89e11` (`d94be4a` continua citado como a base do PR #7).
+- `pnpm typecheck`, `pnpm build` e `pnpm test` reexecutados sobre `ed89e11`: 195 testes passaram (protocol 11, adaptador SM 2, widget 19, console 61, servidor 102). Sobre `d94be4a` a contagem era 193 (servidor 100). `scripts/verify-browser.mjs` e `scripts/verify-visual.mjs` não foram reexecutados; o último registro é de 29/10/2026 sobre `3d9e2cf`.
 
 ## 2026-10-29 — Fase 5.5: redesign do console, widget corrigido e demo no site
 
