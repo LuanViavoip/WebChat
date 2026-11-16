@@ -1,6 +1,6 @@
 import type { StaffUser } from '../domain/identity';
 import { roleLabel } from './conversations';
-import { loginGroups } from './sessionIdentity';
+import { loginGroups, type LoginGroup } from './sessionIdentity';
 
 function LoginUserButton({ user, onPick }: { user: StaffUser; onPick: () => void }) {
   return (
@@ -11,9 +11,20 @@ function LoginUserButton({ user, onPick }: { user: StaffUser; onPick: () => void
   );
 }
 
-/** Tela cheia "Entrar como": os usuários da seed agrupados por empresa. Clicar entra como aquele usuário. */
-export function LoginScreen({ onPick }: { onPick: (userId: string) => void }) {
-  const groups = loginGroups();
+/**
+ * Tela cheia "Entrar como": os usuários ativos do servidor agrupados por empresa. Clicar entra como aquele usuário.
+ * `notice` é um aviso de por que se voltou aqui (ex.: conta desativada).
+ */
+export function LoginScreen({
+  groups: allGroups,
+  onPick,
+  notice,
+}: {
+  groups: readonly LoginGroup[];
+  onPick: (userId: string) => void;
+  notice?: string | undefined;
+}) {
+  const groups = loginGroups(allGroups);
   return (
     <section className="login-screen" aria-labelledby="login-title">
       <div className="login-card">
@@ -23,6 +34,11 @@ export function LoginScreen({ onPick }: { onPick: (userId: string) => void }) {
         <h1 id="login-title" className="login-title">
           Entrar como
         </h1>
+        {notice ? (
+          <p className="login-notice" role="alert">
+            {notice}
+          </p>
+        ) : null}
         <p className="login-hint">Escolha um usuário da empresa para abrir o chat interno.</p>
         <div className="login-groups">
           {groups.map(({ tenant, users }) => (

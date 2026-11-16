@@ -5,7 +5,8 @@ import type {
   DirectConversation,
 } from '../domain/conversation';
 import type { Capability } from '../domain/capabilities';
-import type { Directory, StaffUser, UserId } from '../domain/identity';
+import type { GrantLogEntry } from '../domain/directoryOps';
+import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '../domain/identity';
 import type { ChatMessage, MessageStatus } from '../domain/message';
 import type { Tenant, TenantId } from '../domain/tenant';
 
@@ -59,6 +60,21 @@ export type Bootstrap = {
   readonly unread: number;
 };
 
+/** Quem aparece na tela "Entrar como" (mock/dev: o SM real autentica por credencial). Só de um tenant por grupo. */
+export type LoginGroup = { readonly tenant: Tenant; readonly users: readonly StaffUser[] };
+
+export type RegisterSupervisorRequest = { readonly name: string; readonly ilhaIds: readonly IlhaId[] };
+export type RegisterAgentRequest = { readonly name: string; readonly ilhaId: IlhaId };
+export type UserRequest = { readonly userId: UserId };
+export type CreateIlhaRequest = { readonly name: string; readonly supervisorId: UserId };
+export type RenameIlhaRequest = { readonly ilhaId: IlhaId; readonly name: string };
+export type AssignIlhaSupervisorRequest = { readonly ilhaId: IlhaId; readonly supervisorId: UserId };
+export type MoveAgentRequest = { readonly userId: UserId; readonly ilhaId: IlhaId };
+export type SetGrantRequest = { readonly userId: UserId; readonly capability: Capability; readonly granted: boolean };
+
+/** Por que a sessão caiu. Hoje só a desativação da conta. */
+export type SessionEndReason = 'deactivated';
+
 type Scoped = { readonly tenantId: TenantId };
 
 export type ChatEvent =
@@ -74,7 +90,13 @@ export type ChatEvent =
   | (Scoped & { type: 'typing'; conversationId: ConversationId; userId: UserId; isTyping: boolean })
   | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: string })
   | (Scoped & { type: 'conversation'; conversation: Conversation })
-  | (Scoped & { type: 'grants'; userId: UserId; grants: readonly Capability[] });
+  | (Scoped & { type: 'grants'; userId: UserId; grants: readonly Capability[] })
+  /** Diretório do tenant depois de uma operação aceita (usuários e ilhas). Só vai a usuários ativos do mesmo tenant. */
+  | (Scoped & { type: 'directory'; directory: Directory })
+  /** O grantLog que ESTE usuário pode ler, completo; só vai a quem lê e só se o que ele enxerga mudou. */
+  | (Scoped & { type: 'grantLog'; entries: readonly GrantLogEntry[] })
+  /** O servidor encerrou a sessão deste usuário (em todas as abas). Depois disso nenhum método responde. */
+  | (Scoped & { type: 'session-ended'; reason: SessionEndReason });
 
 export type ChatEventHandler = (event: ChatEvent) => void;
 
@@ -88,4 +110,20 @@ export interface ChatTransport {
   setTyping(request: TypingRequest): void;
   subscribe(handler: ChatEventHandler): () => void;
   getStatus(): TransportStatus;
+  /** Usuários cadastrados por empresa (estado do servidor, inclusive desativados): a tela "Entrar como". */
+  loginGroups(): readonly LoginGroup[];
+
+  // Etapa 5. O ator é SEMPRE o usuário da sessão; nenhum request leva ator ou tenant.
+  // Operação negada rejeita com `ForbiddenError` (mesma mensagem para "não existe", "outra empresa" e "não pode").
+  registerSupervisor(request: RegisterSupervisorRequest): Promise<StaffUser>;
+  registerAgent(request: RegisterAgentRequest): Promise<StaffUser>;
+  deactivateUser(request: UserRequest): Promise<StaffUser>;
+  reactivateUser(request: UserRequest): Promise<StaffUser>;
+  createIlha(request: CreateIlhaRequest): Promise<Ilha>;
+  renameIlha(request: RenameIlhaRequest): Promise<Ilha>;
+  assignIlhaSupervisor(request: AssignIlhaSupervisorRequest): Promise<Ilha>;
+  moveAgent(request: MoveAgentRequest): Promise<StaffUser>;
+  setGrant(request: SetGrantRequest): Promise<StaffUser>;
+  /** O grantLog que o usuário da sessão pode ler (admin: tudo; supervisor: o das ilhas dele; agente: rejeita). */
+  grantLog(): Promise<readonly GrantLogEntry[]>;
 }

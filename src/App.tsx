@@ -16,21 +16,28 @@ type View = 'chat' | 'admin';
 
 export function App({ transport }: { transport: ChatTransport }) {
   const [identity, setIdentity] = useState<ConnectRequest | undefined>(() =>
-    initialIdentity(window.location.search),
+    initialIdentity(transport.loginGroups(), window.location.search),
   );
   const [view, setView] = useState<View>('chat');
+  /** Por que voltamos ao login (ex.: conta desativada). Some ao entrar de novo. */
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  // Os usuários vêm do estado do servidor, lidos de novo toda vez que o login reaparece (há cadastro novo).
+  const [groups, setGroups] = useState(() => transport.loginGroups());
 
   function enter(userId: string) {
-    const next = identityForUser(userId);
+    const next = identityForUser(groups, userId);
     if (!next) {
       return;
     }
     storeIdentity(next);
+    setNotice(undefined);
     setView('chat');
     setIdentity(next);
   }
 
-  function switchUser() {
+  function switchUser(message?: string) {
+    setNotice(message);
+    setGroups(transport.loginGroups());
     clearStoredIdentity();
     stripAsParam();
     // A seleção e o painel do usuário anterior não valem para o próximo.
@@ -45,7 +52,7 @@ export function App({ transport }: { transport: ChatTransport }) {
   if (!identity) {
     return (
       <main className="page-shell">
-        <LoginScreen onPick={enter} />
+        <LoginScreen groups={groups} onPick={enter} notice={notice} />
       </main>
     );
   }
@@ -63,7 +70,10 @@ export function App({ transport }: { transport: ChatTransport }) {
           key={identity.userId}
           transport={transport}
           identity={identity}
-          onSwitchUser={switchUser}
+          onSwitchUser={() => {
+            switchUser();
+          }}
+          onSessionEnded={switchUser}
           onOpenAdmin={() => {
             setView('admin');
           }}

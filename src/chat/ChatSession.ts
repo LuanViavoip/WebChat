@@ -1,15 +1,19 @@
 import { type ValidAttachment } from '../domain/attachment';
 import type { Conversation, ConversationId, ConversationSummary } from '../domain/conversation';
-import type { Directory, StaffUser, UserId } from '../domain/identity';
+import type { Capability } from '../domain/capabilities';
+import { describeDenial, DENIAL_TEXT, type GrantLogEntry, type OpError } from '../domain/directoryOps';
+import type { Directory, IlhaId, StaffUser, UserId } from '../domain/identity';
 import { previewOf, type ChatMessage, type MessageStatus } from '../domain/message';
 import type { Tenant } from '../domain/tenant';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
+import { ACCOUNT_DEACTIVATED, isForbidden } from '../transport/errors';
 import type {
   Bootstrap,
   ChatEvent,
   ChatTransport,
   ConnectRequest,
   OutboundPayload,
+  SessionEndReason,
   TransportStatus,
 } from '../transport/ChatTransport';
 import { DEFAULT_SESSION } from '../transport/mock/seed';
@@ -44,6 +48,28 @@ export type ThreadState = {
   preview?: string;
 };
 
+/** A sessão foi encerrada pelo servidor (ou o `connect` foi recusado): a UI volta ao login com `message`. */
+export type SessionEnded = { readonly reason: SessionEndReason; readonly message: string };
+
+export const SESSION_DEACTIVATED_TEXT = 'Sua conta foi desativada. Fale com o administrador.';
+
+/** Resultado de uma ação de administração. `message` é pt-BR, pronta para a UI (nunca revela outra empresa). */
+export type AdminActionResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
+
+const FORBIDDEN_TEXT = 'Operação não permitida.';
+
+function isOpError(reason: string): reason is OpError {
+  return Object.hasOwn(DENIAL_TEXT, reason);
+}
+
+function adminFailure(error: unknown): AdminActionResult {
+  if (isForbidden(error) && isOpError(error.reason)) {
+    const text = describeDenial(error.reason);
+    return { ok: false, message: `Operação não permitida: ${text}.` };
+  }
+  return { ok: false, message: isForbidden(error) ? FORBIDDEN_TEXT : errorMessage(error, 'Não foi possível concluir a operação.') };
+}
+
 export type ChatSessionState = {
   connection: TransportStatus;
   error: string | null;
@@ -51,7 +77,15 @@ export type ChatSessionState = {
   errorConversationId: ConversationId | null;
   tenant: Tenant | null;
   me: StaffUser | null;
+  /** O diretório do tenant, atualizado pelos eventos `directory` e `grants` (sem reload). */
   directory: Directory | null;
+  /**
+   * O grantLog que ESTE usuário pode ler (admin: o da empresa; supervisor: o das ilhas dele; agente: nunca).
+   * `null` = ainda não carregado: `loadGrantLog()` carrega, e o evento `grantLog` o mantém atualizado.
+   */
+  grantLog: readonly GrantLogEntry[] | null;
+  /** Não nulo quando o servidor encerrou a sessão (conta desativada). */
+  sessionEnded: SessionEnded | null;
   conversations: Readonly<Record<ConversationId, ThreadState>>;
   /** As conversas da sessão, da mais recente para a mais antiga (a seção fica a cargo da UI). */
   summaries: readonly ConversationSummary[];
@@ -94,6 +128,10 @@ export class ChatSession {
   private tenant: Tenant | null = null;
   private me: StaffUser | null = null;
   private directory: Directory | null = null;
+  private grantLog: readonly GrantLogEntry[] | null = null;
+  /** Sobe a cada snapshot por evento: uma leitura que voltou depois dele é velha e é descartada. */
+  private grantLogVersion = 0;
+  private sessionEnded: SessionEnded | null = null;
   private activeConversationId: ConversationId | null = null;
   private threads = new Map<ConversationId, Thread>();
   private readonly listeners = new Set<ChatSessionListener>();
@@ -140,6 +178,9 @@ export class ChatSession {
     this.tenant = null;
     this.me = null;
     this.directory = null;
+    this.grantLog = null;
+    this.grantLogVersion += 1;
+    this.sessionEnded = null;
     this.activeConversationId = null;
     this.clearError();
     this.connection = 'disconnected';
@@ -164,6 +205,70 @@ export class ChatSession {
     this.connection = 'disconnected';
     this.emit();
     await this.openConnection(generation, false);
+  }
+
+  // Administração (Etapa 5). O ator é a sessão no servidor; o resultado de cada ação volta pronto para a UI e o
+  // estado muda pelos eventos `directory`/`grants`/`grantLog` (também nas outras abas), nunca por escrita local.
+
+  registerSupervisor(name: string, ilhaIds: readonly IlhaId[]): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.registerSupervisor({ name, ilhaIds }));
+  }
+
+  registerAgent(name: string, ilhaId: IlhaId): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.registerAgent({ name, ilhaId }));
+  }
+
+  deactivateUser(userId: UserId): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.deactivateUser({ userId }));
+  }
+
+  reactivateUser(userId: UserId): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.reactivateUser({ userId }));
+  }
+
+  createIlha(name: string, supervisorId: UserId): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.createIlha({ name, supervisorId }));
+  }
+
+  renameIlha(ilhaId: IlhaId, name: string): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.renameIlha({ ilhaId, name }));
+  }
+
+  assignIlhaSupervisor(ilhaId: IlhaId, supervisorId: UserId): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.assignIlhaSupervisor({ ilhaId, supervisorId }));
+  }
+
+  moveAgent(userId: UserId, ilhaId: IlhaId): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.moveAgent({ userId, ilhaId }));
+  }
+
+  setGrant(userId: UserId, capability: Capability, granted: boolean): Promise<AdminActionResult> {
+    return this.adminAction(() => this.transport.setGrant({ userId, capability, granted }));
+  }
+
+  /** Carrega o grantLog legível por este usuário. Agente: `ok: false`, e `grantLog` segue `null`. */
+  async loadGrantLog(): Promise<AdminActionResult> {
+    const generation = this.generation;
+    const version = this.grantLogVersion;
+    try {
+      const entries = await this.transport.grantLog();
+      if (generation === this.generation && version === this.grantLogVersion) {
+        this.grantLog = entries;
+        this.emit();
+      }
+      return { ok: true };
+    } catch (error) {
+      return adminFailure(error);
+    }
+  }
+
+  private async adminAction(call: () => Promise<unknown>): Promise<AdminActionResult> {
+    try {
+      await call();
+      return { ok: true };
+    } catch (error) {
+      return adminFailure(error);
+    }
   }
 
   private clearError(): void {
@@ -445,6 +550,14 @@ export class ChatSession {
       if (generation !== this.generation || isSessionAborted(error)) {
         return;
       }
+      if (isForbidden(error) && error.reason === ACCOUNT_DEACTIVATED) {
+        // O transporte já avisou 'error' ao falhar: aqui não é falha de conexão, é conta desativada.
+        this.connection = 'disconnected';
+        this.clearError();
+        this.sessionEnded = { reason: 'deactivated', message: SESSION_DEACTIVATED_TEXT };
+        this.emit();
+        return;
+      }
       this.connection = 'error';
       this.error = errorMessage(error, 'Não foi possível conectar. Tente novamente.');
       this.emit();
@@ -647,6 +760,27 @@ export class ChatSession {
         }
         break;
       }
+      case 'directory': {
+        // Defesa em profundidade: diretório de outro tenant ou sem mim não entra.
+        const mine = event.directory.users[myId];
+        if (event.directory.tenantId !== this.identity.tenantId || !mine) {
+          return;
+        }
+        this.directory = event.directory;
+        this.me = mine;
+        break;
+      }
+      case 'grantLog': {
+        this.grantLog = event.entries.filter((entry) => entry.tenantId === this.identity.tenantId);
+        this.grantLogVersion += 1;
+        break;
+      }
+      case 'session-ended': {
+        this.sessionEnded = { reason: event.reason, message: SESSION_DEACTIVATED_TEXT };
+        this.connection = 'disconnected';
+        this.clearError();
+        break;
+      }
       default: {
         const exhaustive: never = event;
         return exhaustive;
@@ -825,6 +959,8 @@ export class ChatSession {
       tenant: this.tenant,
       me: this.me,
       directory: this.directory,
+      grantLog: this.grantLog,
+      sessionEnded: this.sessionEnded,
       conversations: conversations,
       summaries,
       activeConversationId: this.activeConversationId,

@@ -322,6 +322,17 @@ body:has(.page-shell) {
 }
 
 .sidebar-admin-link,
+.login-notice {
+  margin: 0 var(--login-gutter) 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 500;
+}
+
 .admin-back {
   display: inline-flex;
   align-items: center;

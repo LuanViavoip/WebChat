@@ -1,4 +1,6 @@
+import { CAPABILITIES } from '../../domain/capabilities';
 import type { Conversation, ConversationId } from '../../domain/conversation';
+import type { GrantLogEntry } from '../../domain/directoryOps';
 import {
   parseStaffUser,
   validateDirectory,
@@ -22,13 +24,17 @@ export type TenantState = {
   /** Último id lido por usuário, por conversa. */
   reads: Record<ConversationId, Record<UserId, string>>;
   logins: Record<UserId, LoginRecord>;
+  /** Concessões e revogações aceitas (Etapa 5). Só cresce; só entradas deste tenant. */
+  grantLog: GrantLogEntry[];
   /** Contador dos ids de mensagem. */
   seq: number;
 };
 
 export type ServerState = Map<TenantId, TenantState>;
 
-export const PERSIST_VERSION = 2;
+/** v3 (Etapa 5): o tenant ganha `grantLog`. A v2 (Etapa 4) ainda carrega, com o log vazio. */
+export const PERSIST_VERSION = 3;
+const LEGACY_VERSION = 2;
 
 type PersistedUser = Omit<StaffUser, 'grants'> & { grants: string[] };
 type PersistedTenant = Omit<TenantState, 'directory'> & {
@@ -58,12 +64,12 @@ export function fromPersisted(raw: unknown): ServerState | undefined {
     return undefined;
   }
   const { version, tenants } = raw as { version?: unknown; tenants?: unknown };
-  if (version !== PERSIST_VERSION || !Array.isArray(tenants)) {
+  if ((version !== PERSIST_VERSION && version !== LEGACY_VERSION) || !Array.isArray(tenants)) {
     return undefined;
   }
   const state: ServerState = new Map();
   for (const item of tenants as unknown[]) {
-    const parsed = parseTenant(item);
+    const parsed = parseTenant(item, version === LEGACY_VERSION);
     if (!parsed) {
       return undefined;
     }
@@ -76,11 +82,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseTenant(raw: unknown): TenantState | undefined {
+function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
   if (!isRecord(raw) || !isRecord(raw.tenant) || !isRecord(raw.directory)) {
     return undefined;
   }
   const { tenant, directory, conversations, createdAt, messages, reads, logins, seq } = raw;
+  const grantLog = legacy ? [] : raw.grantLog;
   if (
     typeof tenant.id !== 'string' ||
     typeof tenant.name !== 'string' ||
@@ -92,6 +99,7 @@ function parseTenant(raw: unknown): TenantState | undefined {
     !isRecord(messages) ||
     !isRecord(reads) ||
     !isRecord(logins) ||
+    !Array.isArray(grantLog) ||
     typeof seq !== 'number'
   ) {
     return undefined;
@@ -121,6 +129,7 @@ function parseTenant(raw: unknown): TenantState | undefined {
     messages: messages as TenantState['messages'],
     reads: reads as TenantState['reads'],
     logins: logins as TenantState['logins'],
+    grantLog: grantLog as TenantState['grantLog'],
     seq,
   };
   return coherent(state) ? state : undefined;
@@ -142,6 +151,21 @@ function coherent(ts: TenantState): boolean {
   }
   for (const [key, user] of Object.entries(users)) {
     if (user.id !== key || user.tenantId !== tenantId) {
+      return false;
+    }
+  }
+  const known = new Set<string>(CAPABILITIES);
+  for (const raw of ts.grantLog as unknown[]) {
+    if (
+      !isRecord(raw) ||
+      raw.tenantId !== tenantId ||
+      !hasUser(raw.actorId) ||
+      !hasUser(raw.targetId) ||
+      typeof raw.capability !== 'string' ||
+      !known.has(raw.capability) ||
+      typeof raw.granted !== 'boolean' ||
+      !str(raw.at)
+    ) {
       return false;
     }
   }
@@ -212,4 +236,9 @@ function coherent(ts: TenantState): boolean {
     }
   }
   return true;
+}
+
+/** Texto estável de um diretório (Set vira lista ordenada): serve para saber se algo mudou. */
+export function directoryFingerprint(d: Directory): string {
+  return JSON.stringify(d, (_key, value: unknown) => (value instanceof Set ? Array.from(value, (item: unknown) => String(item)).sort() : value));
 }

@@ -35,6 +35,7 @@ export function ChatPanel({
   transport,
   identity = DEFAULT_SESSION,
   onSwitchUser,
+  onSessionEnded,
   onOpenAdmin,
   objectUrls,
 }: {
@@ -42,6 +43,8 @@ export function ChatPanel({
   /** Quem entrou. O ChatPanel de outro usuário é outro ChatPanel (`key`): a sessão anterior é parada ao desmontar. */
   identity?: ConnectRequest;
   onSwitchUser?: () => void;
+  /** O servidor encerrou a sessão (conta desativada, em qualquer aba): quem monta volta ao login com a mensagem. */
+  onSessionEnded?: (message: string) => void;
   /** Só é chamado se o usuário tem `admin.console`. */
   onOpenAdmin?: () => void;
   objectUrls?: ObjectUrlFactory;
@@ -65,6 +68,12 @@ export function ChatPanel({
     objectUrls ? { objectUrls } : undefined,
   );
   const { me, directory } = full;
+  const endedMessage = full.sessionEnded?.message;
+  useEffect(() => {
+    if (endedMessage) {
+      onSessionEnded?.(endedMessage);
+    }
+  }, [endedMessage, onSessionEnded]);
   const sorted = useMemo(
     () => (me && directory ? sortConversations(full.summaries, me, directory) : { priority: [], colleagues: [] }),
     [full.summaries, me, directory],

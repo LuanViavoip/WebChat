@@ -1,5 +1,4 @@
 import { messageFromPayload } from '../../chat/outbound';
-import type { Capability } from '../../domain/capabilities';
 import {
   directConversation,
   type Conversation,
@@ -7,23 +6,50 @@ import {
   type ConversationSummary,
   type DirectConversation,
 } from '../../domain/conversation';
-import { applyGrant, applyRevoke } from '../../domain/directoryOps';
-import type { StaffUser, UserId } from '../../domain/identity';
+import {
+  assignIlhaSupervisor,
+  canConnect,
+  createIlha,
+  deactivateUser,
+  grantCapability,
+  moveAgent,
+  reactivateUser,
+  registerAgent,
+  registerSupervisor,
+  renameIlha,
+  revokeCapability,
+  type AdminResult,
+  type AdminState,
+  type GrantLogEntry,
+  type OpDeps,
+  type OpError,
+} from '../../domain/directoryOps';
+import { canReadGrantLog, visibleGrantLog } from '../../domain/grantLog';
+import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '../../domain/identity';
 import { previewOf, type ChatMessage } from '../../domain/message';
 import { can, type PermissionDenial } from '../../domain/permissions';
 import { own } from '../../domain/records';
 import { err, ok, type Result } from '../../domain/result';
 import type { LocalDate, TenantId } from '../../domain/tenant';
 import type {
+  AssignIlhaSupervisorRequest,
   Bootstrap,
   ChatEvent,
   ConnectRequest,
+  CreateIlhaRequest,
+  LoginGroup,
   MarkReadRequest,
+  MoveAgentRequest,
   OpenDirectRequest,
+  RegisterAgentRequest,
+  RegisterSupervisorRequest,
+  RenameIlhaRequest,
   SendRequest,
+  SetGrantRequest,
   TypingRequest,
+  UserRequest,
 } from '../ChatTransport';
-import { ForbiddenError } from '../errors';
+import { ACCOUNT_DEACTIVATED, ForbiddenError } from '../errors';
 import { toPersisted, type PersistedState, type ServerState, type TenantState } from './state';
 
 /** Resolvida no `connect`; as operações a revalidam contra a partição do tenant. */
@@ -40,9 +66,14 @@ export type Outcome<T> = {
 
 export type SendResult = { readonly message: ChatMessage; readonly conversation: Conversation };
 
-export type GrantRequest = { userId: UserId; capability: Capability; granted: boolean };
+export type GrantRequest = SetGrantRequest;
 
-export type MockServerOptions = { now?: () => string };
+export type MockServerOptions = {
+  now?: () => string;
+  /** Gera o sufixo único dos ids de usuário e ilha cadastrados. Padrão: `crypto.randomUUID`. */
+  newId?: () => string;
+};
+
 
 const RECENT_LIMIT = 50;
 
@@ -57,6 +88,24 @@ function succeed<T>(value: T, deliveries: Delivery[] = []): Outcome<T> {
 /** Negação de fora do tenant nunca vaza o motivo. */
 function reasonOf(denial: PermissionDenial): string | undefined {
   return denial === 'cross-tenant' || denial === 'unknown-actor' ? undefined : denial;
+}
+
+/**
+ * Motivos que podem nascer de "o id não existe" OU "é de outra empresa": ficam SEM motivo (só `forbidden`),
+ * para que as duas coisas sejam indistinguíveis. Os demais só aparecem com ator e alvo do mesmo tenant, e o
+ * diretório do tenant já é visível a todos os usuários dele.
+ */
+const HIDDEN_REASONS: ReadonlySet<OpError> = new Set<OpError>([
+  'cross-tenant',
+  'unknown-actor',
+  'unknown-ilha',
+  'invalid-supervisor',
+  'duplicate-user',
+  'duplicate-ilha',
+]);
+
+function adminReason(error: OpError): string | undefined {
+  return HIDDEN_REASONS.has(error) ? undefined : error;
 }
 
 export function participantsOf(conversation: Conversation): readonly UserId[] {
@@ -85,12 +134,14 @@ function validPayload(payload: SendRequest['payload']): boolean {
 export class MockServer {
   private state: ServerState;
   private readonly now: () => string;
+  private readonly newId: () => string;
   /** Presença efêmera (não persiste): quantas conexões cada usuário tem NESTA instância. */
   private readonly online = new Map<string, number>();
 
   constructor(state: ServerState, options: MockServerOptions = {}) {
     this.state = state;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.newId = options.newId ?? (() => crypto.randomUUID().slice(0, 8));
   }
 
   /** Troca o estado (outra aba escreveu); a presença local continua. */
@@ -113,7 +164,10 @@ export class MockServer {
   connect(request: ConnectRequest): Outcome<Bootstrap> {
     const resolved = this.resolve(request);
     if (!resolved.ok) {
-      return fail();
+      // Só quem acerta tenant E id de uma conta desativada recebe o motivo; o resto é `forbidden`.
+      const ts = this.state.get(request.tenantId);
+      const known = ts ? own(ts.directory.users, request.userId) : undefined;
+      return known && ts && known.tenantId === ts.tenant.id && !known.active ? fail(ACCOUNT_DEACTIVATED) : fail();
     }
     const { ts, actor } = resolved.value;
     const key = presenceKey(ts.tenant.id, actor.id);
@@ -329,29 +383,140 @@ export class MockServer {
     );
   }
 
-  /** Conceder/revogar capacidade, pelas mesmas `applyGrant`/`applyRevoke` do domínio (canGrant/canRevoke). */
+  /** Usuários cadastrados por empresa, na ordem do diretório (inclui desativados: quem filtra é a tela). */
+  loginGroups(): LoginGroup[] {
+    return [...this.state.values()].map((ts) => ({ tenant: ts.tenant, users: Object.values(ts.directory.users) }));
+  }
+
+  /** O grantLog que o usuário da sessão pode ler (§ escopo em `visibleGrantLog`). Agente: negado. */
+  grantLog(session: Session): Result<readonly GrantLogEntry[], ForbiddenError> {
+    const resolved = this.resolve(session);
+    if (!resolved.ok) {
+      return err(new ForbiddenError());
+    }
+    const { ts, actor } = resolved.value;
+    if (!canReadGrantLog(actor)) {
+      return err(new ForbiddenError('no-capability'));
+    }
+    return ok(structuredClone(visibleGrantLog(ts.directory, actor, ts.grantLog)));
+  }
+
+  registerSupervisor(session: Session, request: RegisterSupervisorRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId, deps) => registerSupervisor(state, actorId, request, deps), createdUser);
+  }
+
+  registerAgent(session: Session, request: RegisterAgentRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId, deps) => registerAgent(state, actorId, request, deps), createdUser);
+  }
+
+  deactivateUser(session: Session, request: UserRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId) => deactivateUser(state, actorId, request.userId), userAfter(request.userId));
+  }
+
+  reactivateUser(session: Session, request: UserRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId) => reactivateUser(state, actorId, request.userId), userAfter(request.userId));
+  }
+
+  createIlha(session: Session, request: CreateIlhaRequest): Outcome<Ilha> {
+    return this.mutate(session, 'directory', (state, actorId, deps) => createIlha(state, actorId, request, deps), createdIlha);
+  }
+
+  renameIlha(session: Session, request: RenameIlhaRequest): Outcome<Ilha> {
+    return this.mutate(session, 'directory', (state, actorId) => renameIlha(state, actorId, request.ilhaId, request.name), ilhaAfter(request.ilhaId));
+  }
+
+  assignIlhaSupervisor(session: Session, request: AssignIlhaSupervisorRequest): Outcome<Ilha> {
+    return this.mutate(
+      session,
+      'directory',
+      (state, actorId) => assignIlhaSupervisor(state, actorId, request.ilhaId, request.supervisorId),
+      ilhaAfter(request.ilhaId),
+    );
+  }
+
+  moveAgent(session: Session, request: MoveAgentRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId) => moveAgent(state, actorId, request.userId, request.ilhaId), userAfter(request.userId));
+  }
+
+  /** Conceder/revogar capacidade, pelas mesmas `grantCapability`/`revokeCapability` do domínio; grava o grantLog. */
   setGrant(session: Session, request: GrantRequest): Outcome<StaffUser> {
+    const operation = request.granted ? grantCapability : revokeCapability;
+    return this.mutate(
+      session,
+      'grants',
+      (state, actorId, deps) => operation(state, actorId, request.userId, request.capability, deps),
+      userAfter(request.userId),
+    );
+  }
+
+  /**
+   * Toda escrita administrativa passa por aqui. O ator é a sessão (resolvida no diretório, ativa, do tenant);
+   * a regra é a função PURA do domínio; negada = nenhum estado, log ou evento muda. `no-change` é sucesso
+   * idempotente (a outra aba pode ter feito a mesma coisa): devolve o estado atual, sem log nem evento.
+   */
+  private mutate<T>(
+    session: Session,
+    kind: 'directory' | 'grants',
+    operation: (state: AdminState, actorId: UserId, deps: OpDeps) => AdminResult,
+    pick: (before: Directory, after: Directory) => T | undefined,
+  ): Outcome<T> {
     const resolved = this.resolve(session);
     if (!resolved.ok) {
       return fail();
     }
     const { ts, actor } = resolved.value;
-    const apply = request.granted ? applyGrant : applyRevoke;
-    const next = apply(ts.directory, actor.id, request.userId, request.capability);
-    if (!next.ok) {
-      const denial = next.error;
-      return fail(denial === 'unknown-actor' || denial === 'cross-tenant' ? undefined : denial);
+    const before: AdminState = { directory: ts.directory, grantLog: ts.grantLog };
+    const deps: OpDeps = {
+      now: this.now,
+      newUserId: () => `${ts.tenant.id}-u-${this.newId()}` as UserId,
+      newIlhaId: () => `${ts.tenant.id}-i-${this.newId()}` as IlhaId,
+    };
+    const next = operation(before, actor.id, deps);
+    if (!next.ok && next.error !== 'no-change') {
+      return fail(adminReason(next.error));
     }
-    ts.directory = next.value;
-    const target = own(ts.directory.users, request.userId);
-    if (!target) {
+    const after = next.ok ? next.value : before;
+    const value = pick(before.directory, after.directory);
+    if (value === undefined) {
       return fail();
     }
-    const deliveries: Delivery[] = Object.keys(ts.directory.users).map((to) => ({
-      to: to as UserId,
-      event: { type: 'grants', tenantId: ts.tenant.id, userId: target.id, grants: [...target.grants] },
-    }));
-    return succeed(target, deliveries);
+    if (!next.ok) {
+      return succeed(structuredClone(value));
+    }
+    ts.directory = after.directory;
+    ts.grantLog = [...after.grantLog];
+    return succeed(structuredClone(value), this.adminDeliveries(ts, kind, before, after));
+  }
+
+  private adminDeliveries(ts: TenantState, kind: 'directory' | 'grants', before: AdminState, after: AdminState): Delivery[] {
+    const tenantId = ts.tenant.id;
+    const deliveries: Delivery[] = [];
+    if (kind === 'directory') {
+      const snapshot = structuredClone(after.directory);
+      for (const user of Object.values(after.directory.users)) {
+        if (canConnect(after.directory, user.id)) {
+          deliveries.push({ to: user.id, event: { type: 'directory', tenantId, directory: snapshot } });
+        }
+      }
+    } else {
+      for (const changed of changedGrants(before.directory, after.directory)) {
+        for (const to of Object.keys(after.directory.users) as UserId[]) {
+          deliveries.push({ to, event: { type: 'grants', tenantId, userId: changed.id, grants: [...changed.grants] } });
+        }
+      }
+    }
+    // grantLog: só a quem lê, e só se o que ELE enxerga mudou (o escopo do supervisor depende do diretório).
+    for (const reader of Object.values(after.directory.users)) {
+      if (!canReadGrantLog(reader) || !canConnect(after.directory, reader.id)) {
+        continue;
+      }
+      const old = visibleGrantLog(before.directory, own(before.directory.users, reader.id) ?? reader, before.grantLog);
+      const now = visibleGrantLog(after.directory, reader, after.grantLog);
+      if (JSON.stringify(old) !== JSON.stringify(now)) {
+        deliveries.push({ to: reader.id, event: { type: 'grantLog', tenantId, entries: structuredClone(now) } });
+      }
+    }
+    return deliveries;
   }
 
   private resolve(session: Session): Result<{ ts: TenantState; actor: StaffUser }, ForbiddenError> {
@@ -360,7 +525,8 @@ export class MockServer {
       return err(new ForbiddenError());
     }
     const actor = own(ts.directory.users, session.userId);
-    if (!actor || actor.tenantId !== ts.tenant.id || !actor.active) {
+    // Cada método revalida: sessão de usuário desativado (ou removido) não opera mais.
+    if (!actor || !canConnect(ts.directory, actor.id)) {
       return err(new ForbiddenError());
     }
     return ok({ ts, actor });
@@ -432,6 +598,31 @@ export class MockServer {
     conversations.sort((a, b) => Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt));
     return structuredClone({ tenant: ts.tenant, me: actor, directory: ts.directory, conversations, recent, unread });
   }
+}
+
+function userAfter(id: UserId): (before: Directory, after: Directory) => StaffUser | undefined {
+  return (_before, after) => own(after.users, id);
+}
+
+function ilhaAfter(id: IlhaId): (before: Directory, after: Directory) => Ilha | undefined {
+  return (_before, after) => own(after.ilhas, id);
+}
+
+/** O usuário que existe depois e não existia antes. */
+function createdUser(before: Directory, after: Directory): StaffUser | undefined {
+  return Object.values(after.users).find((user) => !Object.hasOwn(before.users, user.id));
+}
+
+function createdIlha(before: Directory, after: Directory): Ilha | undefined {
+  return Object.values(after.ilhas).find((ilha) => !Object.hasOwn(before.ilhas, ilha.id));
+}
+
+/** Quem teve os grants alterados. */
+function changedGrants(before: Directory, after: Directory): StaffUser[] {
+  return Object.values(after.users).filter((user) => {
+    const old = own(before.users, user.id);
+    return !old || old.grants.size !== user.grants.size || [...user.grants].some((grant) => !old.grants.has(grant));
+  });
 }
 
 function presenceKey(tenantId: TenantId, userId: UserId): string {
