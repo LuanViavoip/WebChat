@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { asConversationId, sortConversations, type ConversationId } from '../domain/conversation';
 import type { StaffUser } from '../domain/identity';
+import { canUseCapabilityIn, canViewTeamIn, manageableIlhas } from '../domain/directoryOps';
 import { can } from '../domain/permissions';
 import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '../domain/attachment';
 import type { ChatMessage } from '../domain/message';
 import type { ChatTransport, ConnectRequest, TransportStatus } from '../transport/ChatTransport';
 import { DEFAULT_SESSION } from '../transport/mock/seed';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
+import { AdminConsole } from './admin/AdminConsole';
 import { AttachmentPreview } from './attachments/AttachmentPreview';
 import { ImageViewer } from './attachments/ImageViewer';
 import type { OpenImage } from './attachments/MediaBody';
@@ -30,20 +32,21 @@ import { useMediaQuery } from './useMediaQuery';
 
 type MobilePane = 'list' | 'chat';
 type PendingFocus = 'chat' | 'list';
+type View = 'chat' | 'admin' | 'team';
 
 export function ChatPanel({
   transport,
   identity = DEFAULT_SESSION,
   onSwitchUser,
-  onOpenAdmin,
+  onSessionEnded,
   objectUrls,
 }: {
   transport: ChatTransport;
   /** Quem entrou. O ChatPanel de outro usuário é outro ChatPanel (`key`): a sessão anterior é parada ao desmontar. */
   identity?: ConnectRequest;
   onSwitchUser?: () => void;
-  /** Só é chamado se o usuário tem `admin.console`. */
-  onOpenAdmin?: () => void;
+  /** O servidor encerrou a sessão (conta desativada, em qualquer aba): quem monta volta ao login com a mensagem. */
+  onSessionEnded?: (message: string) => void;
   objectUrls?: ObjectUrlFactory;
 }) {
   const isMobile = useMediaQuery('(max-width: 900px)');
@@ -65,6 +68,25 @@ export function ChatPanel({
     objectUrls ? { objectUrls } : undefined,
   );
   const { me, directory } = full;
+  // Entradas da Administração, da Equipe e do "Novo grupo": cada uma vem de um predicado do domínio sobre o
+  // diretório vivo, então somem sozinhas (sem reload) quando a permissão é revogada.
+  const adminAllowed = Boolean(me && directory && can(me, { type: 'admin.console' }, directory).ok);
+  const teamAllowed = Boolean(me && directory && canViewTeamIn(directory, me.id).ok);
+  const groupIlhas = me && directory && canUseCapabilityIn(directory, me.id, 'group.manage').ok ? manageableIlhas(directory, me.id) : undefined;
+  const [requestedView, setRequestedView] = useState<View>('chat');
+  const view: View = requestedView === 'admin' && adminAllowed ? 'admin' : requestedView === 'team' && teamAllowed ? 'team' : 'chat';
+  // Perdeu a permissão com a tela aberta: a view cai para o chat e o pedido é descartado, senão uma
+  // concessão futura reabriria a tela sozinha por cima do chat.
+  if (requestedView !== 'chat' && view === 'chat') {
+    setRequestedView('chat');
+  }
+  const previousView = useRef<View>('chat');
+  const endedMessage = full.sessionEnded?.message;
+  useEffect(() => {
+    if (endedMessage) {
+      onSessionEnded?.(endedMessage);
+    }
+  }, [endedMessage, onSessionEnded]);
   const sorted = useMemo(
     () => (me && directory ? sortConversations(full.summaries, me, directory) : { priority: [], colleagues: [] }),
     [full.summaries, me, directory],
@@ -72,7 +94,7 @@ export function ChatPanel({
   const firstId = sorted.priority[0]?.id ?? sorted.colleagues[0]?.id ?? null;
   const selectedId: ConversationId | null =
     chosenId && full.conversations[chosenId] ? chosenId : firstId;
-  const chatVisible = !isMobile || mobilePane === 'chat';
+  const chatVisible = view === 'chat' && (!isMobile || mobilePane === 'chat');
   const state = threadView(full, selectedId);
   const selectedThread = selectedId ? full.conversations[selectedId] : undefined;
   const messages = state.messages;
@@ -136,7 +158,6 @@ export function ChatPanel({
     () => (me && directory ? openableColleagues(me, directory) : []),
     [me, directory],
   );
-  const adminAllowed = Boolean(me && directory && can(me, { type: 'admin.console' }, directory).ok);
 
   const handleFiles = useCallback((files: File[]) => {
     const check = validateFiles(files);
@@ -205,6 +226,17 @@ export function ChatPanel({
     }
     document.querySelector<HTMLElement>('.sidebar-search input')?.focus();
   }, [mobilePane, selectedId]);
+
+  // Voltar da Administração/Equipe (ou ela fechar por revogação): o foco volta à entrada que a abriu.
+  useEffect(() => {
+    const before = previousView.current;
+    previousView.current = view;
+    if (view !== 'chat' || before === 'chat') {
+      return;
+    }
+    const entry = document.querySelector<HTMLElement>(`[data-open-view="${before}"]`);
+    (entry ?? document.querySelector<HTMLElement>('.sidebar-search input'))?.focus();
+  }, [view]);
 
   useEffect(() => {
     if (state.connection === 'connected') {
@@ -384,11 +416,30 @@ export function ChatPanel({
     </>
   );
 
+  // O console ocupa a tela, mas o chat continua montado (escondido): o anunciador aria-live segue ativo e a
+  // busca, o filtro e a conversa da Sidebar voltam como estavam.
+  const consoleState = view !== 'chat' && me && directory ? { me, directory, mode: view } : null;
+  const consoleOpen = consoleState !== null;
+
   return (
-    <section ref={shellRef} className="wa-shell" data-mobile-pane={mobilePane} aria-label="Conversa">
-      <div className="sr-only" aria-live="polite" aria-atomic="true" data-live-announcer>
-        {announcement}
-      </div>
+    <>
+    <div className="sr-only" aria-live="polite" aria-atomic="true" data-live-announcer>
+      {announcement}
+    </div>
+    {consoleState ? (
+      <AdminConsole
+        mode={consoleState.mode}
+        me={consoleState.me}
+        directory={consoleState.directory}
+        grantLog={full.grantLog}
+        timeZone={full.tenant?.timeZone ?? 'America/Sao_Paulo'}
+        actions={session}
+        onClose={() => {
+          setRequestedView('chat');
+        }}
+      />
+    ) : null}
+    <section ref={shellRef} className="wa-shell" hidden={consoleOpen} data-mobile-pane={mobilePane} aria-label="Conversa">
       <Sidebar
         me={me}
         tenantName={full.tenant?.name ?? ''}
@@ -403,7 +454,21 @@ export function ChatPanel({
         onSwitchUser={() => {
           onSwitchUser?.();
         }}
-        {...(adminAllowed && onOpenAdmin ? { onOpenAdmin } : {})}
+        {...(adminAllowed
+          ? {
+              onOpenAdmin: () => {
+                setRequestedView('admin');
+              },
+            }
+          : {})}
+        {...(teamAllowed
+          ? {
+              onOpenTeam: () => {
+                setRequestedView('team');
+              },
+            }
+          : {})}
+        {...(groupIlhas ? { groupIlhas } : {})}
       />
       <div className="wa-chat" ref={chatRef}>
         {selectedId ? (
@@ -471,6 +536,7 @@ export function ChatPanel({
         <ImageViewer image={openImage} onClose={closeViewer} />
       </div>
     </section>
+    </>
   );
 }
 

@@ -13,7 +13,31 @@ export class FakeBus {
     return channel;
   };
 
+  /** `true`: as mensagens ficam na fila (entrega atrasada entre abas) até `flush()`. */
+  held = false;
+  private readonly queue: Array<{ from: FakeChannel; message: unknown }> = [];
+
+  /** Entrega, na ordem, o que ficou retido. */
+  flush(): void {
+    for (const { from, message } of this.queue.splice(0)) {
+      this.deliver(from, message);
+    }
+  }
+
+  /** Descarta o que ficou retido (mensagem perdida). */
+  drop(): void {
+    this.queue.length = 0;
+  }
+
   broadcast(from: FakeChannel, message: unknown): void {
+    if (this.held) {
+      this.queue.push({ from, message: structuredClone(message) });
+      return;
+    }
+    this.deliver(from, message);
+  }
+
+  private deliver(from: FakeChannel, message: unknown): void {
     for (const channel of this.channels) {
       if (channel !== from && channel.name === from.name && !channel.closed) {
         channel.receive(structuredClone(message));

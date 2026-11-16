@@ -63,9 +63,9 @@ test.describe('Entrar como', () => {
     await expect(sidebar.getByRole('button', { name: /Otávio Reis/ })).toBeVisible();
   });
 
-  test('o admin usa o chat, vê o link de Administração e o placeholder volta ao chat', async ({ page }) => {
+  test('o admin usa o chat, vê o link de Administração e o console volta ao chat', async ({ page }) => {
     await enterAs(page, USERS.marcos, { reset: true });
-    await page.getByRole('button', { name: /Administração \(Etapa 5\)/ }).click();
+    await page.getByRole('button', { name: 'Administração' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Administração' })).toBeVisible();
     await page.getByRole('button', { name: 'Voltar ao chat' }).click();
     await expect(page.getByLabel('Lista de conversas')).toBeVisible();

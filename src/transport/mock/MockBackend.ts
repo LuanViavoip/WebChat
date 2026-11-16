@@ -1,3 +1,4 @@
+import { canReadGrantLog, visibleGrantLog } from '../../domain/grantLog';
 import type { UserId } from '../../domain/identity';
 import type { Result } from '../../domain/result';
 import type { TenantId } from '../../domain/tenant';
@@ -7,13 +8,15 @@ import { own } from '../../domain/records';
 import { MockServer, participantsOf, type Delivery, type Outcome, type ServerEvent } from './MockServer';
 import { MemoryMockStore, type MockStore } from './MockStore';
 import { createSeedState } from './seed';
-import { fromPersisted, type PersistedState } from './state';
+import { directoryFingerprint, fromPersisted, type PersistedState } from './state';
 import { noopTabSync, type TabSync } from './TabSync';
 
 /** Um cliente conectado NESTA aba (um MockTransport). */
 export interface BackendClient {
   readonly tenantId: TenantId;
   readonly userId: UserId;
+  /** Época de sessão capturada no `join` (ver `TenantState.sessionEpochs`). */
+  epoch?: number | undefined;
   receive(event: ServerEvent): void;
 }
 
@@ -60,6 +63,8 @@ export class MockBackend {
     if (outcome.result.ok && this.persistent) {
       this.persistent = this.store.save(this.server.toPersisted());
     }
+    // Quem acabou de ser desativado cai ANTES de a entrega sair: nada chega a uma sessão encerrada.
+    this.enforce();
     this.publish(outcome.deliveries);
     return outcome.result;
   }
@@ -67,13 +72,16 @@ export class MockBackend {
   /** Leitura (sem persistir), já com o estado mais recente. */
   query<T>(operation: (server: MockServer) => T): T {
     this.sync();
-    return operation(this.server);
+    const value = operation(this.server);
+    this.enforce();
+    return value;
   }
 
   /** Entra: registra a presença, entrega o que estava pendente e devolve o Bootstrap. */
   join(client: BackendClient, request: ConnectRequest) {
     const result = this.run((server) => server.connect(request));
     if (result.ok) {
+      client.epoch = this.server.epochOf(client.tenantId, client.userId);
       this.clients.add(client);
       this.snapshots.set(client, this.server.toPersisted());
       if (this.tabSync !== noopTabSync) {
@@ -109,7 +117,25 @@ export class MockBackend {
     const state = fromPersisted(this.store.load());
     if (state) {
       this.server.replaceState(state);
+      this.enforce();
     }
+  }
+
+  /**
+   * O estado manda: cliente cuja conta deixou de poder conectar (desativada em qualquer aba) ou cuja época
+   * de sessão mudou (desativada e reativada antes de esta aba ver) perde a sessão agora. Não depende de nenhum aviso entre abas, que pode se perder ou chegar antes do estado.
+   */
+  private enforce(): void {
+    for (const client of [...this.clients]) {
+      if (!this.server.isLive({ tenantId: client.tenantId, userId: client.userId, epoch: client.epoch })) {
+        this.drop(client);
+      }
+    }
+  }
+
+  private drop(client: BackendClient): void {
+    this.leave(client);
+    client.receive({ type: 'session-ended', tenantId: client.tenantId, reason: 'deactivated' });
   }
 
   /** Recupera mudanças persistidas mesmo se um aviso entre abas se perdeu ou chegou cedo demais. */
@@ -124,6 +150,17 @@ export class MockBackend {
       this.snapshots.set(client, snapshot);
       if (!before || !tenant || !own(tenant.directory.users, client.userId)?.active) continue;
       const deliveries: Delivery[] = [];
+      if (directoryFingerprint(before.directory) !== directoryFingerprint(tenant.directory)) {
+        deliveries.push({ to: client.userId, event: { type: 'directory', tenantId: client.tenantId, directory: tenant.directory } });
+      }
+      const reader = own(tenant.directory.users, client.userId);
+      const oldReader = own(before.directory.users, client.userId);
+      if (reader && canReadGrantLog(reader)) {
+        const visible = visibleGrantLog(tenant.directory, reader, tenant.grantLog);
+        if (JSON.stringify(visible) !== JSON.stringify(visibleGrantLog(before.directory, oldReader ?? reader, before.grantLog))) {
+          deliveries.push({ to: client.userId, event: { type: 'grantLog', tenantId: client.tenantId, entries: visible } });
+        }
+      }
       for (const user of Object.values(tenant.directory.users)) {
         const old = own(before.directory.users, user.id);
         if (old && (old.grants.size !== user.grants.size || [...user.grants].some((grant) => !old.grants.has(grant)))) {
@@ -235,6 +272,11 @@ export class MockBackend {
         return !!target && announced.size === event.grants.length && announced.size === target.grants.size &&
           [...target.grants].every((grant) => announced.has(grant));
       }
+      case 'directory':
+        // O conteúdo vem do estado (ver onRemote); aqui só vale para quem é do tenant e está ativo (checado acima).
+        return isRecord(event.directory);
+      case 'grantLog':
+        return Array.isArray(event.entries) && canReadGrantLog(user);
       default:
         return false;
     }
@@ -293,8 +335,19 @@ export class MockBackend {
           const upToMessageId = cursor && own(cursor, event.userId);
           return upToMessageId ? [{ to: delivery.to, event: { type: 'read', tenantId: tenant.tenant.id, conversationId: event.conversationId, userId: event.userId, upToMessageId } }] : [];
         }
+        case 'directory':
+          return [{ to: delivery.to, event: { type: 'directory', tenantId: tenant.tenant.id, directory: tenant.directory } }];
+        case 'grantLog': {
+          // Refeito do estado para ESTE destinatário: o payload do canal nunca decide o que ele vê.
+          const reader = own(tenant.directory.users, delivery.to);
+          return reader
+            ? [{ to: delivery.to, event: { type: 'grantLog', tenantId: tenant.tenant.id, entries: visibleGrantLog(tenant.directory, reader, tenant.grantLog) } }]
+            : [];
+        }
         case 'typing':
           return [delivery];
+        case 'session-ended':
+          return [];
       }
     });
     this.dispatch(deliveries);

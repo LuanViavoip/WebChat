@@ -142,16 +142,18 @@ describe('Nova conversa', () => {
 });
 
 describe('Administração e Trocar usuário', () => {
-  it('o link de Administração só aparece com admin.console', async () => {
-    const onOpenAdmin = vi.fn();
+  it('o link de Administração só aparece com admin.console e abre o console real (sem placeholder)', async () => {
     const user = userEvent.setup();
-    await renderAs(ICS_USERS.marcos, { onOpenAdmin });
-    await user.click(screen.getByRole('button', { name: /Administração \(Etapa 5\)/ }));
-    expect(onOpenAdmin).toHaveBeenCalledTimes(1);
+    await renderAs(ICS_USERS.marcos);
+    await user.click(screen.getByRole('button', { name: 'Administração' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Administração' })).toBeInTheDocument();
+    expect(screen.queryByText(/chega na Etapa 5/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Voltar ao chat' }));
+    expect(screen.getByLabelText('Lista de conversas')).toBeInTheDocument();
   });
 
-  it.each([ICS_USERS.carla, ICS_USERS.bruno])('%s não vê o link mesmo recebendo o callback', async (userId) => {
-    await renderAs(userId, { onOpenAdmin: vi.fn() });
+  it.each([ICS_USERS.carla, ICS_USERS.bruno])('%s não vê o link de Administração', async (userId) => {
+    await renderAs(userId);
     expect(screen.queryByRole('button', { name: /Administração/ })).not.toBeInTheDocument();
   });
 

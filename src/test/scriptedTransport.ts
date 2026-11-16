@@ -1,23 +1,36 @@
 import { UploadCanceledError, UploadFailedError } from '../transport/abort';
 import { directConversation, type ConversationId, type ConversationSummary, type DirectConversation } from '../domain/conversation';
 import type { ChatMessage, MessageStatus } from '../domain/message';
-import type { UserId } from '../domain/identity';
+import type { GrantLogEntry } from '../domain/directoryOps';
+import type { Ilha, IlhaId, StaffUser, UserId } from '../domain/identity';
 import type {
   Bootstrap,
   ChatEvent,
   ChatEventHandler,
   ChatTransport,
   ConnectRequest,
+  AssignIlhaSupervisorRequest,
+  CreateIlhaRequest,
+  LoginGroup,
   MarkReadRequest,
+  MoveAgentRequest,
+  RegisterAgentRequest,
+  RegisterSupervisorRequest,
+  RenameIlhaRequest,
+  UserRequest,
   OpenDirectRequest,
   SendRequest,
+  SetGrantRequest,
   TransportStatus,
   TypingRequest,
   UploadedMedia,
   UploadRequest,
 } from '../transport/ChatTransport';
 import {
+  BV_TENANT,
+  bvDirectory,
   DEFAULT_SESSION,
+  ICS_ILHAS,
   ICS_TENANT,
   ICS_USERS,
   LIVE_CONVERSATION_ID,
@@ -44,10 +57,23 @@ type HeldUpload = {
   reject: (error: Error) => void;
 };
 
+/** Uma chamada de administração recebida pelo transporte de teste. */
+export type AdminCall = { readonly method: string; readonly request: unknown };
+
 export class ScriptedTransport implements ChatTransport {
+  /** Ações de administração chamadas pela sessão, em ordem. */
+  readonly adminCalls: AdminCall[] = [];
+  /** Se definido, toda ação de administração rejeita com este erro. */
+  adminError: Error | undefined;
+  /** O que `grantLog()` devolve. */
+  grantLogEntries: readonly GrantLogEntry[] = [];
+  /** Se definido, `connect` rejeita com este erro (ex.: conta desativada). */
+  connectError: Error | undefined;
   readonly sent: SendRequest[] = [];
   readonly uploads: UploadRequest[] = [];
   lastSession: ConnectRequest | undefined;
+  /** Quem o Bootstrap devolve como `me` (padrão: o usuário da seed). Só para testes de UI de outros papéis. */
+  asUser: UserId | undefined;
   readonly marked: MarkReadRequest[] = [];
   readonly typing: TypingRequest[] = [];
   failConnect = false;
@@ -101,7 +127,7 @@ export class ScriptedTransport implements ChatTransport {
 
   private bootstrap(): Bootstrap {
     const directory = icsDirectory();
-    const me = directory.users[DEFAULT_SESSION.userId];
+    const me = directory.users[this.asUser ?? DEFAULT_SESSION.userId];
     if (!me) {
       throw new Error('seed sem o usuário padrão');
     }
@@ -140,8 +166,82 @@ export class ScriptedTransport implements ChatTransport {
     this.typing.push(request);
   }
 
+  loginGroups(): readonly LoginGroup[] {
+    const groups = [
+      { tenant: ICS_TENANT, directory: icsDirectory() },
+      { tenant: BV_TENANT, directory: bvDirectory() },
+    ];
+    return groups.map(({ tenant, directory }) => ({ tenant, users: Object.values(directory.users) }));
+  }
+
+  private admin<T>(method: string, request: unknown, result: () => T): Promise<T> {
+    this.adminCalls.push({ method, request });
+    return this.adminError ? Promise.reject(this.adminError) : Promise.resolve(result());
+  }
+
+  private userOrThrow(id: UserId): StaffUser {
+    const found = icsDirectory().users[id];
+    if (!found) {
+      throw new Error(`usuário fora da seed: ${id}`);
+    }
+    return found;
+  }
+
+  private ilhaOrThrow(id: IlhaId): Ilha {
+    const found = icsDirectory().ilhas[id];
+    if (!found) {
+      throw new Error(`ilha fora da seed: ${id}`);
+    }
+    return found;
+  }
+
+  registerSupervisor(request: RegisterSupervisorRequest): Promise<StaffUser> {
+    return this.admin('registerSupervisor', request, () => this.userOrThrow(ICS_USERS.carla));
+  }
+
+  registerAgent(request: RegisterAgentRequest): Promise<StaffUser> {
+    return this.admin('registerAgent', request, () => this.userOrThrow(ICS_USERS.ana));
+  }
+
+  deactivateUser(request: UserRequest): Promise<StaffUser> {
+    return this.admin('deactivateUser', request, () => this.userOrThrow(request.userId));
+  }
+
+  reactivateUser(request: UserRequest): Promise<StaffUser> {
+    return this.admin('reactivateUser', request, () => this.userOrThrow(request.userId));
+  }
+
+  createIlha(request: CreateIlhaRequest): Promise<Ilha> {
+    return this.admin('createIlha', request, () => this.ilhaOrThrow(ICS_ILHAS.norte));
+  }
+
+  renameIlha(request: RenameIlhaRequest): Promise<Ilha> {
+    return this.admin('renameIlha', request, () => this.ilhaOrThrow(request.ilhaId));
+  }
+
+  assignIlhaSupervisor(request: AssignIlhaSupervisorRequest): Promise<Ilha> {
+    return this.admin('assignIlhaSupervisor', request, () => this.ilhaOrThrow(request.ilhaId));
+  }
+
+  moveAgent(request: MoveAgentRequest): Promise<StaffUser> {
+    return this.admin('moveAgent', request, () => this.userOrThrow(request.userId));
+  }
+
+  setGrant(request: SetGrantRequest): Promise<StaffUser> {
+    return this.admin('setGrant', request, () => this.userOrThrow(request.userId));
+  }
+
+  grantLog(): Promise<readonly GrantLogEntry[]> {
+    return this.admin('grantLog', undefined, () => this.grantLogEntries);
+  }
+
   connect(session: ConnectRequest): Promise<Bootstrap> {
     this.lastSession = session;
+    if (this.connectError) {
+      this.status = 'error';
+      this.emit({ type: 'connection', status: 'error' });
+      return Promise.reject(this.connectError);
+    }
     this.status = 'connecting';
     this.emit({ type: 'connection', status: 'connecting' });
     if (this.failConnect) {

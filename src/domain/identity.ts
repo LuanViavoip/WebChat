@@ -44,9 +44,9 @@ export type Directory = {
   readonly ilhas: Readonly<Record<IlhaId, Ilha>>;
 };
 
-export type DirectoryError = 'cross-tenant' | 'orphan-agent' | 'grant-above-ceiling' | 'multiple-admins';
+export type DirectoryError = 'cross-tenant' | 'orphan-agent' | 'grant-above-ceiling' | 'multiple-admins' | 'no-active-admin';
 
-/** Ordem: cross-tenant, orphan-agent, grant-above-ceiling, multiple-admins. */
+/** Ordem: cross-tenant, orphan-agent, grant-above-ceiling, multiple-admins, no-active-admin. */
 export function validateDirectory(d: Directory): Result<Directory, DirectoryError> {
   const users = Object.values(d.users);
   const ilhas = Object.values(d.ilhas);
@@ -70,8 +70,14 @@ export function validateDirectory(d: Directory): Result<Directory, DirectoryErro
       }
     }
   }
-  if (users.filter((user) => user.role === 'admin').length > 1) {
+  const admins = users.filter((user) => user.role === 'admin');
+  if (admins.length > 1) {
     return err('multiple-admins');
+  }
+  // Exatamente um admin e ativo: nenhuma operação do domínio produz zero admin ou admin inativo
+  // (o admin não é alvo de desativação); só um estado adulterado chega aqui assim.
+  if (admins[0]?.active !== true) {
+    return err('no-active-admin');
   }
   return ok(d);
 }

@@ -61,8 +61,19 @@ describe('validateDirectory', () => {
     });
   });
 
-  it('aceita diretório sem admin (provisionamento externo) e diretório vazio', () => {
-    expect(validateDirectory(makeDirectory(T1, [], [])).ok).toBe(true);
+  it('no-active-admin: zero admin (inclusive diretório vazio) é rejeitado', () => {
+    const d = seedDirectory();
+    const semAdmin = Object.values(d.users).filter((user) => user.role !== 'admin');
+    expect(validateDirectory(makeDirectory(T1, semAdmin, Object.values(d.ilhas)))).toEqual({ ok: false, error: 'no-active-admin' });
+    expect(validateDirectory(makeDirectory(T1, [], []))).toEqual({ ok: false, error: 'no-active-admin' });
+  });
+
+  it('no-active-admin: o único admin inativo é rejeitado', () => {
+    const d = seedDirectory();
+    const admin = Object.values(d.users).find((user) => user.role === 'admin');
+    if (!admin) throw new Error('seed sem admin');
+    const inativo = { ...d, users: { ...d.users, [admin.id]: { ...admin, active: false } } };
+    expect(validateDirectory(inativo)).toEqual({ ok: false, error: 'no-active-admin' });
   });
 });
 

@@ -16,3 +16,6 @@ export class ForbiddenError extends Error {
 export function isForbidden(error: unknown): error is ForbiddenError {
   return error instanceof ForbiddenError;
 }
+
+/** `reason` do `connect` recusado quando a conta existe no tenant mas está desativada. */
+export const ACCOUNT_DEACTIVATED = 'account-deactivated';

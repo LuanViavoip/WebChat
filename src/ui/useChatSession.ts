@@ -13,6 +13,8 @@ const EMPTY: ChatSessionState = {
   tenant: null,
   me: null,
   directory: null,
+  grantLog: null,
+  sessionEnded: null,
   conversations: {},
   summaries: [],
   activeConversationId: null,

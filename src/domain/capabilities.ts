@@ -1,4 +1,5 @@
-import type { StaffRole, StaffUser } from './identity';
+import type { Directory, StaffRole, StaffUser, UserId } from './identity';
+import { own } from './records';
 import { err, ok, type Result } from './result';
 import type { TenantId } from './tenant';
 
@@ -55,9 +56,70 @@ export type GrantDenial =
   | 'no-grants-manage'
   | 'actor-lacks-capability' // ninguém concede o que não tem
   | 'above-target-ceiling' // capacidade fora do teto da role do alvo
-  | 'not-higher-rank'; // só concede para role estritamente abaixo
+  | 'not-higher-rank' // só concede para role estritamente abaixo
+  | 'outside-islands'; // supervisor só mexe em agente das ilhas que supervisiona
 
-/** Regras em ordem (§2.7): tenant, self, ator ativo + grants.manage, posse, teto do alvo, hierarquia. */
+/** Motivos legíveis (pt-BR) que a UI mostra numa chave bloqueada. */
+export const GRANT_DENIAL_TEXT: Readonly<Record<GrantDenial, string>> = {
+  'cross-tenant': 'outra empresa',
+  self: 'não pode alterar a si mesmo',
+  'actor-inactive': 'usuário desativado',
+  'no-grants-manage': 'sem permissão para gerenciar permissões',
+  'actor-lacks-capability': 'você não possui',
+  'above-target-ceiling': 'acima do papel',
+  'not-higher-rank': 'acima do papel',
+  'outside-islands': 'fora das suas ilhas',
+};
+
+export function describeGrantDenial(denial: GrantDenial): string {
+  return GRANT_DENIAL_TEXT[denial];
+}
+
+/**
+ * Ator e alvo SEMPRE do diretório (por id). Tenant é a primeira checagem: o registro do ator
+ * e o do alvo têm de ser do tenant do diretório. Alvo ausente (inexistente ou de outra empresa)
+ * dá 'cross-tenant', indistinguível, para não revelar nada sobre outra empresa.
+ */
+export function resolvePair(
+  d: Directory,
+  actorId: UserId,
+  targetId: UserId,
+): Result<{ actor: StaffUser; target: StaffUser }, 'unknown-actor' | 'cross-tenant'> {
+  const actor = own(d.users, actorId);
+  if (!actor) {
+    return err('unknown-actor');
+  }
+  const target = own(d.users, targetId);
+  if (actor.tenantId !== d.tenantId || !target || target.tenantId !== d.tenantId) {
+    return err('cross-tenant');
+  }
+  return ok({ actor, target });
+}
+
+/** Ilhas que o supervisor supervisiona (do tenant do diretório). */
+export function supervisedIlhaIds(d: Directory, supervisorId: UserId): ReadonlySet<string> {
+  return new Set(
+    Object.values(d.ilhas)
+      .filter((ilha) => ilha.supervisorId === supervisorId && ilha.tenantId === d.tenantId)
+      .map((ilha) => ilha.id),
+  );
+}
+
+/** Escopo de gestão sobre o alvo: admin, qualquer um do tenant; supervisor, só agente de ilha dele; agente, ninguém. */
+export function inManagementScope(d: Directory, actor: StaffUser, target: StaffUser): boolean {
+  if (actor.tenantId !== d.tenantId || target.tenantId !== d.tenantId) {
+    return false;
+  }
+  if (actor.role === 'admin') {
+    return true;
+  }
+  if (actor.role === 'supervisor') {
+    return target.role === 'agent' && supervisedIlhaIds(d, actor.id).has(target.ilhaId);
+  }
+  return false;
+}
+
+/** Regra de papel isolada; não usar para autorizar (sem diretório e sem escopo de ilha): use `canGrantIn`. Ordem (§2.7): tenant, self, ator ativo + grants.manage, posse, teto do alvo, hierarquia. */
 export function canGrant(actor: StaffUser, target: StaffUser, capability: Capability): Result<true, GrantDenial> {
   const common = commonGrantChecks(actor, target, capability);
   if (common) {
@@ -72,6 +134,7 @@ export function canGrant(actor: StaffUser, target: StaffUser, capability: Capabi
   return ok(true);
 }
 
+/** Regra de papel isolada; não usar para autorizar: use `canRevokeIn` (diretório + escopo de ilha). */
 export function canRevoke(
   actor: StaffUser,
   target: StaffUser,
@@ -85,6 +148,43 @@ export function canRevoke(
     return err('not-higher-rank');
   }
   return ok(true);
+}
+
+/** canGrant com escopo: ator e alvo vêm do diretório; supervisor só concede a agente das suas ilhas. */
+export function canGrantIn(
+  d: Directory,
+  actorId: UserId,
+  targetId: UserId,
+  capability: Capability,
+): Result<true, GrantDenial | 'unknown-actor'> {
+  const pair = resolvePair(d, actorId, targetId);
+  if (!pair.ok) {
+    return pair;
+  }
+  const { actor, target } = pair.value;
+  const verdict = canGrant(actor, target, capability);
+  if (!verdict.ok) {
+    return verdict;
+  }
+  return actor.role === 'supervisor' && !inManagementScope(d, actor, target) ? err('outside-islands') : ok(true);
+}
+
+export function canRevokeIn(
+  d: Directory,
+  actorId: UserId,
+  targetId: UserId,
+  capability: Capability,
+): Result<true, Exclude<GrantDenial, 'above-target-ceiling'> | 'unknown-actor'> {
+  const pair = resolvePair(d, actorId, targetId);
+  if (!pair.ok) {
+    return pair;
+  }
+  const { actor, target } = pair.value;
+  const verdict = canRevoke(actor, target, capability);
+  if (!verdict.ok) {
+    return verdict;
+  }
+  return actor.role === 'supervisor' && !inManagementScope(d, actor, target) ? err('outside-islands') : ok(true);
 }
 
 function commonGrantChecks(
@@ -132,6 +232,9 @@ const MANAGE_CAPABILITY: Readonly<Record<AssignableRole, Capability>> = {
  * Exige a capacidade da role nova e, se o alvo já é supervisor/agente, a da role atual
  * (rebaixar um supervisor exige `supervisors.manage`). 'admin' não existe como role atribuível (o tipo proíbe), ninguém
  * mexe em admin, e só se mexe em alguém de rank estritamente menor.
+ *
+ * Regra de papel isolada; não usar para autorizar sozinha: as operações com diretório
+ * estão em `directoryOps` (`canRegisterAgentIn` etc.).
  */
 export function canAssignRole(
   actor: StaffUser,

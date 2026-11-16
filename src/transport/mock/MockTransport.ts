@@ -1,25 +1,35 @@
 import type { Conversation, ConversationId, DirectConversation } from '../../domain/conversation';
-import type { UserId } from '../../domain/identity';
+import type { GrantLogEntry } from '../../domain/directoryOps';
+import type { Ilha, StaffUser, UserId } from '../../domain/identity';
 import type { ChatMessage, MessageStatus } from '../../domain/message';
 import type { TenantId } from '../../domain/tenant';
 import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type {
+  AssignIlhaSupervisorRequest,
   Bootstrap,
   ChatEvent,
   ChatEventHandler,
   ChatTransport,
   ConnectRequest,
+  CreateIlhaRequest,
+  LoginGroup,
   MarkReadRequest,
+  MoveAgentRequest,
   OpenDirectRequest,
+  RegisterAgentRequest,
+  RegisterSupervisorRequest,
+  RenameIlhaRequest,
   SendRequest,
+  SetGrantRequest,
   TransportStatus,
   TypingRequest,
   UploadedMedia,
   UploadRequest,
+  UserRequest,
 } from '../ChatTransport';
 import { browserObjectUrls, type ObjectUrlFactory } from '../objectUrls';
 import { MockBackend, type BackendClient } from './MockBackend';
-import type { ServerEvent } from './MockServer';
+import type { MockServer, Outcome, ServerEvent, Session } from './MockServer';
 
 export type MockDelays = {
   connectMs: number;
@@ -107,6 +117,7 @@ export class MockTransport implements ChatTransport {
     this.objectUrls = options.objectUrls ?? browserObjectUrls;
     const identity = () => this.identity;
     this.client = {
+      epoch: undefined,
       get tenantId(): TenantId {
         return identity()?.tenantId ?? ('' as TenantId);
       },
@@ -210,11 +221,68 @@ export class MockTransport implements ChatTransport {
     });
   }
 
+  loginGroups(): readonly LoginGroup[] {
+    return this.backend.query((server) => server.loginGroups());
+  }
+
+  registerSupervisor(request: RegisterSupervisorRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.registerSupervisor(session, request));
+  }
+
+  registerAgent(request: RegisterAgentRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.registerAgent(session, request));
+  }
+
+  deactivateUser(request: UserRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.deactivateUser(session, request));
+  }
+
+  reactivateUser(request: UserRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.reactivateUser(session, request));
+  }
+
+  createIlha(request: CreateIlhaRequest): Promise<Ilha> {
+    return this.admin((server, session) => server.createIlha(session, request));
+  }
+
+  renameIlha(request: RenameIlhaRequest): Promise<Ilha> {
+    return this.admin((server, session) => server.renameIlha(session, request));
+  }
+
+  assignIlhaSupervisor(request: AssignIlhaSupervisorRequest): Promise<Ilha> {
+    return this.admin((server, session) => server.assignIlhaSupervisor(session, request));
+  }
+
+  moveAgent(request: MoveAgentRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.moveAgent(session, request));
+  }
+
+  setGrant(request: SetGrantRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.setGrant(session, request));
+  }
+
+  grantLog(): Promise<readonly GrantLogEntry[]> {
+    return this.gate(() => {
+      const session = this.requireSession();
+      const result = this.backend.query((server) => server.grantLog(session));
+      return result.ok ? Promise.resolve(result.value) : Promise.reject(result.error);
+    });
+  }
+
+  /** O ator é SEMPRE `this.identity` (a sessão autenticada no `connect`): nenhum request carrega ator ou tenant. */
+  private admin<T>(operation: (server: MockServer, session: Session) => Outcome<T>): Promise<T> {
+    return this.gate(() => {
+      const session = this.requireSession();
+      const result = this.backend.run((server) => operation(server, session));
+      return result.ok ? Promise.resolve(result.value) : Promise.reject(result.error);
+    });
+  }
+
   setTyping(request: TypingRequest): void {
     if (this.status !== 'connected' || !this.identity) {
       return;
     }
-    const session = this.identity;
+    const session = this.requireSession();
     this.backend.run((server) => server.setTyping(session, request));
   }
 
@@ -233,11 +301,11 @@ export class MockTransport implements ChatTransport {
     });
   }
 
-  private requireSession(): ConnectRequest {
+  private requireSession(): Session {
     if (this.status !== 'connected' || !this.identity) {
       throw new Error('Não conectado');
     }
-    return this.identity;
+    return { ...this.identity, epoch: this.client.epoch };
   }
 
   private leave(): void {
@@ -251,7 +319,7 @@ export class MockTransport implements ChatTransport {
     if (this.status !== 'connected' || !this.identity) {
       throw new Error('Não conectado');
     }
-    const session = this.identity;
+    const session = this.requireSession();
     const allowed = this.backend.query((server) => server.authorize(session, request.conversationId));
     if (!allowed.ok) {
       throw allowed.error;
@@ -292,7 +360,7 @@ export class MockTransport implements ChatTransport {
     if (request.payload.type === 'text' && !request.payload.text.trim()) {
       return Promise.resolve();
     }
-    const session = this.identity;
+    const session = this.requireSession();
     const conversationEpoch = this.conversationEpoch;
     this.pendingEcho.add(request.clientId);
     const result = this.backend.run((server) => server.send(session, request));
@@ -314,6 +382,13 @@ export class MockTransport implements ChatTransport {
   /** Eco entregue por esta aba: autor → 'sending' (o 'sent' vem depois), demais eventos passam direto. */
   private receive(event: ServerEvent): void {
     if (!this.identity || event.tenantId !== this.identity.tenantId) {
+      return;
+    }
+    if (event.type === 'session-ended') {
+      // O servidor já tirou esta sessão da presença: avisa a UI e cai, sem chamar `leave` de novo.
+      this.joined = false;
+      this.emit(event);
+      this.disconnect();
       return;
     }
     if (event.type === 'message' && event.message.tenantId !== this.identity.tenantId) {

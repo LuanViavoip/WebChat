@@ -125,6 +125,8 @@ function emptyTenant(tenant: Tenant, directory: Directory): TenantState {
     messages: {},
     reads: {},
     logins: {},
+    grantLog: [],
+    sessionEpochs: {},
     seq: 0,
   };
 }
