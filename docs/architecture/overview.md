@@ -9,6 +9,7 @@ Monorepo pnpm (Node ≥ 22, TypeScript estrito). Diagramas: [contexto](../diagra
 | `apps/server` | HTTP + WebSocket, regras de domínio, migrations, seed, estáticos | Fastify 5, Socket.IO 4, `pg` (sem ORM), Zod 4, argon2 |
 | `apps/widget` | UI do visitante (`/widget/`) e `loader.ts` (`/widget.js`) | React 19, Vite 8, esbuild |
 | `apps/console` | Central do agente e do supervisor (`/console/`) | React 19, Vite 8 |
+| `apps/internal` | Chat interno estilo WhatsApp Web (`/chat/`), importado do sm-webchat. Só `MockTransport` e `localStorage`: ainda não fala com o servidor | React 19, Vite 6, Vitest 3, TypeScript 5.9 |
 | `packages/protocol` | Schemas Zod de HTTP, eventos, modelos, erros e postMessage | Zod |
 | `packages/sm-adapter` | Interface `SMAdapter`, `MockSMAdapter`, fábrica | TypeScript |
 | `infra/` | `seed/seed.sql` e página demo (nginx) | — |

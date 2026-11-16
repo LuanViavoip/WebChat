@@ -1,5 +1,16 @@
 # Changelog da documentação
 
+## 2026-11-16 — F2: sm-webchat importado como `apps/internal` (`/chat/`)
+
+- `git subtree add --prefix apps/internal` do `Luanzzzz/sm-webchat` em `db9b221` (merge do PR #11), sem `--squash`, com o histórico preservado. O repositório de origem fica congelado (D2).
+- Pacote `@viavoip/internal` no workspace pnpm. Versões diretas fixadas nas que o `package-lock.json` do app resolvia (React 19.3.1, Vite 6.4.6, Vitest 3.2.7, TypeScript 5.9.3). Cada app mantém a própria toolchain. O `package-lock.json` e o `.github/` do app saíram. `pnpm-workspace.yaml` ganhou um `packageExtensions` que declara o peer opcional `vitest` do `@testing-library/jest-dom` (sem ele o `tsc` do app não enxerga os matchers sob pnpm).
+- Vite com `base: '/chat/'`. O Playwright usa `baseURL` e `webServer` em `/chat/` e `pnpm`.
+- `registerStatic` serve o build do app em `/chat/` e redireciona `/chat` para `/chat/`. O app é independente: sem o build dele, widget e console seguem como antes. Não há fallback de SPA, porque o app não tem rotas no caminho da URL. O servidor não define CSP nem headers de segurança.
+- `apps/server/test/static.test.ts`: 5 testes novos. `registerStatic` aceita as raízes como parâmetro opcional, com o mesmo padrão de antes.
+- `.github/workflows/ci.yml`: job novo `internal` (lint, gate de hex e Playwright com axe). O `verify` cobre typecheck, build e Vitest do app pelo `-r`.
+- O app roda só com dados simulados (`MockTransport`, `localStorage`). O `/chat/` ainda não fala com o servidor. Console, widget, protocolo, banco e migrations não mudaram.
+- `pnpm test` na raiz: 1530 testes (protocol 11, adaptador SM 2, widget 19, console 61, servidor 107, app interno 1330 em 53 arquivos). Playwright do app: 159 passam e 97 são pulados, igual ao repositório de origem. `scripts/verify-browser.mjs` não foi executado nesta rodada (a porta 3000 da máquina estava ocupada).
+
 ## 2026-11-16 — main em ed89e11 (d94be4a e PR #7) e decisão de fusão
 
 - PR #5 (`3a01f3d`): cabeçalho da migration 009 corrigido; só o comentário do SQL mudou.

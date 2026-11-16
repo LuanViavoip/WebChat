@@ -1,14 +1,15 @@
 # Arquitetura
 
-O monorepo tem três aplicações e dois pacotes:
+O monorepo tem quatro aplicações e dois pacotes:
 
 - `apps/server` — Fastify, Socket.IO, Postgres e Redis
 - `apps/widget` — interface do visitante e o `widget.js`
 - `apps/console` — painel mínimo de agente e supervisor
+- `apps/internal` — chat interno estilo WhatsApp Web (sm-webchat importado), servido em `/chat/`; só dados simulados, ainda sem ligação com o servidor
 - `packages/protocol` — schemas Zod dos payloads
 - `packages/sm-adapter` — interface do SM e implementação mock
 
-Um processo HTTP serve a API, os sockets, o widget, o console e o loader. Postgres é a fonte da verdade. Redis só replica eventos do Socket.IO entre instâncias.
+Um processo HTTP serve a API, os sockets, o widget, o console, o chat interno (`/chat/`) e o loader. Postgres é a fonte da verdade. Redis só replica eventos do Socket.IO entre instâncias.
 
 ## Isolamento
 

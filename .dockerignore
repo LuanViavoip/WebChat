@@ -6,3 +6,5 @@ coverage
 *.log
 apps/server/test/.pg-meta.json
 .env
+**/test-results
+**/playwright-report

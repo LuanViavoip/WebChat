@@ -22,6 +22,7 @@ pnpm dev
 ```bash
 pnpm --filter @viavoip/widget dev
 pnpm --filter @viavoip/console dev
+pnpm --filter @viavoip/internal dev   # chat interno, em /chat/, com dados simulados
 ```
 
 O fluxo de aceite usa os artefatos servidos pelo servidor na porta 3000. Rode `pnpm build` antes disso se não estiver usando o Compose.
