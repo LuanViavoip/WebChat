@@ -72,7 +72,7 @@
 <h2 id="adaptadores-externos" tabindex="-1">Adaptadores externos</h2>
 <p><code>SMAdapter</code> é chamado após o commit, dentro de <code>safeNotify</code> (erro é logado e ignorado). Ver <a href="../integracoes/sm.html">integration-sm.md</a>.</p>
 <h2 id="planejado-%C3%97-implantado" tabindex="-1">Planejado × implantado</h2>
-<p>O repositório contém apenas <code>Dockerfile</code> e <code>docker-compose.yml</code> (ambiente local). <strong>Não há configuração de produção verificável</strong> (sem Terraform, Kubernetes, CI ou manifests). Ver <a href="../implantacao-e-operacao/ambientes.html">environments.md</a>.</p>
+<p>O repositório contém apenas <code>Dockerfile</code> e <code>docker-compose.yml</code> (ambiente local). <strong>Não há configuração de produção verificável</strong> (sem Terraform, Kubernetes, pipeline de implantação (CD) ou manifests). Ver <a href="../implantacao-e-operacao/ambientes.html">environments.md</a>.</p>
 <h2 id="boot-do-servidor" tabindex="-1">Boot do servidor</h2>
 <p><code>main.ts</code>: <code>createSMAdapter</code> → migrations (até 30 tentativas, 500 ms) com o papel de migração → seed se <code>SEED=true</code> → <code>buildApp</code> → listen. Um <code>setInterval</code> de 15 s executa <code>presence.sweep()</code>.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>

@@ -44,7 +44,7 @@ Não há barramento interno. Cada handler chama o serviço de domínio e, **apó
 
 ## Planejado × implantado
 
-O repositório contém apenas `Dockerfile` e `docker-compose.yml` (ambiente local). **Não há configuração de produção verificável** (sem Terraform, Kubernetes, CI ou manifests). Ver [environments.md](../deployment/environments.md).
+O repositório contém apenas `Dockerfile` e `docker-compose.yml` (ambiente local). **Não há configuração de produção verificável** (sem Terraform, Kubernetes, pipeline de implantação (CD) ou manifests). Ver [environments.md](../deployment/environments.md).
 
 ## Boot do servidor
 
