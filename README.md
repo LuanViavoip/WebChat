@@ -44,7 +44,12 @@ O `apps/internal` é o app do sm-webchat (React, interface estilo WhatsApp Web),
 
 **Ele roda só com dados simulados.** O `MockTransport` guarda tudo no `localStorage` do navegador. O `/chat/` ainda não fala com o servidor: não usa `/auth/login`, Postgres nem Socket.IO. Ligar o app ao servidor é trabalho das etapas seguintes do [plano de fusão](docs/fusao/plano-fusao.md).
 
+O domínio do app (identidade, capacidades, permissões, conversas, mensagens e anexos) vive em `packages/internal-domain` (`@viavoip/internal-domain`), que o app importa pelo `dist`. O `pnpm typecheck`, o `pnpm test` e o `pnpm dev` da raiz constroem esse pacote antes. Os fixtures de teste do domínio saem pelo subpath `@viavoip/internal-domain/testing`. Resíduo: `message.ts` está no pacote, mas o teste dele (`apps/internal/src/transport/mock/message.test.ts`) ficou no app, porque usa o seed do mock.
+
 ```bash
+pnpm --filter @viavoip/internal-domain build  # o app resolve o pacote pelo dist
+pnpm --filter @viavoip/internal-domain lint
+pnpm --filter @viavoip/internal-domain test
 pnpm --filter @viavoip/internal dev        # o Vite mostra a URL (termina em /chat/)
 pnpm --filter @viavoip/internal lint
 pnpm --filter @viavoip/internal test       # Vitest
@@ -72,7 +77,7 @@ O `pnpm test` da raiz roda o Vitest de todos os pacotes, incluindo o do `apps/in
 
 A suíte sobe PostgreSQL e Redis descartáveis, aplica as migrations, carrega o seed e cobre isolamento, concorrência, reconexão, mensagens e comunicação entre réplicas. Uma falha pós-commit ainda pode impedir a entrega de eventos.
 
-O `pnpm typecheck` roda `tsc --noEmit` em todos os pacotes e só cobre `src`; os testes não são checados por tipo. O workflow `.github/workflows/ci.yml` roda `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm build` e `pnpm test` em cada pull request e em cada push na `main`, com Node 22 e o pnpm de `packageManager`. Não há `services:` no workflow: o servidor sobe PostgreSQL e Redis por Testcontainers no runner. O workflow tem um segundo job, `internal`, com lint do app interno, o gate de hex (nenhuma cor em hexadecimal em `apps/internal/src`, exceto `styles/chat.css`, `styles/contrast.ts` e `styles/contrast.test.ts`) e o Playwright do app. Detalhes em [docs/deployment/environments.md](docs/deployment/environments.md).
+O `pnpm typecheck` roda `tsc --noEmit` em todos os pacotes e só cobre `src`; os testes não são checados por tipo. O workflow `.github/workflows/ci.yml` roda `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm build` e `pnpm test` em cada pull request e em cada push na `main`, com Node 22 e o pnpm de `packageManager`. Não há `services:` no workflow: o servidor sobe PostgreSQL e Redis por Testcontainers no runner. O workflow tem um segundo job, `internal`, com build e lint do pacote de domínio, lint do app interno, o gate de hex (nenhuma cor em hexadecimal em `apps/internal/src`, exceto `styles/chat.css`, `styles/contrast.ts` e `styles/contrast.test.ts`) e o Playwright do app. Detalhes em [docs/deployment/environments.md](docs/deployment/environments.md).
 
 Verificações em navegador (Playwright, com containers descartáveis recém-criados; passo a passo em `.cursor/skills/verify/SKILL.md` e [docs/fase-5.5/testes-visuais.md](docs/fase-5.5/testes-visuais.md)):
 
@@ -107,7 +112,7 @@ node scripts/verify-visual.mjs    # cinco viewports, console e widget em :8090 e
 
 Testes executados em 16 de novembro de 2026 sobre `main` em `ed89e11`: o `d94be4a` (Fase 5.5 mais os PRs #5 e #6) mais o PR #7 (`typecheck`, CI e `GET /version`).
 
-- `pnpm typecheck` e `pnpm build` terminaram sem erros, e `pnpm test` passou com 195 testes: 11 do protocol, 2 do adaptador SM, 19 do widget, 61 do console e 102 do servidor. Depois da importação do `apps/internal` (F2, 16/11/2026), a contagem é 1530: os mesmos 11, 2, 19 e 61, o servidor com 107 (5 novos, de `static.test.ts`) e 1330 do app interno (53 arquivos). O Playwright do app roda à parte: 159 passam e 97 são pulados (256 no total, 64 por project). A suíte do servidor sobe um Postgres descartável e cobre isolamento, setores, chat interno, anúncios, presença, atividades, supervisão, gestão da empresa, qualidade e revogação de sessão.
+- `pnpm typecheck` e `pnpm build` terminaram sem erros, e `pnpm test` passou com 195 testes: 11 do protocol, 2 do adaptador SM, 19 do widget, 61 do console e 102 do servidor. Depois da importação do `apps/internal` (F2, 16/11/2026), a contagem é 1530: os mesmos 11, 2, 19 e 61, o servidor com 107 (5 novos, de `static.test.ts`) e 1330 do domínio e do app interno juntos (53 arquivos). Desde a F3, 801 deles (10 arquivos) estão em `packages/internal-domain` e 529 (43 arquivos) em `apps/internal`. O Playwright do app roda à parte: 159 passam e 97 são pulados (256 no total, 64 por project). A suíte do servidor sobe um Postgres descartável e cobre isolamento, setores, chat interno, anúncios, presença, atividades, supervisão, gestão da empresa, qualidade e revogação de sessão.
 - Não executados de novo em 16/11/2026. O último registro é de 29 de outubro de 2026 sobre `3d9e2cf` (Fase 5.5): `scripts/verify-browser.mjs` terminou com saída 0 e `scripts/verify-visual.mjs` registrou 155 verificações, 0 falhas e 0 erros de console, em containers descartáveis.
 
 Registro da verificação da Fase 4 (27 de outubro de 2026):

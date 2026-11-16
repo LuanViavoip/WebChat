@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import type { ChatMessage, TextMessage } from '../domain/message';
+import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import { MessageList } from './MessageList';
 import { ICS_TENANT_ID, ICS_USERS } from '../transport/mock/seed';
-import { asConversationId } from '../domain/conversation';
-import type { UserId } from '../domain/identity';
+import { asConversationId } from '@viavoip/internal-domain';
+import type { UserId } from '@viavoip/internal-domain';
 
 const AGENT = { id: 'agent', name: 'Colega' };
 const CLIENT = { id: 'client', name: 'Você' };

@@ -1,7 +1,7 @@
 import { FakeBus } from '../../test/fakeBroadcastChannel';
 import { Lab, typesOf, type Probe } from '../../test/adminProbe';
-import { asConversationId } from '../../domain/conversation';
-import type { IlhaId, UserId } from '../../domain/identity';
+import { asConversationId } from '@viavoip/internal-domain';
+import type { IlhaId, UserId } from '@viavoip/internal-domain';
 import { ForbiddenError } from '../errors';
 import { MockTransport } from './MockTransport';
 import type { ChatEvent } from '../ChatTransport';

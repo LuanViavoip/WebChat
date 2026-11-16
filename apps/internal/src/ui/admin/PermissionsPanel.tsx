@@ -1,7 +1,7 @@
 import { useId } from 'react';
-import { CAPABILITIES, canGrantIn, canRevokeIn, effectiveGrants, type Capability } from '../../domain/capabilities';
-import { describeDenial } from '../../domain/directoryOps';
-import type { Directory, StaffUser } from '../../domain/identity';
+import { CAPABILITIES, canGrantIn, canRevokeIn, effectiveGrants, type Capability } from '@viavoip/internal-domain';
+import { describeDenial } from '@viavoip/internal-domain';
+import type { Directory, StaffUser } from '@viavoip/internal-domain';
 import { CAPABILITY_TEXT } from './capabilityLabels';
 
 /**

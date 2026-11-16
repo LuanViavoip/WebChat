@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { ACCEPT_ATTRIBUTE } from '../domain/attachment';
+import { ACCEPT_ATTRIBUTE } from '@viavoip/internal-domain';
 import { Composer } from './Composer';
 
 function Harness({

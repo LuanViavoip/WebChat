@@ -1,14 +1,14 @@
 import { act, StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { TextMessage } from '../domain/message';
+import type { TextMessage } from '@viavoip/internal-domain';
 import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { stubDesktopMatchMedia, stubMobileMatchMedia } from '../test/matchMedia';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { MockTransport } from '../transport/MockTransport';
 import { ChatPanel } from './ChatPanel';
 import { ICS_TENANT_ID, ICS_USERS, LIVE_CONVERSATION_ID } from '../transport/mock/seed';
-import { asConversationId } from '../domain/conversation';
+import { asConversationId } from '@viavoip/internal-domain';
 
 const instant = {
   connectMs: 0,

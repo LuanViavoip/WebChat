@@ -1,6 +1,6 @@
-import { validateDirectory } from '../../domain/identity';
-import { conversationTier } from '../../domain/conversation';
-import type { TenantId } from '../../domain/tenant';
+import { validateDirectory } from '@viavoip/internal-domain';
+import { conversationTier } from '@viavoip/internal-domain';
+import type { TenantId } from '@viavoip/internal-domain';
 import { fromPersisted, toPersisted, type TenantState } from './state';
 import {
   bvDirectory,

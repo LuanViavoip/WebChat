@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { TypingState } from '../chat/ChatSession';
 import { formatDateSeparator, isSameCalendarDay } from '../chat/dates';
 import type { UploadView } from '../chat/uploads';
-import type { UserId } from '../domain/identity';
-import type { ChatMessage } from '../domain/message';
+import type { UserId } from '@viavoip/internal-domain';
+import type { ChatMessage } from '@viavoip/internal-domain';
 import type { OpenImage } from './attachments/MediaBody';
 import { MessageBubble } from './MessageBubble';
 

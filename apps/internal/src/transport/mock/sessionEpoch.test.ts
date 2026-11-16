@@ -1,6 +1,6 @@
 import { Lab, type Probe } from '../../test/adminProbe';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
-import type { UserId } from '../../domain/identity';
+import type { UserId } from '@viavoip/internal-domain';
 import type { ChatEvent, ConnectRequest } from '../ChatTransport';
 import { MockBackend } from './MockBackend';
 import type { MockStore } from './MockStore';

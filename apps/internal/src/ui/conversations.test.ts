@@ -1,5 +1,5 @@
-import { asConversationId, directConversation, type ConversationSummary } from '../domain/conversation';
-import { makeDirectory, makeIlha, makeUser, seedDirectory, T1, user } from '../test/domainFixtures';
+import { asConversationId, directConversation, type ConversationSummary } from '@viavoip/internal-domain';
+import { makeDirectory, makeIlha, makeUser, seedDirectory, T1, user } from '@viavoip/internal-domain/testing';
 import {
   conversationItem,
   conversationTimeLabel,

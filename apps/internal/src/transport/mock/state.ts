@@ -1,6 +1,6 @@
-import { CAPABILITIES } from '../../domain/capabilities';
-import type { Conversation, ConversationId } from '../../domain/conversation';
-import type { GrantLogEntry } from '../../domain/directoryOps';
+import { CAPABILITIES } from '@viavoip/internal-domain';
+import type { Conversation, ConversationId } from '@viavoip/internal-domain';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
 import {
   parseStaffUser,
   validateDirectory,
@@ -10,9 +10,9 @@ import {
   type LoginRecord,
   type StaffUser,
   type UserId,
-} from '../../domain/identity';
-import type { ChatMessage } from '../../domain/message';
-import type { Tenant, TenantId } from '../../domain/tenant';
+} from '@viavoip/internal-domain';
+import type { ChatMessage } from '@viavoip/internal-domain';
+import type { Tenant, TenantId } from '@viavoip/internal-domain';
 
 /** Uma partição: tudo que pertence a UMA empresa. Nada aqui referencia outro tenant. */
 export type TenantState = {

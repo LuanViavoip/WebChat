@@ -1,5 +1,5 @@
 import { Check, CheckCheck, CircleAlert, Clock } from 'lucide-react';
-import type { MessageStatus } from '../domain/message';
+import type { MessageStatus } from '@viavoip/internal-domain';
 
 const LABELS: Record<MessageStatus, string> = {
   sending: 'Enviando',

@@ -1,5 +1,14 @@
 # Changelog da documentação
 
+## 2026-11-16 — F3: pacote `@viavoip/internal-domain`
+
+- `apps/internal/src/domain/*` (11 módulos de código e 10 testes) movido com `git mv` para `packages/internal-domain/src`, sem mudança de lógica, tipos ou asserções. `src/index.ts` reexporta todos os módulos; o app importa de `@viavoip/internal-domain`. `apps/internal/src/domain` deixou de existir.
+- `src/test/domainFixtures.ts` foi para `packages/internal-domain/src/testing/` e sai pelo subpath `@viavoip/internal-domain/testing` (não pelo `index.ts`). Só `src/ui/conversations.test.ts` o usa fora do pacote.
+- `message.test.ts` ficou no app (`apps/internal/src/transport/mock/message.test.ts`), porque importa o seed do mock; só os imports mudaram. Resíduo: `message.ts` está no pacote sem o teste dele.
+- Toolchain do pacote igual à do app (TypeScript 5.9.3, Vitest 3.2.7, fast-check 4.10.2, ESLint 9.39.5): sem mudança de comportamento. `moduleResolution: bundler` e imports sem extensão; o `dist` serve a Vite e Vitest, não a Node puro. `lib` inclui `DOM` porque `attachment.ts` usa o tipo `File`. Testes em ambiente `node`.
+- Scripts da raiz (`typecheck`, `test`, `dev`, `seed`) constroem o pacote depois de protocol e sm-adapter. CI: o job `internal` ganhou build e lint do pacote. O `fast-check` continua no app (usado por `tenantIsolation.property.test.ts`).
+- `pnpm test`: 1530 testes, a mesma soma (pacote 801 em 10 arquivos, app 529 em 43; protocol 11, adaptador SM 2, widget 19, console 61, servidor 107). Playwright do app: 159 passam e 97 pulados.
+
 ## 2026-11-16 — F2: sm-webchat importado como `apps/internal` (`/chat/`)
 
 - `git subtree add --prefix apps/internal` do `Luanzzzz/sm-webchat` em `db9b221` (merge do PR #11), sem `--squash`, com o histórico preservado. O repositório de origem fica congelado (D2).

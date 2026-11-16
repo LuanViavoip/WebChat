@@ -1,4 +1,4 @@
-import { makeDirectory, makeUser, seedDirectory, T1, T2, user } from '../test/domainFixtures';
+import { makeDirectory, makeUser, seedDirectory, T1, T2, user } from './testing/domainFixtures';
 import { CAPABILITIES, type Capability } from './capabilities';
 import { directConversation, type Conversation, type GroupConversation, asConversationId } from './conversation';
 import type { Directory, StaffUser, UserId } from './identity';

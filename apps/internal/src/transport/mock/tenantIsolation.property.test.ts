@@ -1,8 +1,8 @@
 import fc from 'fast-check';
-import { CAPABILITIES, type Capability } from '../../domain/capabilities';
-import type { ConversationId } from '../../domain/conversation';
-import { validateDirectory, type IlhaId, type UserId } from '../../domain/identity';
-import type { TenantId } from '../../domain/tenant';
+import { CAPABILITIES, type Capability } from '@viavoip/internal-domain';
+import type { ConversationId } from '@viavoip/internal-domain';
+import { validateDirectory, type IlhaId, type UserId } from '@viavoip/internal-domain';
+import type { TenantId } from '@viavoip/internal-domain';
 import { MockServer, type Delivery, type Outcome, type Session } from './MockServer';
 import { BV_TENANT_ID, createSeedState, ICS_TENANT_ID } from './seed';
 

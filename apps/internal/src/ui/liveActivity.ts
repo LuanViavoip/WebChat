@@ -1,4 +1,4 @@
-import type { MessageStatus } from '../domain/message';
+import type { MessageStatus } from '@viavoip/internal-domain';
 import type { TransportStatus } from '../transport/ChatTransport';
 
 export type LiveActivity =

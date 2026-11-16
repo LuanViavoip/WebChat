@@ -1,7 +1,7 @@
 import { Mic, Paperclip, SendHorizontal, Smile } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { insertAtCursor } from '../chat/textCursor';
-import { ACCEPT_ATTRIBUTE } from '../domain/attachment';
+import { ACCEPT_ATTRIBUTE } from '@viavoip/internal-domain';
 import { EmojiPicker } from './EmojiPicker';
 
 export function Composer({

@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type SyntheticEvent, type ReactNode, type RefObject } from 'react';
-import { canRegisterAgentIn, validName } from '../../domain/directoryOps';
+import { canRegisterAgentIn, validName } from '@viavoip/internal-domain';
 import { byName, nameProblem } from './helpers';
-import type { Ilha, IlhaId, StaffUser } from '../../domain/identity';
+import type { Ilha, IlhaId, StaffUser } from '@viavoip/internal-domain';
 import type { ConsoleContext } from './types';
 
 /** Campo de texto com rótulo. `autoFocusTarget` marca o campo que recebe o foco ao abrir o formulário. */

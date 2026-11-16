@@ -1,4 +1,4 @@
-import { makeUser, T1, T2 } from '../test/domainFixtures';
+import { makeUser, T1, T2 } from './testing/domainFixtures';
 import {
   CAPABILITIES,
   ROLE_CEILING,

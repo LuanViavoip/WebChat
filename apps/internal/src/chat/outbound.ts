@@ -1,8 +1,8 @@
-import { acceptsCaption, clampCaption, type ValidAttachment } from '../domain/attachment';
-import type { ChatMessage, MessageStatus } from '../domain/message';
-import type { ConversationId } from '../domain/conversation';
-import type { UserId } from '../domain/identity';
-import type { TenantId } from '../domain/tenant';
+import { acceptsCaption, clampCaption, type ValidAttachment } from '@viavoip/internal-domain';
+import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
+import type { ConversationId } from '@viavoip/internal-domain';
+import type { UserId } from '@viavoip/internal-domain';
+import type { TenantId } from '@viavoip/internal-domain';
 import type { OutboundPayload } from '../transport/ChatTransport';
 
 /** Quem e onde: tudo que a mensagem precisa além do conteúdo. */

@@ -1,6 +1,6 @@
-import type { GrantLogEntry } from '../../domain/directoryOps';
-import type { Directory, UserId } from '../../domain/identity';
-import { own } from '../../domain/records';
+import type { GrantLogEntry } from '@viavoip/internal-domain';
+import type { Directory, UserId } from '@viavoip/internal-domain';
+import { own } from '@viavoip/internal-domain';
 import { capabilityLabel } from './capabilityLabels';
 
 function formatWhen(iso: string, timeZone: string): string {

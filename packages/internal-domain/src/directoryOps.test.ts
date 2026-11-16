@@ -1,4 +1,4 @@
-import { iid, makeIlha, makeUser, seedDirectory, T1, uid, user } from '../test/domainFixtures';
+import { iid, makeIlha, makeUser, seedDirectory, T1, uid, user } from './testing/domainFixtures';
 import { GRANT_DENIAL_TEXT, canGrantIn, canRevokeIn, type Capability } from './capabilities';
 import {
   DENIAL_TEXT,

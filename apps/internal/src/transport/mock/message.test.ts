@@ -1,6 +1,6 @@
-import { ICS_TENANT_ID, ICS_USERS } from '../transport/mock/seed';
-import { asConversationId } from './conversation';
-import { previewOf, type ChatMessage, type TextMessage } from './message';
+import { ICS_TENANT_ID, ICS_USERS } from './seed';
+import { asConversationId } from '@viavoip/internal-domain';
+import { previewOf, type ChatMessage, type TextMessage } from '@viavoip/internal-domain';
 
 const base = {
   id: '1',

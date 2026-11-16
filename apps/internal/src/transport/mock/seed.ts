@@ -1,8 +1,8 @@
-import { ROLE_DEFAULT } from '../../domain/capabilities';
-import { directConversation, directConversationId, type ConversationId } from '../../domain/conversation';
-import type { Agent, Directory, Ilha, IlhaId, StaffUser, Supervisor, UserId } from '../../domain/identity';
-import type { ChatMessage, TextMessage } from '../../domain/message';
-import type { Tenant, TenantId } from '../../domain/tenant';
+import { ROLE_DEFAULT } from '@viavoip/internal-domain';
+import { directConversation, directConversationId, type ConversationId } from '@viavoip/internal-domain';
+import type { Agent, Directory, Ilha, IlhaId, StaffUser, Supervisor, UserId } from '@viavoip/internal-domain';
+import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
+import type { Tenant, TenantId } from '@viavoip/internal-domain';
 import type { ConnectRequest } from '../ChatTransport';
 import type { ServerState, TenantState } from './state';
 

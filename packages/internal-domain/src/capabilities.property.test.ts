@@ -1,5 +1,5 @@
 import fc from 'fast-check';
-import { iid, makeDirectory, makeUser, seedDirectory, T1, T2, uid } from '../test/domainFixtures';
+import { iid, makeDirectory, makeUser, seedDirectory, T1, T2, uid } from './testing/domainFixtures';
 import {
   CAPABILITIES,
   ROLE_CEILING,

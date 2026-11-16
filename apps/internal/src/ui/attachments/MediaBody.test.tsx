@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '../../domain/message';
+import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '@viavoip/internal-domain';
 import { MediaBody } from './MediaBody';
 import { ICS_TENANT_ID, ICS_USERS } from '../../transport/mock/seed';
-import { asConversationId } from '../../domain/conversation';
+import { asConversationId } from '@viavoip/internal-domain';
 
 const base = {
   id: 'm1',

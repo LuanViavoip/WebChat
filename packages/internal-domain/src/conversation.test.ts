@@ -1,4 +1,4 @@
-import { makeUser, seedDirectory, T1, T2, user } from '../test/domainFixtures';
+import { makeUser, seedDirectory, T1, T2, user } from './testing/domainFixtures';
 import {
   asConversationId,
   conversationTier,

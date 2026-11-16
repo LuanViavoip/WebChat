@@ -1,7 +1,7 @@
-import type { Conversation, ConversationId, ConversationSummary } from '../domain/conversation';
-import type { Directory, StaffRole, StaffUser } from '../domain/identity';
-import { can } from '../domain/permissions';
-import { own } from '../domain/records';
+import type { Conversation, ConversationId, ConversationSummary } from '@viavoip/internal-domain';
+import type { Directory, StaffRole, StaffUser } from '@viavoip/internal-domain';
+import { can } from '@viavoip/internal-domain';
+import { own } from '@viavoip/internal-domain';
 import { liveActivity, type LiveActivity } from './liveActivity';
 
 /** Texto do role na UI. */
