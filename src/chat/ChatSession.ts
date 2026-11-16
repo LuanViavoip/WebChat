@@ -635,11 +635,16 @@ export class ChatSession {
         break;
       }
       case 'grants': {
-        const me = this.me;
-        if (!me || event.userId !== me.id) {
+        const directory = this.directory;
+        const target = directory?.users[event.userId];
+        if (!directory || !target) {
           return;
         }
-        this.me = { ...me, grants: new Set(event.grants) };
+        const updated = { ...target, grants: new Set(event.grants) };
+        this.directory = { ...directory, users: { ...directory.users, [event.userId]: updated } };
+        if (this.me?.id === event.userId) {
+          this.me = updated;
+        }
         break;
       }
       default: {

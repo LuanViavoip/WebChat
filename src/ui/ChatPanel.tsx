@@ -77,7 +77,8 @@ export function ChatPanel({
   const selectedThread = selectedId ? full.conversations[selectedId] : undefined;
   const messages = state.messages;
   const typing = state.typing;
-  const disabled = state.connection !== 'connected' || selectedId === null;
+  const canSend = Boolean(me && directory && selectedThread && can(me, { type: 'conversation.send', conversation: selectedThread.conversation }, directory).ok);
+  const disabled = state.connection !== 'connected' || !canSend;
   const draft = selectedId ? (drafts[selectedId] ?? '') : '';
   const showBack = isMobile && mobilePane === 'chat';
   const hadConnected = useRef(false);
