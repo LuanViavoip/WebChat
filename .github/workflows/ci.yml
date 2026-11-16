@@ -71,6 +71,5 @@ jobs:
         if: always()
         with:
           name: internal-e2e
-          path: |
-            apps/internal/playwright-report/
-            apps/internal/test-results/
+          path: apps/internal/test-results/
+          if-no-files-found: ignore
