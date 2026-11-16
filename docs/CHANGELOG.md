@@ -2,7 +2,7 @@
 
 ## 2026-11-16 — main em d94be4a e decisão de fusão
 
-- PR #5 (`3a01f3d`): cabeçalho da migration 009 corrigido; só o comentário mudou.
+- PR #5 (`3a01f3d`): cabeçalho da migration 009 corrigido; só o comentário do SQL mudou.
 - PR #6 (`3fd580b`): `uuid.ts` no widget e no console (UUID com `getRandomValues`), nome do visitante pedido antes da fila, `require_visitor_name = true` em `site_a` e `site_b` no seed e `docker-compose.hml.yml`.
 - `docs/decisions.md`: nova seção "Fusão com o chat interno (sm-webchat)" com as decisões D1 a D10 de 16/11/2026, e linha de revisão em "Chat interno separado do atendimento". São decisões, não código implementado.
 - `docs/deployment/environments.md`: seção do compose de homologação.

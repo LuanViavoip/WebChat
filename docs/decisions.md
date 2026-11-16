@@ -72,6 +72,6 @@ Decisões fixadas pelo Luan em 16/11/2026:
 - D9: os anúncios existentes são migrados (`tenant → all`, `sectors → groups`).
 - D10: um admin por empresa; o seed ganha um admin no tenant B, e a migration que impõe isso aborta se encontrar dois.
 
-(D7 foi retirada: o hml já tem HTTPS.)
+(D7 foi retirada pelo Luan em 16/11/2026.)
 
 Consequência declarada: a regra "agente com agente fica de fora" deixa de valer quando o namespace `/internal` entrar (fase F6). Estas são decisões, não estado do código: até lá, nada muda no código.
