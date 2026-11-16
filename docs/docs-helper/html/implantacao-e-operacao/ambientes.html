@@ -11,6 +11,9 @@
 <h2 id="desenvolvimento-%2F-demonstra%C3%A7%C3%A3o-%E2%80%94-verific%C3%A1vel" tabindex="-1">Desenvolvimento / demonstração — verificável</h2>
 <p><code>docker-compose.yml</code> define quatro serviços: <code>postgres</code> (16-alpine, porta do host 5434), <code>redis</code> (7-alpine, 6379), <code>server</code> (porta 3000, healthcheck em <code>/health</code>) e <code>demo</code> (nginx, 8090, serve <code>infra/demo</code>). Diagrama: infrastructure.</p>
 <p><code>Dockerfile</code>: <code>node:22-bookworm-slim</code>, <code>corepack</code> com pnpm 12.15.0, <code>pnpm install --frozen-lockfile</code>, <code>pnpm build</code>, <code>NODE_ENV=production</code>, porta 3000, <code>CMD pnpm --filter @viavoip/server start</code>.</p>
+<p><code>Dockerfile</code> e <code>docker-compose.hml.yml</code> aceitam as build args <code>GIT_SHA</code> e <code>BUILT_AT</code> (padrão <code>unknown</code>). O servidor as expõe em <code>GET /version</code>. Para que o SHA fique rastreável, rode o build na máquina que tem o checkout:</p>
+<pre><code class="language-bash">GIT_SHA=$(git rev-parse HEAD) BUILT_AT=$(date -u +%FT%TZ) docker compose -f docker-compose.hml.yml up -d --build
+</code></pre>
 <p>O Compose usa credenciais de banco <strong>de desenvolvimento</strong> e <code>SEED=true</code>. Não as use fora do ambiente local.</p>
 <h2 id="vari%C3%A1veis-de-ambiente-(apenas-nomes-e-padr%C3%B5es)" tabindex="-1">Variáveis de ambiente (apenas nomes e padrões)</h2>
 <table>

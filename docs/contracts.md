@@ -4,6 +4,10 @@ Os schemas vivem em `packages/protocol` e rejeitam campos desconhecidos.
 
 ## HTTP
 
+`GET /version`
+
+Devolve `{ sha, builtAt }`, lidos de `GIT_SHA` e `BUILT_AT` no momento em que o servidor sobe. Sem a variável, o valor é `unknown`. Não exige sessão. O schema não está em `packages/protocol`; a rota vive em `apps/server/src/http/routes.ts`.
+
 `GET /public/widgets/:publicId`
 
 Devolve nome, filas, cor, logotipo, boas-vindas, se o nome é obrigatório e se o atendimento está aberto. Não cria visitante e não devolve token. O `publicId` não é credencial.

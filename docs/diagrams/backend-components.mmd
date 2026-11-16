@@ -1,7 +1,7 @@
 flowchart LR
   subgraph IN["Entrada"]
     direction TB
-    HTTP["http/routes.ts<br/>/health, /public/widgets, /visitor/sessions,<br/>/auth/login, /auth/me, /auth/logout"]
+    HTTP["http/routes.ts<br/>/health, /version, /public/widgets, /visitor/sessions,<br/>/auth/login, /auth/me, /auth/logout"]
     WS["realtime/register.ts + staff-channel.ts<br/>namespaces /visitor, /agent, /supervisor"]
     BIND["realtime/bind.ts<br/>validação Zod + ack após commit"]
     WS --> BIND

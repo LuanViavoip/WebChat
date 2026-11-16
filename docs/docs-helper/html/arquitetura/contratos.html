@@ -9,6 +9,8 @@
 <h1 id="contratos" tabindex="-1">Contratos</h1>
 <p>Os schemas vivem em <code>packages/protocol</code> e rejeitam campos desconhecidos.</p>
 <h2 id="http" tabindex="-1">HTTP</h2>
+<p><code>GET /version</code></p>
+<p>Devolve <code>{ sha, builtAt }</code>, lidos de <code>GIT_SHA</code> e <code>BUILT_AT</code> no momento em que o servidor sobe. Sem a variável, o valor é <code>unknown</code>. Não exige sessão. O schema não está em <code>packages/protocol</code>; a rota vive em <code>apps/server/src/http/routes.ts</code>.</p>
 <p><code>GET /public/widgets/:publicId</code></p>
 <p>Devolve nome, filas, cor, logotipo, boas-vindas, se o nome é obrigatório e se o atendimento está aberto. Não cria visitante e não devolve token. O <code>publicId</code> não é credencial.</p>
 <p><code>POST /visitor/sessions</code></p>

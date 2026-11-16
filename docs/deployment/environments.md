@@ -8,6 +8,12 @@ Somente o que é verificável no repositório (`Dockerfile`, `docker-compose.yml
 
 `Dockerfile`: `node:22-bookworm-slim`, `corepack` com pnpm 12.15.0, `pnpm install --frozen-lockfile`, `pnpm build`, `NODE_ENV=production`, porta 3000, `CMD pnpm --filter @viavoip/server start`.
 
+`Dockerfile` e `docker-compose.hml.yml` aceitam as build args `GIT_SHA` e `BUILT_AT` (padrão `unknown`). O servidor as expõe em `GET /version`. Para que o SHA fique rastreável, rode o build na máquina que tem o checkout:
+
+```bash
+GIT_SHA=$(git rev-parse HEAD) BUILT_AT=$(date -u +%FT%TZ) docker compose -f docker-compose.hml.yml up -d --build
+```
+
 O Compose usa credenciais de banco **de desenvolvimento** e `SEED=true`. Não as use fora do ambiente local.
 
 ## Variáveis de ambiente (apenas nomes e padrões)
