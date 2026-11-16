@@ -82,21 +82,3 @@ export function liveActivityAnnouncement(activity: LiveActivity, viewingLive: bo
     }
   }
 }
-
-export function pinsLiveConversation(activity: LiveActivity): boolean {
-  switch (activity) {
-    case 'error':
-    case 'unseen':
-      return true;
-    case 'idle':
-    case 'sending':
-    case 'typing':
-    case 'connecting':
-    case 'reconnecting':
-      return false;
-    default: {
-      const exhaustive: never = activity;
-      return exhaustive;
-    }
-  }
-}

@@ -1,22 +1,34 @@
 import { acceptsCaption, clampCaption, type ValidAttachment } from '../domain/attachment';
-import type { ChatMessage, MessageAuthor, MessageStatus } from '../domain/message';
+import type { ChatMessage, MessageStatus } from '../domain/message';
+import type { ConversationId } from '../domain/conversation';
+import type { UserId } from '../domain/identity';
+import type { TenantId } from '../domain/tenant';
 import type { OutboundPayload } from '../transport/ChatTransport';
 
-const CLIENT_AUTHOR: MessageAuthor = { id: 'client', name: 'Você' };
+/** Quem e onde: tudo que a mensagem precisa além do conteúdo. */
+export type MessageOrigin = {
+  /** No cliente, o próprio `clientId`; no servidor, o id definitivo. */
+  id: string;
+  clientId: string;
+  tenantId: TenantId;
+  conversationId: ConversationId;
+  authorId: UserId;
+  authorName: string;
+};
 
 export function messageFromPayload(
-  clientId: string,
-  conversationId: string,
+  origin: MessageOrigin,
   payload: OutboundPayload,
   timestamp: string,
   status: MessageStatus,
 ): ChatMessage {
   const base = {
-    id: clientId,
-    conversationId,
-    clientId,
-    direction: 'client' as const,
-    author: CLIENT_AUTHOR,
+    id: origin.id,
+    tenantId: origin.tenantId,
+    conversationId: origin.conversationId,
+    clientId: origin.clientId,
+    authorId: origin.authorId,
+    author: { id: origin.authorId, name: origin.authorName },
     timestamp,
     status,
   };

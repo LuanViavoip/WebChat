@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { enterAs, USERS } from './project';
 test('Tab até a busca mostra outline visível no contêiner', async ({ page }) => {
-  await page.goto('/');
+  await enterAs(page, USERS.carla, { reset: true });
   const search = page.getByRole('searchbox', { name: 'Pesquisar conversa' });
   await search.waitFor();
 

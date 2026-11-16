@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 import { contrastRatioFromCss } from '../src/styles/contrast';
+import { chatFileInput, enterAs, openConversation, USERS } from './project';
 
 async function paintedColors(locator: Locator): Promise<{ color: string; background: string }> {
   return locator.evaluate((node) => {
@@ -18,20 +19,46 @@ test.describe('contraste computado', () => {
   test('texto, badges, erro real, foco e ativo passam no WCAG', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== '1920', 'cenário de contraste em 1920');
 
-    await page.goto('/?falha=conectar');
+    await enterAs(page, USERS.carla, { reset: true, query: 'falha=conectar' });
+    const connectAlert = page.getByRole('alert');
+    await expect(connectAlert).toBeVisible();
+    await expect(connectAlert.locator('p')).toHaveText(/conectar/i);
+    const connectText = await paintedColors(connectAlert.locator('p'));
+    expect(contrastRatioFromCss(connectText.color, connectText.background)).toBeGreaterThanOrEqual(4.5);
+
+    await enterAs(page, USERS.carla, { reset: true, query: 'falha=upload' });
+    await openConversation(page, /Bruno Costa/);
+    await chatFileInput(page).setInputFiles({
+      name: 'exame.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    });
+    await page.getByRole('button', { name: 'Enviar' }).click();
     const alert = page.getByRole('alert');
     await expect(alert).toBeVisible();
-    await expect(alert.locator('p')).toHaveText(/conectar/i);
+    await expect(alert).toHaveText(/Falha ao enviar exame.png/);
 
-    const active = page.getByRole('button', { name: /Conversa de teste/ });
+    const active = page.getByRole('button', { name: /Bruno Costa/ });
     await expect(active).toHaveClass(/is-active/);
     const activeTitle = await paintedColors(active.locator('.conversation-title'));
     expect(contrastRatioFromCss(activeTitle.color, activeTitle.background)).toBeGreaterThanOrEqual(4.5);
 
+    const sectionTitle = await paintedColors(page.locator('.conversation-section-title').first());
+    expect(contrastRatioFromCss(sectionTitle.color, sectionTitle.background)).toBeGreaterThanOrEqual(4.5);
+
+    const unread = await paintedColors(page.locator('.unread-badge').first());
+    expect(contrastRatioFromCss(unread.color, unread.background)).toBeGreaterThanOrEqual(4.5);
+
+    const identity = await paintedColors(page.locator('.sidebar-identity-role'));
+    expect(contrastRatioFromCss(identity.color, identity.background)).toBeGreaterThanOrEqual(4.5);
+
     const errorBadge = await paintedColors(page.locator('.live-activity-badge.is-error'));
     expect(contrastRatioFromCss(errorBadge.color, errorBadge.background)).toBeGreaterThanOrEqual(4.5);
 
-    const errorText = await paintedColors(alert.locator('p'));
+    const errorText = await paintedColors(alert);
     expect(contrastRatioFromCss(errorText.color, errorText.background)).toBeGreaterThanOrEqual(4.5);
 
     await page.getByRole('searchbox', { name: 'Pesquisar conversa' }).focus();
@@ -62,8 +89,8 @@ test.describe('contraste computado', () => {
     expect(Number.parseFloat(focusColors.outlineWidth)).toBeGreaterThan(0);
     expect(contrastRatioFromCss(focusColors.outlineColor, focusColors.background)).toBeGreaterThanOrEqual(3);
 
-    await page.goto('/');
-    await expect(page.getByLabel('Mensagem')).toBeEnabled();
+    await enterAs(page, USERS.carla, { reset: true });
+    await openConversation(page, /Bruno Costa/);
     await page.locator('.wa-chat input[type="file"]').setInputFiles({
       name: 'guia.pdf',
       mimeType: 'application/pdf',

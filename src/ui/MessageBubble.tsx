@@ -7,6 +7,7 @@ import { StatusTicks } from './StatusTicks';
 
 export function MessageBubble({
   message,
+  outgoing,
   onRetry,
   showTail,
   upload,
@@ -14,18 +15,18 @@ export function MessageBubble({
   onCancelUpload,
 }: {
   message: ChatMessage;
+  outgoing: boolean;
   onRetry?: (messageId: string) => void;
   showTail: boolean;
   upload?: UploadView;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   onCancelUpload?: (id: string) => void;
 }) {
-  const outgoing = message.direction === 'client';
   const body = renderBody(message, { upload, onOpenImage, onCancelUpload, onRetry });
   const showGenericRetry = outgoing && message.status === 'error' && onRetry && !upload;
   return (
     <article
-      className={`bubble bubble-${message.direction} ${outgoing ? 'outgoing' : 'incoming'}${showTail ? ' has-tail' : ''}`}
+      className={`bubble ${outgoing ? 'outgoing' : 'incoming'}${showTail ? ' has-tail' : ''}`}
       aria-label={`${message.author.name}: ${previewOf(message)}`}
     >
       <div className="bubble-body">{body}</div>

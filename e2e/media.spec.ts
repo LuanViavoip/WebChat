@@ -28,7 +28,7 @@ test.describe('mídia', () => {
     await page.getByRole('button', { name: 'Enviar' }).click();
     await expect(page.getByRole('img', { name: 'minha foto' })).toBeVisible();
     await expect(page.locator('.message-list').getByText('minha foto')).toBeVisible();
-    await expect(page.getByLabel('Lida')).toBeVisible();
+    await expect(page.getByLabel('Enviada').last()).toBeVisible();
     await noHorizontalScroll(page);
   });
 
@@ -108,7 +108,7 @@ test.describe('mídia', () => {
     await page.getByRole('button', { name: 'Enviar' }).click();
     await expect(page.getByRole('alert')).toHaveText(/Falha ao enviar exame.png\./);
     await page.getByRole('button', { name: 'Tentar enviar exame.png de novo' }).click();
-    await expect(page.getByLabel('Lida')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel('Enviada').last()).toBeVisible({ timeout: 15_000 });
   });
 
   test('cancelar upload lento remove a bolha', async ({ page }, testInfo) => {
@@ -129,7 +129,7 @@ test.describe('mídia', () => {
     await page.getByRole('button', { name: 'Cancelar envio de exame.png' }).click();
     await expect(page.getByRole('progressbar')).toHaveCount(0);
     await expect(page.getByLabel(/Você: Foto/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Conversa de teste/ })).not.toHaveText(/Enviando/);
+    await expect(page.getByRole('button', { name: /Bruno Costa/ })).not.toHaveText(/Enviando/);
   });
 
   test('a imagem do preview carrega de fato, não só aparece', async ({ page }, testInfo) => {

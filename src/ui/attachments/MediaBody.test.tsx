@@ -2,11 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '../../domain/message';
 import { MediaBody } from './MediaBody';
+import { ICS_TENANT_ID, ICS_USERS } from '../../transport/mock/seed';
+import { asConversationId } from '../../domain/conversation';
 
 const base = {
   id: 'm1',
-  conversationId: 'c',
-  direction: 'client' as const,
+  tenantId: ICS_TENANT_ID,
+  conversationId: asConversationId('c'),
+  authorId: ICS_USERS.carla,
   author: { id: 'client', name: 'Você' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'sent' as const,

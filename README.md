@@ -2,6 +2,8 @@
 
 Chat interno da **ViaVoip** (Etapa 3): o app deixa de ser o canal do paciente e passa a ser um shell de conversa no estilo WhatsApp Web. Backend do SM ainda não está acessível; o fluxo ao vivo roda com `MockTransport`. Sem bot, widget, transcrições de demonstração ou encerramento de atendimento.
 
+**Limite de segurança do mock:** a escolha de identidade, o servidor simulado e o estado persistido em `localStorage` ficam no navegador e podem ser alterados por quem controla esse ambiente. As verificações de permissões e tenant simulam o contrato, mas não autenticam usuários nem protegem dados contra adulteração do próprio navegador. Use somente dados fictícios. Uma integração real precisa autenticar a sessão e aplicar autorização, isolamento e persistência confiável no servidor.
+
 ## Como rodar
 
 ```bash

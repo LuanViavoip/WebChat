@@ -1,9 +1,12 @@
+import { ICS_TENANT_ID, ICS_USERS } from '../transport/mock/seed';
+import { asConversationId } from './conversation';
 import { previewOf, type ChatMessage, type TextMessage } from './message';
 
 const base = {
   id: '1',
-  conversationId: 'c',
-  direction: 'agent' as const,
+  tenantId: ICS_TENANT_ID,
+  conversationId: asConversationId('c'),
+  authorId: ICS_USERS.bruno,
   author: { id: 'a', name: 'Colega' },
   timestamp: '2026-11-10T12:00:00.000Z',
   status: 'delivered' as const,

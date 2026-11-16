@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { enterAs, USERS } from './project';
 
 const GRAY = 'rgb(209, 215, 219)';
 
@@ -10,7 +11,7 @@ test.describe('tela cheia no modo página', () => {
       return;
     }
 
-    await page.goto('/');
+    await enterAs(page, USERS.carla, { reset: true });
     const shell = page.locator('.wa-shell');
     await expect(shell).toBeVisible();
 
@@ -46,7 +47,7 @@ test.describe('tela cheia no modo página', () => {
 
     for (const width of [900, 1024, 3840]) {
       await page.setViewportSize({ width, height: 1080 });
-      await page.goto('/');
+      await enterAs(page, USERS.carla, { reset: true });
       const shell = page.locator('.wa-shell');
       await expect(shell).toBeVisible();
       const box = await shell.boundingBox();
@@ -66,5 +67,24 @@ test.describe('tela cheia no modo página', () => {
       expect(pageBg, `${String(width)}px fundo`).not.toBe(GRAY);
     }
   });
-});
 
+  test('Entrar como também ocupa a tela inteira, sem faixa cinza nem scroll horizontal', async ({ page }) => {
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+    if (!viewport) {
+      return;
+    }
+    await page.goto('/?reset=1');
+    const screen = page.locator('.login-screen');
+    await expect(screen).toBeVisible();
+    const box = await screen.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) {
+      return;
+    }
+    expect(Math.abs(box.width - viewport.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - viewport.height)).toBeLessThanOrEqual(1);
+    const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflowX).toBeLessThanOrEqual(1);
+  });
+});
