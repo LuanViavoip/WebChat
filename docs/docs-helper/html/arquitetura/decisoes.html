@@ -31,7 +31,7 @@
 <h2 id="p%C3%A1gina-demo-em-outra-origem" tabindex="-1">Página demo em outra origem</h2>
 <p>O site de exemplo sobe na porta 8090 e o webchat na 3000. Isso exercita iframe, <code>postMessage</code> e a allowlist do site sem cookie de terceiros.</p>
 <h2 id="fus%C3%A3o-com-o-chat-interno-(sm-webchat)" tabindex="-1">Fusão com o chat interno (sm-webchat)</h2>
-<p>Decisão: o monorepo WebChat é a base. Ele tem Postgres com RLS, sessão opaca com revogação, Socket.IO com Redis, idempotência, auditoria e o canal do cliente. O chat interno do repositório externo <code>Luanzzzz/sm-webchat</code> (React, interface estilo WhatsApp Web, mock em <code>localStorage</code>) entra no monorepo, e não o contrário. O plano detalhado por fases ainda não está neste repositório.</p>
+<p>Decisão: o monorepo WebChat é a base. Ele tem Postgres com RLS, sessão opaca com revogação, Socket.IO com Redis, idempotência, auditoria e o canal do cliente. O chat interno do repositório externo <code>Luanzzzz/sm-webchat</code> (React, interface estilo WhatsApp Web, mock em <code>localStorage</code>) entra no monorepo, e não o contrário.</p>
 <p>Como entra:</p>
 <ul>
 <li>app novo <code>apps/internal</code>, servido em <code>/chat/</code>;</li>
@@ -40,6 +40,7 @@
 </ul>
 <p>O console continua sendo a central de atendimento, supervisão e administração da empresa.</p>
 <p>Haverá dois acessos: o cliente pelo site (<code>widget.js</code> → <code>/visitor</code>, atendido no console; bot futuro só aqui) e o chat interno das empresas (<code>/chat/</code> → <code>/internal</code>). Dados, auth, rotas e eventos ficam isolados, como em &quot;Chat interno separado do atendimento&quot;.</p>
+<p>O plano por fases está em plano de fusão.</p>
 <p>Decisões fixadas pelo Luan em 16/11/2026:</p>
 <ul>
 <li>D1: ilha = setor, N:N; o supervisor gerencia o agente se supervisiona alguma ilha dele.</li>
@@ -51,8 +52,9 @@
 <li>D8: os grupos automáticos por setor continuam.</li>
 <li>D9: os anúncios existentes são migrados (<code>tenant → all</code>, <code>sectors → groups</code>).</li>
 <li>D10: um admin por empresa; o seed ganha um admin no tenant B, e a migration que impõe isso aborta se encontrar dois.</li>
+<li>D11: <code>/sm-webchat/</code>, publicado no hml, redireciona para <code>/chat/</code> na F7, e a publicação estática antiga sai.</li>
 </ul>
-<p>(D7 foi retirada pelo Luan em 16/11/2026.)</p>
+<p>A D7 foi retirada porque o hml já roda em HTTPS (conferido na VPS; não verificável pelo repo), então as notificações do navegador funcionam lá. A numeração foi preservada.</p>
 <p>Consequência declarada: a regra &quot;agente com agente fica de fora&quot; deixa de valer quando o namespace <code>/internal</code> entrar (fase F6). Estas são decisões, não estado do código: até lá, nada muda no código.</p>
 </article>
 </body>

@@ -7,13 +7,10 @@
 <body>
 <article>
 <h1 id="ambientes" tabindex="-1">Ambientes</h1>
-<p>Somente o que é verificável no repositório (<code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>.env.example</code>, <code>apps/server/src/config.ts</code>).</p>
+<p>Somente o que é verificável no repositório (<code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>docker-compose.hml.yml</code>, <code>.env.example</code>, <code>apps/server/src/config.ts</code>).</p>
 <h2 id="desenvolvimento-%2F-demonstra%C3%A7%C3%A3o-%E2%80%94-verific%C3%A1vel" tabindex="-1">Desenvolvimento / demonstração — verificável</h2>
 <p><code>docker-compose.yml</code> define quatro serviços: <code>postgres</code> (16-alpine, porta do host 5434), <code>redis</code> (7-alpine, 6379), <code>server</code> (porta 3000, healthcheck em <code>/health</code>) e <code>demo</code> (nginx, 8090, serve <code>infra/demo</code>). Diagrama: infrastructure.</p>
 <p><code>Dockerfile</code>: <code>node:22-bookworm-slim</code>, <code>corepack</code> com pnpm 12.15.0, <code>pnpm install --frozen-lockfile</code>, <code>pnpm build</code>, <code>NODE_ENV=production</code>, porta 3000, <code>CMD pnpm --filter @viavoip/server start</code>.</p>
-<p><code>Dockerfile</code> e <code>docker-compose.hml.yml</code> aceitam as build args <code>GIT_SHA</code> e <code>BUILT_AT</code> (padrão <code>unknown</code>). O servidor as expõe em <code>GET /version</code>. Para que o SHA fique rastreável, rode o build na máquina que tem o checkout:</p>
-<pre><code class="language-bash">GIT_SHA=$(git rev-parse HEAD) BUILT_AT=$(date -u +%FT%TZ) docker compose -f docker-compose.hml.yml up -d --build
-</code></pre>
 <p>O Compose usa credenciais de banco <strong>de desenvolvimento</strong> e <code>SEED=true</code>. Não as use fora do ambiente local.</p>
 <h2 id="vari%C3%A1veis-de-ambiente-(apenas-nomes-e-padr%C3%B5es)" tabindex="-1">Variáveis de ambiente (apenas nomes e padrões)</h2>
 <table>
@@ -111,6 +108,23 @@
 <p>O workflow <code>.github/workflows/ci.yml</code> roda em todo pull request e em todo push na <code>main</code>. Ele não implanta nada. Um push novo no mesmo pull request cancela a execução anterior.</p>
 <p>O job <code>verify</code> usa <code>ubuntu-latest</code>, Node 22 e o pnpm da chave <code>packageManager</code> do <code>package.json</code> raiz. Os passos são, nesta ordem: <code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>docker pull</code> de <code>postgres:16-alpine</code> e <code>redis:7-alpine</code>, e <code>pnpm test</code>.</p>
 <p>O workflow não declara <code>services:</code> nem variáveis de ambiente. A suíte do servidor sobe o PostgreSQL e o Redis por Testcontainers. Não há lint no repositório.</p>
+<h2 id="homologa%C3%A7%C3%A3o-(docker-compose.hml.yml)%3A-parcialmente-verific%C3%A1vel" tabindex="-1">Homologação (docker-compose.hml.yml): parcialmente verificável</h2>
+<p>O arquivo <code>docker-compose.hml.yml</code> (nome do projeto <code>viavoip-webchat</code>) define três serviços:</p>
+<ul>
+<li><code>postgres</code>: <code>postgres:16-alpine</code>, volume <code>pgdata</code>, sem porta publicada e com healthcheck <code>pg_isready</code>;</li>
+<li><code>redis</code>: <code>redis:7-alpine</code>, com healthcheck <code>redis-cli ping</code>;</li>
+<li><code>server</code>: build local (<code>build</code> com <code>context: .</code> e <code>args</code> <code>GIT_SHA</code> e <code>BUILT_AT</code>, ambos com padrão <code>unknown</code>), porta <code>3010:3000</code>, <code>env_file: .env.hml</code>, espera <code>postgres</code> e <code>redis</code> saudáveis e tem healthcheck em <code>/health</code>.</li>
+</ul>
+<p>O <code>Dockerfile</code> e o compose aceitam as build args <code>GIT_SHA</code> e <code>BUILT_AT</code> (padrão <code>unknown</code>). O servidor as expõe em <code>GET /version</code>. Para que o SHA fique rastreável, rode o build numa máquina que tenha o checkout git:</p>
+<pre><code class="language-bash">GIT_SHA=$(git rev-parse HEAD) BUILT_AT=$(date -u +%FT%TZ) docker compose -f docker-compose.hml.yml up -d --build
+</code></pre>
+<p>O <code>.env.hml</code> não está no repositório: o <code>.gitignore</code> ignora <code>.env.*</code> (só <code>.env.example</code> é versionado). O arquivo não define <code>container_name</code>, então o nome padrão do Compose v2 seria <code>viavoip-webchat-server-1</code>.</p>
+<p>O que roda de fato no hml (nome do container, proxy TLS, SHA implantado) <strong>não é verificável pelo repositório</strong>.</p>
+<p>Aviso sobre a VPS (informação do Luan, conferida na VPS; <strong>não verificável pelo repositório</strong>):</p>
+<ul>
+<li>Na VPS, <code>~/webchat</code> não é um checkout git. O <code>git rev-parse HEAD</code> não funciona lá, então o <code>GIT_SHA</code> precisa ser passado explicitamente no build.</li>
+<li>Não rode este compose na VPS antes de alinhar o nome do container atual (<code>viavoip-webchat-server</code>). Como o arquivo não define <code>container_name</code>, o Compose criaria <code>viavoip-webchat-server-1</code> e subiria um segundo container na porta 3010.</li>
+</ul>
 <h2 id="produ%C3%A7%C3%A3o-%E2%80%94-n%C3%A3o-verific%C3%A1vel" tabindex="-1">Produção — NÃO verificável</h2>
 <p>O repositório não contém Terraform, Kubernetes, pipeline de implantação (CD) nem manifests de implantação, e nenhum ambiente de produção do Webchat foi inspecionado. Qualquer topologia de produção é <strong>proposta futura</strong>. Antes de produção, configure o mesmo <code>LOGIN_RATE_LIMIT_SECRET</code> em todas as réplicas; o limite de login usa PostgreSQL compartilhado. Logout distribuído e salas multi-instância dependem de Redis adapter. A revogação de sessão usa disconnect direto, <code>NOTIFY</code> e varredura em lote; esses caminhos não se desligam por variável de ambiente. <code>SESSION_CREATE_LIMIT</code> e <code>MESSAGE_LIMIT</code> ainda são locais por processo. Também faltam decisões de TLS/CORS, política de backup/retenção e observabilidade.</p>
 <section id="diagramas-referenciados"><h2>Diagramas referenciados</h2>
