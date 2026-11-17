@@ -39,11 +39,12 @@ export type TenantState = {
 export type ServerState = Map<TenantId, TenantState>;
 
 /**
- * v4: o tenant ganha `sessionEpochs`. A v3 (grantLog, sem épocas) e a v2 (Etapa 4, sem grantLog)
- * ainda carregam: época 0 para todos e, na v2, log vazio.
+ * v5: ilha N:N (`Agent.ilhaIds`, `Ilha.supervisorIds`, `GroupConversation.origin`). As v4/v3/v2 (1:1: `ilhaId`,
+ * `supervisorId`) ainda carregam e são MIGRADAS (um vínculo vira lista de um; grupo antigo vira `custom`).
+ * v4: o tenant ganha `sessionEpochs`; a v3 (sem épocas) e a v2 (sem grantLog) carregam com época 0 e, na v2, log vazio.
  */
-export const PERSIST_VERSION = 4;
-const OLDER_VERSIONS: readonly unknown[] = [3, 2];
+export const PERSIST_VERSION = 5;
+const OLDER_VERSIONS: readonly unknown[] = [4, 3, 2];
 
 type PersistedUser = Omit<StaffUser, 'grants'> & { grants: string[] };
 type PersistedTenant = Omit<TenantState, 'directory'> & {
@@ -78,7 +79,7 @@ export function fromPersisted(raw: unknown): ServerState | undefined {
   }
   const state: ServerState = new Map();
   for (const item of tenants as unknown[]) {
-    const parsed = parseTenant(item, version === 2);
+    const parsed = parseTenant(item, version === 2, version !== PERSIST_VERSION);
     if (!parsed) {
       return undefined;
     }
@@ -91,7 +92,54 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
+/** 1:1 -> N:N, sem mutar a entrada. Só converte o campo antigo quando o novo está ausente. */
+function upgradeCardinality(raw: Record<string, unknown>): Record<string, unknown> {
+  const dir = raw.directory;
+  const convUsers = (users: unknown): unknown => {
+    if (!isRecord(users)) return users;
+    return Object.fromEntries(
+      Object.entries(users).map(([id, u]) => {
+        if (isRecord(u) && u.role === 'agent' && typeof u.ilhaId === 'string' && !('ilhaIds' in u)) {
+          const { ilhaId, ...rest } = u;
+          return [id, { ...rest, ilhaIds: [ilhaId] }];
+        }
+        return [id, u];
+      }),
+    );
+  };
+  const convIlhas = (ilhas: unknown): unknown => {
+    if (!isRecord(ilhas)) return ilhas;
+    return Object.fromEntries(
+      Object.entries(ilhas).map(([id, i]) => {
+        if (isRecord(i) && typeof i.supervisorId === 'string' && !('supervisorIds' in i)) {
+          const { supervisorId, ...rest } = i;
+          return [id, { ...rest, supervisorIds: [supervisorId] }];
+        }
+        return [id, i];
+      }),
+    );
+  };
+  const convConversations = (conversations: unknown): unknown => {
+    if (!isRecord(conversations)) return conversations;
+    return Object.fromEntries(
+      Object.entries(conversations).map(([id, c]) => {
+        if (isRecord(c) && c.kind === 'group' && !('origin' in c) && typeof c.createdBy === 'string') {
+          const rest = Object.fromEntries(Object.entries(c).filter(([key]) => key !== 'createdBy' && key !== 'ilhaId'));
+          return [id, { ...rest, origin: { kind: 'custom', createdBy: c.createdBy } }];
+        }
+        return [id, c];
+      }),
+    );
+  };
+  return {
+    ...raw,
+    directory: isRecord(dir) ? { ...dir, users: convUsers(dir.users), ilhas: convIlhas(dir.ilhas) } : dir,
+    conversations: convConversations(raw.conversations),
+  };
+}
+
+function parseTenant(input: unknown, legacy: boolean, upgrade: boolean): TenantState | undefined {
+  const raw = upgrade && isRecord(input) ? upgradeCardinality(input) : input;
   if (!isRecord(raw) || !isRecord(raw.tenant) || !isRecord(raw.directory)) {
     return undefined;
   }
@@ -114,6 +162,12 @@ function parseTenant(raw: unknown, legacy: boolean): TenantState | undefined {
     typeof seq !== 'number'
   ) {
     return undefined;
+  }
+  // Forma das ilhas antes de qualquer função do domínio (storage adulterável): `supervisorIds` é lista de strings.
+  for (const ilha of Object.values(directory.ilhas)) {
+    if (!isRecord(ilha) || !Array.isArray(ilha.supervisorIds) || !(ilha.supervisorIds as unknown[]).every(str)) {
+      return undefined;
+    }
   }
   const users: Record<string, StaffUser> = {};
   for (const [id, item] of Object.entries(directory.users)) {
@@ -158,7 +212,13 @@ function coherent(ts: TenantState): boolean {
   const users = ts.directory.users;
   const hasUser = (id: unknown): boolean => str(id) && Object.hasOwn(users, id) && users[id as UserId]?.tenantId === tenantId;
   for (const [key, ilha] of Object.entries(ts.directory.ilhas)) {
-    if (!isRecord(ilha) || ilha.id !== key || ilha.tenantId !== tenantId || !hasUser(ilha.supervisorId)) {
+    if (
+      !isRecord(ilha) ||
+      ilha.id !== key ||
+      ilha.tenantId !== tenantId ||
+      !Array.isArray(ilha.supervisorIds) ||
+      !(ilha.supervisorIds as unknown[]).every(hasUser)
+    ) {
       return false;
     }
   }
@@ -197,6 +257,14 @@ function coherent(ts: TenantState): boolean {
     } else if (conversation.kind === 'group') {
       people = conversation.members;
       if (!Array.isArray(people) || people.length === 0) {
+        return false;
+      }
+      const origin = conversation.origin;
+      const originOk =
+        isRecord(origin) &&
+        ((origin.kind === 'ilha' && str(origin.ilhaId) && Object.hasOwn(ts.directory.ilhas, origin.ilhaId)) ||
+          (origin.kind === 'custom' && hasUser(origin.createdBy)));
+      if (!originOk) {
         return false;
       }
     } else {

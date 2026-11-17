@@ -71,7 +71,8 @@ describe('MockServer: operações administrativas aceitas', () => {
     expect(value.grants).toEqual(new Set(ROLE_DEFAULT.supervisor));
     const directory = server.getState().get(ICS_TENANT_ID)?.directory;
     expect(directory?.users[value.id]).toEqual(value);
-    expect(directory?.ilhas[ICS_ILHAS.exames]?.supervisorId).toBe(value.id);
+    // N:N: o novo supervisor ENTRA na ilha; Rafael continua
+    expect(directory?.ilhas[ICS_ILHAS.exames]?.supervisorIds).toEqual([ICS_USERS.rafael, value.id]);
     expect(recipients(deliveries, 'directory')).toEqual(tenantUsers(server));
     expect(deliveries.every((delivery) => delivery.event.tenantId === ICS_TENANT_ID)).toBe(true);
     expect(logOf(server)).toEqual([]);
@@ -79,22 +80,22 @@ describe('MockServer: operações administrativas aceitas', () => {
 
   it('o evento directory leva o diretório atualizado (usuários e ilhas) do tenant', () => {
     const server = newServer();
-    const { value, deliveries } = ok(server.registerAgent(MARCOS, { name: 'Novo Agente', ilhaId: ICS_ILHAS.sul }));
+    const { value, deliveries } = ok(server.registerAgent(MARCOS, { name: 'Novo Agente', ilhaIds: [ICS_ILHAS.sul]}));
     const event = deliveries.find((delivery) => delivery.to === ICS_USERS.ana)?.event;
     if (event?.type !== 'directory') {
       throw new Error('esperava directory');
     }
     expect(event.directory.tenantId).toBe(ICS_TENANT_ID);
-    expect(event.directory.users[value.id]).toMatchObject({ role: 'agent', ilhaId: ICS_ILHAS.sul });
+    expect(event.directory.users[value.id]).toMatchObject({ role: 'agent', ilhaIds: [ICS_ILHAS.sul] });
     expect(Object.values(event.directory.users).every((user) => user.tenantId === ICS_TENANT_ID)).toBe(true);
   });
 
   it('supervisor cadastra agente numa ilha dele; admin em qualquer ilha', () => {
     const server = newServer();
-    const byCarla = ok(server.registerAgent(CARLA, { name: 'Agente da Carla', ilhaId: ICS_ILHAS.sul })).value;
-    expect(byCarla).toMatchObject({ role: 'agent', ilhaId: ICS_ILHAS.sul, grants: new Set(['chat.use']) });
-    const byMarcos = ok(server.registerAgent(MARCOS, { name: 'Agente de Exames', ilhaId: ICS_ILHAS.exames })).value;
-    expect(byMarcos).toMatchObject({ role: 'agent', ilhaId: ICS_ILHAS.exames });
+    const byCarla = ok(server.registerAgent(CARLA, { name: 'Agente da Carla', ilhaIds: [ICS_ILHAS.sul]})).value;
+    expect(byCarla).toMatchObject({ role: 'agent', ilhaIds: [ICS_ILHAS.sul], grants: new Set(['chat.use']) });
+    const byMarcos = ok(server.registerAgent(MARCOS, { name: 'Agente de Exames', ilhaIds: [ICS_ILHAS.exames]})).value;
+    expect(byMarcos).toMatchObject({ role: 'agent', ilhaIds: [ICS_ILHAS.exames] });
     expect(byCarla.id).not.toBe(byMarcos.id);
   });
 
@@ -114,20 +115,33 @@ describe('MockServer: operações administrativas aceitas', () => {
 
   it('criar, renomear e atribuir supervisor a ilha: só o admin', () => {
     const server = newServer();
-    const created = ok(server.createIlha(MARCOS, { name: ' Noite ', supervisorId: ICS_USERS.rafael })).value;
-    expect(created).toMatchObject({ name: 'Noite', supervisorId: ICS_USERS.rafael, tenantId: ICS_TENANT_ID });
+    const created = ok(server.createIlha(MARCOS, { name: ' Noite ', supervisorIds: [ICS_USERS.rafael]})).value;
+    expect(created).toMatchObject({ name: 'Noite', supervisorIds: [ICS_USERS.rafael], tenantId: ICS_TENANT_ID });
     const renamed = ok(server.renameIlha(MARCOS, { ilhaId: created.id, name: 'Madrugada' }));
     expect(renamed.value.name).toBe('Madrugada');
     expect(recipients(renamed.deliveries, 'directory')).toEqual(tenantUsers(server));
     const assigned = ok(server.assignIlhaSupervisor(MARCOS, { ilhaId: created.id, supervisorId: ICS_USERS.carla }));
-    expect(assigned.value.supervisorId).toBe(ICS_USERS.carla);
-    expect(server.getState().get(ICS_TENANT_ID)?.directory.ilhas[created.id]).toEqual(assigned.value);
+    // N:N: atribuir ACRESCENTA
+    expect(assigned.value.supervisorIds).toEqual([ICS_USERS.rafael, ICS_USERS.carla]);
+    const removed = ok(server.unassignIlhaSupervisor(MARCOS, { ilhaId: created.id, supervisorId: ICS_USERS.rafael }));
+    expect(removed.value.supervisorIds).toEqual([ICS_USERS.carla]);
+    expect(server.getState().get(ICS_TENANT_ID)?.directory.ilhas[created.id]).toEqual(removed.value);
   });
 
-  it('mover agente: o supervisor com origem E destino dele; o admin, qualquer ilha', () => {
+  it('vínculo agente-ilha: o supervisor no agente do escopo e ilha dele; o admin, qualquer ilha; remover tira só um', () => {
     const server = newServer();
-    expect(ok(server.moveAgent(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul })).value).toMatchObject({ ilhaId: ICS_ILHAS.sul });
-    expect(ok(server.moveAgent(MARCOS, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.norte })).value).toMatchObject({ ilhaId: ICS_ILHAS.norte });
+    expect(ok(server.addAgentToIlha(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.plantao })).value).toMatchObject({
+      ilhaIds: [ICS_ILHAS.norte, ICS_ILHAS.sul, ICS_ILHAS.plantao],
+    });
+    expect(ok(server.addAgentToIlha(MARCOS, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.norte })).value).toMatchObject({
+      ilhaIds: [ICS_ILHAS.exames, ICS_ILHAS.norte],
+    });
+    expect(ok(server.removeAgentFromIlha(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.plantao })).value).toMatchObject({
+      ilhaIds: [ICS_ILHAS.norte, ICS_ILHAS.sul],
+    });
+    expect(ok(server.removeAgentFromIlha(MARCOS, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.exames })).value).toMatchObject({
+      ilhaIds: [ICS_ILHAS.norte],
+    });
   });
 
   it('revogar e conceder: grava o grantLog (quem, para quem, o quê, quando) e emite grants + grantLog', () => {
@@ -153,15 +167,22 @@ describe('MockServer: operações administrativas aceitas', () => {
     expect(forCarla).toMatchObject({ type: 'grantLog', entries: [{ actorId: ICS_USERS.carla, targetId: ICS_USERS.ana }] });
   });
 
-  it('mover o agente muda o que o supervisor enxerga e avisa só quem teve o log alterado', () => {
+  it('mudar os vínculos do agente muda o que o supervisor enxerga e avisa só quem teve o log alterado', () => {
     const server = newServer();
     ok(server.setGrant(MARCOS, { userId: ICS_USERS.ana, capability: 'chat.use', granted: false }));
     // Ana está em Norte (Carla): Carla vê a entrada; Rafael não.
     const carlaSees = server.grantLog(CARLA);
     expect(carlaSees.ok && carlaSees.value.length).toBe(1);
-    const moved = ok(server.moveAgent(MARCOS, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.exames }));
-    expect(recipients(moved.deliveries, 'grantLog')).toEqual([ICS_USERS.carla, ICS_USERS.rafael]);
-    const forCarla = moved.deliveries.find((delivery) => delivery.event.type === 'grantLog' && delivery.to === ICS_USERS.carla)?.event;
+    // acrescentar Exames: Rafael passa a ver; Carla segue vendo (mesmo log), então só Rafael é avisado
+    const added = ok(server.addAgentToIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.exames }));
+    expect(recipients(added.deliveries, 'grantLog')).toEqual([ICS_USERS.rafael]);
+    // tirar Norte: Carla ainda tem Sul; ninguém é avisado
+    const keep = ok(server.removeAgentFromIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.norte }));
+    expect(recipients(keep.deliveries, 'grantLog')).toEqual([]);
+    // tirar Sul: Carla perde o agente e recebe o log vazio
+    const gone = ok(server.removeAgentFromIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul }));
+    expect(recipients(gone.deliveries, 'grantLog')).toEqual([ICS_USERS.carla]);
+    const forCarla = gone.deliveries.find((delivery) => delivery.event.type === 'grantLog' && delivery.to === ICS_USERS.carla)?.event;
     expect(forCarla).toMatchObject({ entries: [] });
   });
 
@@ -174,7 +195,7 @@ describe('MockServer: operações administrativas aceitas', () => {
       server.reactivateUser(MARCOS, { userId: ICS_USERS.ana }),
       server.renameIlha(MARCOS, { ilhaId: ICS_ILHAS.norte, name: 'Norte' }),
       server.assignIlhaSupervisor(MARCOS, { ilhaId: ICS_ILHAS.norte, supervisorId: ICS_USERS.carla }),
-      server.moveAgent(MARCOS, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.norte }),
+      server.addAgentToIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.norte }),
     ];
     for (const outcome of outcomes) {
       expect(ok(outcome).deliveries).toEqual([]);
@@ -207,7 +228,7 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
     expectForged(server, () => server.deactivateUser(CARLA, { userId: ICS_USERS.rafael }), 'no-manage-capability');
     expectForged(server, () => server.registerSupervisor(CARLA, { name: 'Outro', ilhaIds: [] }), 'no-manage-capability');
     expectForged(server, () => server.assignIlhaSupervisor(CARLA, { ilhaId: ICS_ILHAS.exames, supervisorId: ICS_USERS.carla }), 'no-manage-capability');
-    expectForged(server, () => server.createIlha(CARLA, { name: 'X', supervisorId: ICS_USERS.carla }));
+    expectForged(server, () => server.createIlha(CARLA, { name: 'X', supervisorIds: [ICS_USERS.carla]}));
     expectForged(server, () => server.renameIlha(CARLA, { ilhaId: ICS_ILHAS.norte, name: 'Outro nome' }));
   });
 
@@ -225,12 +246,12 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
       expectForged(server, () => server.deactivateUser(ANA, { userId: target }));
       expectForged(server, () => server.reactivateUser(ANA, { userId: target }));
     }
-    expectForged(server, () => server.registerAgent(ANA, { name: 'X', ilhaId: ICS_ILHAS.norte }));
+    expectForged(server, () => server.registerAgent(ANA, { name: 'X', ilhaIds: [ICS_ILHAS.norte]}));
     expectForged(server, () => server.registerSupervisor(ANA, { name: 'X', ilhaIds: [] }));
-    expectForged(server, () => server.createIlha(ANA, { name: 'X', supervisorId: ICS_USERS.carla }));
+    expectForged(server, () => server.createIlha(ANA, { name: 'X', supervisorIds: [ICS_USERS.carla]}));
     expectForged(server, () => server.renameIlha(ANA, { ilhaId: ICS_ILHAS.norte, name: 'X' }));
     expectForged(server, () => server.assignIlhaSupervisor(ANA, { ilhaId: ICS_ILHAS.norte, supervisorId: ICS_USERS.rafael }));
-    expectForged(server, () => server.moveAgent(ANA, { userId: ICS_USERS.bruno, ilhaId: ICS_ILHAS.sul }));
+    expectForged(server, () => server.addAgentToIlha(ANA, { userId: ICS_USERS.bruno, ilhaId: ICS_ILHAS.sul }));
     const log = server.grantLog(ANA);
     expect(log.ok).toBe(false);
   });
@@ -252,14 +273,14 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
     expectForged(server, () => server.setGrant(CARLA, { userId: ICS_USERS.elisa, capability: 'chat.use', granted: true }), 'outside-islands');
     expectForged(server, () => server.deactivateUser(CARLA, { userId: ICS_USERS.elisa }), 'outside-islands');
     expectForged(server, () => server.reactivateUser(CARLA, { userId: ICS_USERS.elisa }), 'outside-islands');
-    expectForged(server, () => server.registerAgent(CARLA, { name: 'Intruso', ilhaId: ICS_ILHAS.exames }), 'outside-islands');
+    expectForged(server, () => server.registerAgent(CARLA, { name: 'Intruso', ilhaIds: [ICS_ILHAS.exames]}), 'outside-islands');
     // Origem dela, destino alheio.
-    expectForged(server, () => server.moveAgent(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.exames }), 'outside-islands');
+    expectForged(server, () => server.addAgentToIlha(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.exames }), 'outside-islands');
     // Origem alheia, destino dela.
-    expectForged(server, () => server.moveAgent(CARLA, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.norte }), 'outside-islands');
+    expectForged(server, () => server.addAgentToIlha(CARLA, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.norte }), 'outside-islands');
     // E o inverso para o outro supervisor.
     expectForged(server, () => server.setGrant(RAFAEL, { userId: ICS_USERS.ana, capability: 'chat.use', granted: false }), 'outside-islands');
-    expectForged(server, () => server.moveAgent(RAFAEL, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.norte }), 'outside-islands');
+    expectForged(server, () => server.addAgentToIlha(RAFAEL, { userId: ICS_USERS.elisa, ilhaId: ICS_ILHAS.norte }), 'outside-islands');
   });
 
   it('supervisor nunca concede o que não tem', () => {
@@ -288,17 +309,17 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
       ['revoke admin', () => server.setGrant(MARCOS, { userId: BV_USERS.helena, capability: 'chat.use', granted: false })],
       ['desativar', () => server.deactivateUser(MARCOS, { userId: BV_USERS.paula })],
       ['reativar', () => server.reactivateUser(MARCOS, { userId: BV_USERS.paula })],
-      ['cadastrar agente em ilha alheia', () => server.registerAgent(MARCOS, { name: 'X', ilhaId: BV_ILHAS.atendimento })],
+      ['cadastrar agente em ilha alheia', () => server.registerAgent(MARCOS, { name: 'X', ilhaIds: [BV_ILHAS.atendimento]})],
       ['cadastrar supervisor com ilha alheia', () => server.registerSupervisor(MARCOS, { name: 'X', ilhaIds: [BV_ILHAS.atendimento] })],
-      ['mover agente alheio', () => server.moveAgent(MARCOS, { userId: BV_USERS.paula, ilhaId: ICS_ILHAS.norte })],
-      ['mover para ilha alheia', () => server.moveAgent(MARCOS, { userId: ICS_USERS.ana, ilhaId: BV_ILHAS.atendimento })],
-      ['criar ilha com supervisor alheio', () => server.createIlha(MARCOS, { name: 'X', supervisorId: BV_USERS.otavio })],
+      ['mover agente alheio', () => server.addAgentToIlha(MARCOS, { userId: BV_USERS.paula, ilhaId: ICS_ILHAS.norte })],
+      ['mover para ilha alheia', () => server.addAgentToIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: BV_ILHAS.atendimento })],
+      ['criar ilha com supervisor alheio', () => server.createIlha(MARCOS, { name: 'X', supervisorIds: [BV_USERS.otavio]})],
       ['renomear ilha alheia', () => server.renameIlha(MARCOS, { ilhaId: BV_ILHAS.atendimento, name: 'X' })],
       ['atribuir supervisor alheio', () => server.assignIlhaSupervisor(MARCOS, { ilhaId: ICS_ILHAS.norte, supervisorId: BV_USERS.otavio })],
       ['atribuir a ilha alheia', () => server.assignIlhaSupervisor(MARCOS, { ilhaId: BV_ILHAS.atendimento, supervisorId: ICS_USERS.carla })],
       ['supervisor: grant', () => server.setGrant(CARLA, { userId: BV_USERS.paula, capability: 'chat.use', granted: false })],
-      ['supervisor: cadastrar em ilha alheia', () => server.registerAgent(CARLA, { name: 'X', ilhaId: BV_ILHAS.atendimento })],
-      ['supervisor: mover', () => server.moveAgent(CARLA, { userId: ICS_USERS.ana, ilhaId: BV_ILHAS.atendimento })],
+      ['supervisor: cadastrar em ilha alheia', () => server.registerAgent(CARLA, { name: 'X', ilhaIds: [BV_ILHAS.atendimento]})],
+      ['supervisor: mover', () => server.addAgentToIlha(CARLA, { userId: ICS_USERS.ana, ilhaId: BV_ILHAS.atendimento })],
     ];
     for (const [, run] of cases) {
       const error = expectForged(server, run);
@@ -324,24 +345,24 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
         () => server.reactivateUser(CARLA, { userId: ghost }),
       ],
       [
-        () => server.registerAgent(MARCOS, { name: 'X', ilhaId: BV_ILHAS.atendimento }),
-        () => server.registerAgent(MARCOS, { name: 'X', ilhaId: ghostIlha }),
+        () => server.registerAgent(MARCOS, { name: 'X', ilhaIds: [BV_ILHAS.atendimento]}),
+        () => server.registerAgent(MARCOS, { name: 'X', ilhaIds: [ghostIlha]}),
       ],
       [
         () => server.registerSupervisor(MARCOS, { name: 'X', ilhaIds: [BV_ILHAS.atendimento] }),
         () => server.registerSupervisor(MARCOS, { name: 'X', ilhaIds: [ghostIlha] }),
       ],
       [
-        () => server.moveAgent(MARCOS, { userId: BV_USERS.paula, ilhaId: ICS_ILHAS.sul }),
-        () => server.moveAgent(MARCOS, { userId: ghost, ilhaId: ICS_ILHAS.sul }),
+        () => server.addAgentToIlha(MARCOS, { userId: BV_USERS.paula, ilhaId: ICS_ILHAS.sul }),
+        () => server.addAgentToIlha(MARCOS, { userId: ghost, ilhaId: ICS_ILHAS.sul }),
       ],
       [
-        () => server.moveAgent(MARCOS, { userId: ICS_USERS.ana, ilhaId: BV_ILHAS.atendimento }),
-        () => server.moveAgent(MARCOS, { userId: ICS_USERS.ana, ilhaId: ghostIlha }),
+        () => server.addAgentToIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: BV_ILHAS.atendimento }),
+        () => server.addAgentToIlha(MARCOS, { userId: ICS_USERS.ana, ilhaId: ghostIlha }),
       ],
       [
-        () => server.createIlha(MARCOS, { name: 'X', supervisorId: BV_USERS.otavio }),
-        () => server.createIlha(MARCOS, { name: 'X', supervisorId: ghost }),
+        () => server.createIlha(MARCOS, { name: 'X', supervisorIds: [BV_USERS.otavio]}),
+        () => server.createIlha(MARCOS, { name: 'X', supervisorIds: [ghost]}),
       ],
       [
         () => server.renameIlha(MARCOS, { ilhaId: BV_ILHAS.atendimento, name: 'X' }),
@@ -369,16 +390,16 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
   it('o motivo detalhado só aparece dentro do tenant (outro supervisor da mesma empresa)', () => {
     const server = newServer();
     expect(expectForged(server, () => server.setGrant(CARLA, { userId: ICS_USERS.elisa, capability: 'chat.use', granted: false })).reason).toBe('outside-islands');
-    expect(expectForged(server, () => server.registerAgent(MARCOS, { name: '   ', ilhaId: ICS_ILHAS.norte })).reason).toBe('invalid-name');
+    expect(expectForged(server, () => server.registerAgent(MARCOS, { name: '   ', ilhaIds: [ICS_ILHAS.norte]})).reason).toBe('invalid-name');
   });
 
   it('usuário desativado como ator: sessão antiga não opera mais, em nada', () => {
     const server = newServer();
     ok(server.deactivateUser(MARCOS, { userId: ICS_USERS.carla }));
     expectForged(server, () => server.setGrant(CARLA, { userId: ICS_USERS.ana, capability: 'chat.use', granted: false }));
-    expectForged(server, () => server.registerAgent(CARLA, { name: 'X', ilhaId: ICS_ILHAS.norte }));
+    expectForged(server, () => server.registerAgent(CARLA, { name: 'X', ilhaIds: [ICS_ILHAS.norte]}));
     expectForged(server, () => server.deactivateUser(CARLA, { userId: ICS_USERS.ana }));
-    expectForged(server, () => server.moveAgent(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul }));
+    expectForged(server, () => server.addAgentToIlha(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul }));
     expectForged(server, () => server.send(CARLA, { conversationId: 'x' as never, clientId: 'c', payload: { type: 'text', text: 'oi' } }));
     expectForged(server, () => server.openDirect(CARLA, { with: ICS_USERS.ana }));
     expect(server.grantLog(CARLA).ok).toBe(false);
@@ -394,7 +415,7 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
     }
     state.directory = { ...state.directory, users: { ...state.directory.users, [marcos.id]: { ...marcos, active: false } } };
     expectForged(server, () => server.setGrant(MARCOS, { userId: ICS_USERS.carla, capability: 'group.manage', granted: false }));
-    expectForged(server, () => server.createIlha(MARCOS, { name: 'X', supervisorId: ICS_USERS.carla }));
+    expectForged(server, () => server.createIlha(MARCOS, { name: 'X', supervisorIds: [ICS_USERS.carla]}));
   });
 
   it('sessão forjada (tenant trocado ou usuário de outra empresa) não existe', () => {
@@ -403,17 +424,17 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
     const foreignUser = session(BV_USERS.helena, ICS_TENANT_ID);
     for (const forged of [wrongTenant, foreignUser, session(uid('ninguem'))]) {
       expectForged(server, () => server.setGrant(forged, { userId: ICS_USERS.ana, capability: 'chat.use', granted: false }), 'forbidden');
-      expectForged(server, () => server.registerAgent(forged, { name: 'X', ilhaId: ICS_ILHAS.norte }), 'forbidden');
-      expectForged(server, () => server.createIlha(forged, { name: 'X', supervisorId: ICS_USERS.carla }), 'forbidden');
+      expectForged(server, () => server.registerAgent(forged, { name: 'X', ilhaIds: [ICS_ILHAS.norte]}), 'forbidden');
+      expectForged(server, () => server.createIlha(forged, { name: 'X', supervisorIds: [ICS_USERS.carla]}), 'forbidden');
     }
   });
 
   it('nome inválido, ilha obrigatória e rebaixar quem supervisiona não passam', () => {
     const server = newServer();
     expectForged(server, () => server.registerSupervisor(MARCOS, { name: '', ilhaIds: [] }), 'invalid-name');
-    expectForged(server, () => server.createIlha(MARCOS, { name: '\u0000', supervisorId: ICS_USERS.carla }), 'invalid-name');
+    expectForged(server, () => server.createIlha(MARCOS, { name: '\u0000', supervisorIds: [ICS_USERS.carla]}), 'invalid-name');
     expectForged(server, () => server.renameIlha(MARCOS, { ilhaId: ICS_ILHAS.norte, name: ' '.repeat(3) }), 'invalid-name');
-    expectForged(server, () => server.moveAgent(MARCOS, { userId: ICS_USERS.carla, ilhaId: ICS_ILHAS.norte }), 'target-not-agent');
+    expectForged(server, () => server.addAgentToIlha(MARCOS, { userId: ICS_USERS.carla, ilhaId: ICS_ILHAS.norte }), 'target-not-agent');
   });
 
   it('o ator vem da sessão: o request não tem campo de ator e um campo extra é ignorado', () => {
@@ -427,10 +448,10 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
   it('isolamento do estado: operações do ICS não tocam nada do BV (diretório, conversas, log)', () => {
     const server = newServer();
     const bvBefore = JSON.stringify(snapshot(server).tenants.find((tenant) => tenant.tenant.id === BV_TENANT_ID));
-    ok(server.registerAgent(MARCOS, { name: 'Novo', ilhaId: ICS_ILHAS.sul }));
+    ok(server.registerAgent(MARCOS, { name: 'Novo', ilhaIds: [ICS_ILHAS.sul]}));
     ok(server.setGrant(MARCOS, { userId: ICS_USERS.ana, capability: 'chat.use', granted: false }));
     ok(server.deactivateUser(MARCOS, { userId: ICS_USERS.bruno }));
-    ok(server.createIlha(MARCOS, { name: 'Nova', supervisorId: ICS_USERS.rafael }));
+    ok(server.createIlha(MARCOS, { name: 'Nova', supervisorIds: [ICS_USERS.rafael]}));
     expect(JSON.stringify(snapshot(server).tenants.find((tenant) => tenant.tenant.id === BV_TENANT_ID))).toBe(bvBefore);
     expect(logOf(server, BV_TENANT_ID)).toEqual([]);
     // E o admin do BV só enxerga o log do BV.

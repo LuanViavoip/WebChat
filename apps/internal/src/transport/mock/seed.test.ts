@@ -41,17 +41,19 @@ describe('seed', () => {
     }
   });
 
-  it('ICS: Carla supervisiona Norte e Sul, Rafael supervisiona Exames, dois agentes por ilha', () => {
+  it('ICS (N:N): Carla supervisiona Norte, Sul e Plantão; Rafael, Exames e Plantão; Ana em Norte e Sul, Fábio em Exames e Plantão', () => {
     const { users, ilhas } = icsDirectory();
-    expect(Object.values(ilhas).map((ilha) => [ilha.name, ilha.supervisorId])).toEqual([
-      ['Norte', ICS_USERS.carla],
-      ['Sul', ICS_USERS.carla],
-      ['Exames', ICS_USERS.rafael],
+    expect(Object.values(ilhas).map((ilha) => [ilha.name, ilha.supervisorIds])).toEqual([
+      ['Norte', [ICS_USERS.carla]],
+      ['Sul', [ICS_USERS.carla]],
+      ['Exames', [ICS_USERS.rafael]],
+      ['Plantão', [ICS_USERS.carla, ICS_USERS.rafael]],
     ]);
-    for (const ilha of Object.values(ilhas)) {
-      const agents = Object.values(users).filter((user) => user.role === 'agent' && user.ilhaId === ilha.id);
-      expect(agents).toHaveLength(2);
-    }
+    const count = (name: string) =>
+      Object.values(users).filter((user) => user.role === 'agent' && user.ilhaIds.includes(Object.values(ilhas).find((i) => i.name === name)?.id as never)).length;
+    expect([count('Norte'), count('Sul'), count('Exames'), count('Plantão')]).toEqual([2, 3, 2, 1]);
+    const ana = users[ICS_USERS.ana];
+    expect(ana?.role === 'agent' && ana.ilhaIds).toEqual(['ics-norte', 'ics-sul']);
     expect(users[ICS_USERS.marcos]?.name).toBe('Marcos Dono');
   });
 

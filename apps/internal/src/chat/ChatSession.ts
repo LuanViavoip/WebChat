@@ -216,8 +216,8 @@ export class ChatSession {
     return this.adminAction(() => this.transport.registerSupervisor({ name, ilhaIds }));
   }
 
-  registerAgent(name: string, ilhaId: IlhaId): Promise<AdminActionResult<StaffUser>> {
-    return this.adminAction(() => this.transport.registerAgent({ name, ilhaId }));
+  registerAgent(name: string, ilhaIds: readonly IlhaId[]): Promise<AdminActionResult<StaffUser>> {
+    return this.adminAction(() => this.transport.registerAgent({ name, ilhaIds }));
   }
 
   deactivateUser(userId: UserId): Promise<AdminActionResult<StaffUser>> {
@@ -228,8 +228,8 @@ export class ChatSession {
     return this.adminAction(() => this.transport.reactivateUser({ userId }));
   }
 
-  createIlha(name: string, supervisorId: UserId): Promise<AdminActionResult<Ilha>> {
-    return this.adminAction(() => this.transport.createIlha({ name, supervisorId }));
+  createIlha(name: string, supervisorIds: readonly UserId[]): Promise<AdminActionResult<Ilha>> {
+    return this.adminAction(() => this.transport.createIlha({ name, supervisorIds }));
   }
 
   renameIlha(ilhaId: IlhaId, name: string): Promise<AdminActionResult<Ilha>> {
@@ -240,8 +240,16 @@ export class ChatSession {
     return this.adminAction(() => this.transport.assignIlhaSupervisor({ ilhaId, supervisorId }));
   }
 
-  moveAgent(userId: UserId, ilhaId: IlhaId): Promise<AdminActionResult<StaffUser>> {
-    return this.adminAction(() => this.transport.moveAgent({ userId, ilhaId }));
+  unassignIlhaSupervisor(ilhaId: IlhaId, supervisorId: UserId): Promise<AdminActionResult<Ilha>> {
+    return this.adminAction(() => this.transport.unassignIlhaSupervisor({ ilhaId, supervisorId }));
+  }
+
+  addAgentToIlha(userId: UserId, ilhaId: IlhaId): Promise<AdminActionResult<StaffUser>> {
+    return this.adminAction(() => this.transport.addAgentToIlha({ userId, ilhaId }));
+  }
+
+  removeAgentFromIlha(userId: UserId, ilhaId: IlhaId): Promise<AdminActionResult<StaffUser>> {
+    return this.adminAction(() => this.transport.removeAgentFromIlha({ userId, ilhaId }));
   }
 
   setGrant(userId: UserId, capability: Capability, granted: boolean): Promise<AdminActionResult<StaffUser>> {

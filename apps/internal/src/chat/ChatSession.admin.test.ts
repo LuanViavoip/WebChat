@@ -24,23 +24,27 @@ describe('ChatSession: ações de administração', () => {
   it('cada ação chama o transporte com os parâmetros certos e NUNCA com ator ou tenant', async () => {
     const { session, transport } = await started();
     await session.registerSupervisor('Nova', [ICS_ILHAS.sul]);
-    await session.registerAgent('Agente', ICS_ILHAS.norte);
+    await session.registerAgent('Agente', [ICS_ILHAS.norte]);
     await session.deactivateUser(ICS_USERS.ana);
     await session.reactivateUser(ICS_USERS.ana);
-    await session.createIlha('Noite', ICS_USERS.rafael);
+    await session.createIlha('Noite', [ICS_USERS.rafael]);
     await session.renameIlha(ICS_ILHAS.norte, 'Norte 2');
     await session.assignIlhaSupervisor(ICS_ILHAS.norte, ICS_USERS.rafael);
-    await session.moveAgent(ICS_USERS.ana, ICS_ILHAS.sul);
+    await session.addAgentToIlha(ICS_USERS.ana, ICS_ILHAS.sul);
+    await session.removeAgentFromIlha(ICS_USERS.ana, ICS_ILHAS.sul);
+    await session.unassignIlhaSupervisor(ICS_ILHAS.norte, ICS_USERS.rafael);
     await session.setGrant(ICS_USERS.ana, 'chat.use', false);
     expect(transport.adminCalls).toEqual([
       { method: 'registerSupervisor', request: { name: 'Nova', ilhaIds: [ICS_ILHAS.sul] } },
-      { method: 'registerAgent', request: { name: 'Agente', ilhaId: ICS_ILHAS.norte } },
+      { method: 'registerAgent', request: { name: 'Agente', ilhaIds: [ICS_ILHAS.norte]} },
       { method: 'deactivateUser', request: { userId: ICS_USERS.ana } },
       { method: 'reactivateUser', request: { userId: ICS_USERS.ana } },
-      { method: 'createIlha', request: { name: 'Noite', supervisorId: ICS_USERS.rafael } },
+      { method: 'createIlha', request: { name: 'Noite', supervisorIds: [ICS_USERS.rafael]} },
       { method: 'renameIlha', request: { ilhaId: ICS_ILHAS.norte, name: 'Norte 2' } },
       { method: 'assignIlhaSupervisor', request: { ilhaId: ICS_ILHAS.norte, supervisorId: ICS_USERS.rafael } },
-      { method: 'moveAgent', request: { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul } },
+      { method: 'addAgentToIlha', request: { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul } },
+      { method: 'removeAgentFromIlha', request: { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul } },
+      { method: 'unassignIlhaSupervisor', request: { ilhaId: ICS_ILHAS.norte, supervisorId: ICS_USERS.rafael } },
       { method: 'setGrant', request: { userId: ICS_USERS.ana, capability: 'chat.use', granted: false } },
     ]);
     for (const call of transport.adminCalls) {
@@ -59,10 +63,10 @@ describe('ChatSession: ações de administração', () => {
     transport.adminError = new ForbiddenError('self');
     expect(await session.deactivateUser(ICS_USERS.carla)).toEqual({ ok: false, message: 'Operação não permitida: não pode alterar a si mesmo.' });
     transport.adminError = new ForbiddenError();
-    const generic = await session.moveAgent(BV_USERS.paula, ICS_ILHAS.sul);
+    const generic = await session.addAgentToIlha(BV_USERS.paula, ICS_ILHAS.sul);
     expect(generic).toEqual({ ok: false, message: 'Operação não permitida.' });
     transport.adminError = new ForbiddenError('motivo-inventado');
-    expect(await session.moveAgent(ICS_USERS.ana, ICS_ILHAS.sul)).toEqual({ ok: false, message: 'Operação não permitida.' });
+    expect(await session.addAgentToIlha(ICS_USERS.ana, ICS_ILHAS.sul)).toEqual({ ok: false, message: 'Operação não permitida.' });
     transport.adminError = new Error('rede caiu');
     expect(await session.renameIlha(ICS_ILHAS.norte, 'X')).toEqual({ ok: false, message: 'rede caiu' });
     session.stop();
@@ -207,7 +211,7 @@ describe('ChatSession: sessão encerrada pelo servidor', () => {
 
   it('as ações devolvem o usuário/ilha que o servidor criou (a UI seleciona o item novo)', async () => {
     const { session } = await started();
-    expect(await session.registerAgent('Zélia', ICS_ILHAS.norte)).toMatchObject({ ok: true, value: { id: ICS_USERS.ana, role: 'agent' } });
+    expect(await session.registerAgent('Zélia', [ICS_ILHAS.norte])).toMatchObject({ ok: true, value: { id: ICS_USERS.ana, role: 'agent' } });
     session.stop();
   });
 

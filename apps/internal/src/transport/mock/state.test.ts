@@ -50,7 +50,7 @@ const tampering: Array<[string, (state: PersistedState) => void]> = [
   ['login de usuário desconhecido', (s) => { ics(s).logins = { fantasma: { userId: 'fantasma', lastLoginDate: null } }; }],
   ['login com userId diferente da chave', (s) => { ics(s).logins = { [ICS_USERS.ana]: { userId: ICS_USERS.carla, lastLoginDate: null } }; }],
   ['ilha de outro tenant', (s) => { ics(s).directory.ilhas['ics-norte'].tenantId = BV_TENANT_ID; }],
-  ['ilha com supervisor inexistente', (s) => { ics(s).directory.ilhas['ics-norte'].supervisorId = 'fantasma'; }],
+  ['ilha com supervisor inexistente', (s) => { ics(s).directory.ilhas['ics-norte'].supervisorIds = ['fantasma']; }],
   ['usuário com chave diferente do id', (s) => { ics(s).directory.users[ICS_USERS.ana].id = ICS_USERS.bruno; }],
   ['usuário com tenantId de outro tenant', (s) => { ics(s).directory.users[ICS_USERS.ana].tenantId = BV_TENANT_ID; }],
   ['mensagens de conversa que não existe', (s) => { ics(s).messages['dm:ics:nada'] = []; }],
