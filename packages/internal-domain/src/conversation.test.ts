@@ -4,6 +4,7 @@ import {
   conversationTier,
   directConversation,
   directConversationId,
+  membersEditableManually,
   sortConversations,
   type Conversation,
   type ConversationSummary,
@@ -31,9 +32,8 @@ const grupo: GroupConversation = {
   id: asConversationId('grp:1'),
   tenantId: T1,
   title: 'Plantão',
-  createdBy: sup1.id,
+  origin: { kind: 'custom', createdBy: sup1.id },
   members: [sup1.id, ag1.id],
-  ilhaId: null,
   createdAt: '2026-11-10T12:00:00.000Z',
 };
 
@@ -184,5 +184,15 @@ describe('sortConversations', () => {
     );
     expect(priority.map((item) => item.id)).toEqual([dm(sup1, ag1).id]);
     expect(colleagues.map((item) => item.id)).toEqual([dm(sup1, ag3).id]);
+  });
+});
+
+describe('membersEditableManually (origem do grupo, C6/D8)', () => {
+  it('grupo de ilha: membros só pela sincronização da ilha, sem edição manual', () => {
+    expect(membersEditableManually({ ...grupo, origin: { kind: 'ilha', ilhaId: 'ilha-1' as never } })).toBe(false);
+  });
+
+  it('grupo custom: aceita edição manual de membros', () => {
+    expect(membersEditableManually({ ...grupo, origin: { kind: 'custom', createdBy: sup1.id } })).toBe(true);
   });
 });

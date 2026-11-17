@@ -124,7 +124,7 @@ test.describe('artefatos visuais', () => {
 
       await page.getByRole('button', { name: /Bruno Costa/ }).click();
       await expect(page.getByRole('region', { name: /Detalhes de Bruno Costa/ })).toBeVisible();
-      await expect(page.getByLabel('Mover para a ilha')).toBeVisible();
+      await expect(page.getByLabel('Adicionar à ilha')).toBeVisible();
       await page.screenshot({ path: `${DIR5}/equipe-agente-${name}.png` });
     });
 

@@ -1,6 +1,6 @@
 import { makeDirectory, makeIlha, makeUser, seedDirectory, T1, T2, uid, iid } from './testing/domainFixtures';
 import { CAPABILITIES } from './capabilities';
-import { parseStaffUser, supervisorOf, validateDirectory, type Agent } from './identity';
+import { parseStaffUser, supervisorsOf, validateDirectory, type Agent } from './identity';
 
 describe('validateDirectory', () => {
   it('aceita o seed válido', () => {
@@ -10,7 +10,7 @@ describe('validateDirectory', () => {
 
   it('cross-tenant: usuário ou ilha de outro tenant', () => {
     const d = seedDirectory();
-    const intruso = makeUser('agent', 'intruso', { tenantId: T2, ilhaId: iid('ilha-1') });
+    const intruso = makeUser('agent', 'intruso', { tenantId: T2, ilhaIds: [iid('ilha-1')] });
     expect(validateDirectory(makeDirectory(T1, [...Object.values(d.users), intruso], Object.values(d.ilhas)))).toEqual({
       ok: false,
       error: 'cross-tenant',
@@ -24,7 +24,7 @@ describe('validateDirectory', () => {
 
   it('orphan-agent: ilha inexistente ou supervisor que não existe/não é supervisor', () => {
     const d = seedDirectory();
-    const semIlha = makeUser('agent', 'sem-ilha', { ilhaId: iid('nao-existe') });
+    const semIlha = makeUser('agent', 'sem-ilha', { ilhaIds: [iid('nao-existe')] });
     expect(validateDirectory(makeDirectory(T1, [...Object.values(d.users), semIlha], Object.values(d.ilhas)))).toEqual({
       ok: false,
       error: 'orphan-agent',
@@ -44,7 +44,7 @@ describe('validateDirectory', () => {
 
   it('grant-above-ceiling: agente com capacidade de supervisor, supervisor com admin.console', () => {
     const d = seedDirectory();
-    const agenteForte = makeUser('agent', 'ag-1', { grants: ['chat.use', 'group.manage'], ilhaId: iid('ilha-1') });
+    const agenteForte = makeUser('agent', 'ag-1', { grants: ['chat.use', 'group.manage'], ilhaIds: [iid('ilha-1')] });
     const withAgent = { ...d, users: { ...d.users, [uid('ag-1')]: agenteForte } };
     expect(validateDirectory(withAgent)).toEqual({ ok: false, error: 'grant-above-ceiling' });
     const supForte = makeUser('supervisor', 'sup-1', { grants: ['chat.use', 'admin.console'] });
@@ -77,16 +77,16 @@ describe('validateDirectory', () => {
   });
 });
 
-describe('supervisorOf', () => {
-  it('devolve o supervisor da ilha do agente', () => {
+describe('supervisorsOf', () => {
+  it('devolve os supervisores da ilha do agente', () => {
     const d = seedDirectory();
-    expect(supervisorOf(d, d.users[uid('ag-3')] as Agent)?.id).toBe('sup-2');
+    expect(supervisorsOf(d, d.users[uid('ag-3')] as Agent).map((s) => s.id)).toEqual(['sup-2']);
   });
 
-  it('undefined para ilha ou supervisor ausente', () => {
+  it('vazio para ilha ou supervisor ausente', () => {
     const d = seedDirectory();
-    const orfao = makeUser('agent', 'o', { ilhaId: iid('x') }) as Agent;
-    expect(supervisorOf(d, orfao)).toBeUndefined();
+    const orfao = makeUser('agent', 'o', { ilhaIds: [iid('x')] }) as Agent;
+    expect(supervisorsOf(d, orfao)).toEqual([]);
   });
 });
 
@@ -97,12 +97,12 @@ describe('parseStaffUser', () => {
     expect(parseStaffUser({ ...raw, role: 'client' })).toEqual({ error: 'client-not-supported' });
   });
 
-  it('aceita admin, supervisor e agente (com ilhaId)', () => {
+  it('aceita admin, supervisor e agente (com ilhaIds)', () => {
     const admin = parseStaffUser({ ...raw, role: 'admin' });
     expect('error' in admin).toBe(false);
     expect('role' in admin && admin.role).toBe('admin');
-    const agent = parseStaffUser({ ...raw, role: 'agent', ilhaId: 'i1' });
-    expect('role' in agent && agent.role === 'agent' && agent.ilhaId).toBe('i1');
+    const agent = parseStaffUser({ ...raw, role: 'agent', ilhaIds: ['i1'] });
+    expect('role' in agent && agent.role === 'agent' && agent.ilhaIds).toEqual(['i1']);
     expect('grants' in agent && agent.grants.has('chat.use')).toBe(true);
     expect('role' in parseStaffUser({ ...raw, role: 'supervisor' })).toBe(true);
   });
@@ -110,7 +110,7 @@ describe('parseStaffUser', () => {
   it('rejeita o que é inválido', () => {
     expect(parseStaffUser(null)).toEqual({ error: 'invalid' });
     expect(parseStaffUser('x')).toEqual({ error: 'invalid' });
-    expect(parseStaffUser({ ...raw, role: 'agent' })).toEqual({ error: 'invalid' }); // sem ilhaId
+    expect(parseStaffUser({ ...raw, role: 'agent' })).toEqual({ error: 'invalid' }); // sem ilhaIds
     expect(parseStaffUser({ ...raw, role: 'dono' })).toEqual({ error: 'invalid' });
     expect(parseStaffUser({ ...raw, role: 'admin', grants: ['voar'] })).toEqual({ error: 'invalid' });
     expect(parseStaffUser({ ...raw, role: 'admin', grants: 'chat.use' })).toEqual({ error: 'invalid' });

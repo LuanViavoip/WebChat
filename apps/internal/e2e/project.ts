@@ -5,9 +5,9 @@ export const DESKTOP_PROJECTS = ['1366', '1920', '2560'] as const;
 /** Ids estáveis da seed (src/transport/mock/seed.ts). */
 export const USERS = {
   marcos: 'ics-marcos', // admin, ICS Saúde
-  carla: 'ics-carla', // supervisora (Norte e Sul)
-  rafael: 'ics-rafael', // supervisor (Exames)
-  ana: 'ics-ana', // agente Norte
+  carla: 'ics-carla', // supervisora (Norte, Sul e Plantão)
+  rafael: 'ics-rafael', // supervisor (Exames e Plantão)
+  ana: 'ics-ana', // agente Norte e Sul
   bruno: 'ics-bruno', // agente Norte
   camila: 'ics-camila', // agente Sul
   diego: 'ics-diego', // agente Sul

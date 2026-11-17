@@ -14,7 +14,8 @@ import type {
   CreateIlhaRequest,
   LoginGroup,
   MarkReadRequest,
-  MoveAgentRequest,
+  AgentIlhaRequest,
+  UnassignIlhaSupervisorRequest,
   OpenDirectRequest,
   RegisterAgentRequest,
   RegisterSupervisorRequest,
@@ -253,8 +254,16 @@ export class MockTransport implements ChatTransport {
     return this.admin((server, session) => server.assignIlhaSupervisor(session, request));
   }
 
-  moveAgent(request: MoveAgentRequest): Promise<StaffUser> {
-    return this.admin((server, session) => server.moveAgent(session, request));
+  unassignIlhaSupervisor(request: UnassignIlhaSupervisorRequest): Promise<Ilha> {
+    return this.admin((server, session) => server.unassignIlhaSupervisor(session, request));
+  }
+
+  addAgentToIlha(request: AgentIlhaRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.addAgentToIlha(session, request));
+  }
+
+  removeAgentFromIlha(request: AgentIlhaRequest): Promise<StaffUser> {
+    return this.admin((server, session) => server.removeAgentFromIlha(session, request));
   }
 
   setGrant(request: SetGrantRequest): Promise<StaffUser> {

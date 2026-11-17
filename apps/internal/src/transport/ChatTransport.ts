@@ -64,12 +64,17 @@ export type Bootstrap = {
 export type LoginGroup = { readonly tenant: Tenant; readonly users: readonly StaffUser[] };
 
 export type RegisterSupervisorRequest = { readonly name: string; readonly ilhaIds: readonly IlhaId[] };
-export type RegisterAgentRequest = { readonly name: string; readonly ilhaId: IlhaId };
+/** N:N: o agente nasce em ao menos uma ilha (o supervisor precisa supervisionar todas). */
+export type RegisterAgentRequest = { readonly name: string; readonly ilhaIds: readonly IlhaId[] };
 export type UserRequest = { readonly userId: UserId };
-export type CreateIlhaRequest = { readonly name: string; readonly supervisorId: UserId };
+/** N:N: a ilha nasce com ao menos um supervisor. */
+export type CreateIlhaRequest = { readonly name: string; readonly supervisorIds: readonly UserId[] };
 export type RenameIlhaRequest = { readonly ilhaId: IlhaId; readonly name: string };
+/** Acrescenta (assign) ou tira (unassign) UM supervisor da ilha; os outros ficam. */
 export type AssignIlhaSupervisorRequest = { readonly ilhaId: IlhaId; readonly supervisorId: UserId };
-export type MoveAgentRequest = { readonly userId: UserId; readonly ilhaId: IlhaId };
+export type UnassignIlhaSupervisorRequest = AssignIlhaSupervisorRequest;
+/** Acrescenta ou tira UM vínculo agente-ilha (mover = acrescentar um e tirar o outro). */
+export type AgentIlhaRequest = { readonly userId: UserId; readonly ilhaId: IlhaId };
 export type SetGrantRequest = { readonly userId: UserId; readonly capability: Capability; readonly granted: boolean };
 
 /** Por que a sessão caiu. Hoje só a desativação da conta. */
@@ -125,7 +130,9 @@ export interface ChatTransport {
   createIlha(request: CreateIlhaRequest): Promise<Ilha>;
   renameIlha(request: RenameIlhaRequest): Promise<Ilha>;
   assignIlhaSupervisor(request: AssignIlhaSupervisorRequest): Promise<Ilha>;
-  moveAgent(request: MoveAgentRequest): Promise<StaffUser>;
+  unassignIlhaSupervisor(request: UnassignIlhaSupervisorRequest): Promise<Ilha>;
+  addAgentToIlha(request: AgentIlhaRequest): Promise<StaffUser>;
+  removeAgentFromIlha(request: AgentIlhaRequest): Promise<StaffUser>;
   setGrant(request: SetGrantRequest): Promise<StaffUser>;
   /** O grantLog que o usuário da sessão pode ler (admin: tudo; supervisor: o das ilhas dele; agente: rejeita). */
   grantLog(): Promise<readonly GrantLogEntry[]>;

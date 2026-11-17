@@ -29,7 +29,9 @@ type Operation =
   | { kind: 'createIlha'; who: number; supervisor: number; mode: Mode; name: number }
   | { kind: 'renameIlha'; who: number; ilha: number; mode: Mode; name: number }
   | { kind: 'assignSupervisor'; who: number; ilha: number; supervisor: number; mode: Mode; foreignSupervisor: boolean }
-  | { kind: 'moveAgent'; who: number; agent: number; ilha: number; mode: Mode; foreignIlha: boolean };
+  | { kind: 'addAgentToIlha'; who: number; agent: number; ilha: number; mode: Mode; foreignIlha: boolean }
+  | { kind: 'removeAgentFromIlha'; who: number; agent: number; ilha: number; mode: Mode; foreignIlha: boolean }
+  | { kind: 'unassignSupervisor'; who: number; ilha: number; supervisor: number; mode: Mode; foreignSupervisor: boolean };
 
 /** member = ator do mesmo tenant da referência; foreign = do outro; any = sorteado; admin = o admin da referência. */
 type Mode = 'member' | 'foreign' | 'any' | 'admin';
@@ -72,12 +74,34 @@ const operation: fc.Arbitrary<Operation> = fc.oneof(
   {
     weight: 3,
     arbitrary: fc.record({
-      kind: fc.constant('moveAgent' as const),
+      kind: fc.constant('addAgentToIlha' as const),
       who: index,
       agent: index,
       ilha: index,
       mode,
       foreignIlha: fc.boolean(),
+    }),
+  },
+  {
+    weight: 3,
+    arbitrary: fc.record({
+      kind: fc.constant('removeAgentFromIlha' as const),
+      who: index,
+      agent: index,
+      ilha: index,
+      mode,
+      foreignIlha: fc.boolean(),
+    }),
+  },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant('unassignSupervisor' as const),
+      who: index,
+      ilha: index,
+      supervisor: index,
+      mode,
+      foreignSupervisor: fc.boolean(),
     }),
   },
 );
@@ -317,7 +341,7 @@ function checkAdminInvariants(world: World): void {
     const admins = Object.values(ts.directory.users).filter((user) => user.role === 'admin');
     expect(admins).toHaveLength(1);
     expect(admins[0]?.active).toBe(true);
-    expect(Object.values(ts.directory.ilhas).every((ilha) => ts.directory.users[ilha.supervisorId]?.role === 'supervisor')).toBe(true);
+    expect(Object.values(ts.directory.ilhas).every((ilha) => ilha.supervisorIds.every((id) => ts.directory.users[id]?.role === 'supervisor'))).toBe(true);
   }
 }
 
@@ -345,12 +369,14 @@ function checkStaleSessions(world: World, stats: Stats): void {
       server.setGrant(session, { userId: other, capability: 'chat.use', granted: false }),
       server.deactivateUser(session, { userId: other }),
       server.reactivateUser(session, { userId: other }),
-      server.registerAgent(session, { name: 'Fantasma', ilhaId }),
+      server.registerAgent(session, { name: 'Fantasma', ilhaIds: [ilhaId] }),
       server.registerSupervisor(session, { name: 'Fantasma', ilhaIds: [] }),
-      server.createIlha(session, { name: 'Fantasma', supervisorId: other }),
+      server.createIlha(session, { name: 'Fantasma', supervisorIds: [other]}),
       server.renameIlha(session, { ilhaId, name: 'Fantasma' }),
       server.assignIlhaSupervisor(session, { ilhaId, supervisorId: other }),
-      server.moveAgent(session, { userId: other, ilhaId }),
+      server.addAgentToIlha(session, { userId: other, ilhaId }),
+      server.removeAgentFromIlha(session, { userId: other, ilhaId }),
+      server.unassignIlhaSupervisor(session, { ilhaId, supervisorId: other }),
     ];
     if (conversationId) {
       const firstMessage = ts.messages[conversationId]?.[0]?.id ?? 'nenhuma';
@@ -498,7 +524,7 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       const ilha = pickIlha(op.ilha);
       const userId = world.actor(op.who, ilha.tenantId, op.mode);
       cross = world.tenant(userId) !== ilha.tenantId;
-      const outcome = server.registerAgent(world.session(userId), { name: world.uniqueName('Ag'), ilhaId: ilha.id });
+      const outcome = server.registerAgent(world.session(userId), { name: world.uniqueName('Ag'), ilhaIds: [ilha.id] });
       if (outcome.result.ok) {
         world.adopt(outcome.result.value.id, world.tenant(userId));
       }
@@ -523,7 +549,7 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       }
       const userId = world.actor(op.who, world.tenant(supervisor), op.mode);
       cross = world.tenant(userId) !== world.tenant(supervisor);
-      const outcome = server.createIlha(world.session(userId), { name: world.uniqueName('Ilha'), supervisorId: supervisor });
+      const outcome = server.createIlha(world.session(userId), { name: world.uniqueName('Ilha'), supervisorIds: [supervisor] });
       ({ deliveries, accepted } = settle(outcome));
       break;
     }
@@ -549,7 +575,7 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       ({ deliveries, accepted } = settle(outcome));
       break;
     }
-    case 'moveAgent': {
+    case 'addAgentToIlha': {
       const agent = world.users[op.agent % world.users.length] as UserId;
       const destinations = world.ilhasOf(op.foreignIlha ? world.otherTenant(world.tenant(agent)) : world.tenant(agent));
       const destination = destinations[op.ilha % Math.max(1, destinations.length)];
@@ -558,7 +584,35 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       }
       const userId = world.actor(op.who, world.tenant(agent), op.mode);
       cross = world.tenant(userId) !== world.tenant(agent) || destination.tenantId !== world.tenant(agent);
-      const outcome = server.moveAgent(world.session(userId), { userId: agent, ilhaId: destination.id });
+      const outcome = server.addAgentToIlha(world.session(userId), { userId: agent, ilhaId: destination.id });
+      ({ deliveries, accepted } = settle(outcome));
+      break;
+    }
+    case 'removeAgentFromIlha': {
+      const agent = world.users[op.agent % world.users.length] as UserId;
+      const destinations = world.ilhasOf(op.foreignIlha ? world.otherTenant(world.tenant(agent)) : world.tenant(agent));
+      const destination = destinations[op.ilha % Math.max(1, destinations.length)];
+      if (!destination) {
+        break;
+      }
+      const userId = world.actor(op.who, world.tenant(agent), op.mode);
+      cross = world.tenant(userId) !== world.tenant(agent) || destination.tenantId !== world.tenant(agent);
+      const outcome = server.removeAgentFromIlha(world.session(userId), { userId: agent, ilhaId: destination.id });
+      ({ deliveries, accepted } = settle(outcome));
+      break;
+    }
+    case 'unassignSupervisor': {
+      const ilha = pickIlha(op.ilha);
+      const userId = world.actor(op.who, ilha.tenantId, op.mode);
+      const supervisorTenant = op.foreignSupervisor ? world.otherTenant(ilha.tenantId) : ilha.tenantId;
+      // Na maior parte das vezes um supervisor de verdade (para haver atribuições aceitas); às vezes qualquer usuário.
+      const supervisorPool = world.users.filter(
+        (id) => world.tenant(id) === supervisorTenant && (op.supervisor % 4 === 0 || world.isSupervisor(id)),
+      );
+      const supervisor = supervisorPool[op.supervisor % Math.max(1, supervisorPool.length)] ?? userId;
+      // Tirar quem não é da ilha (inclusive id de outra empresa) é `no-change`, igual para qualquer não-membro: só o ator cruza.
+      cross = world.tenant(userId) !== ilha.tenantId;
+      const outcome = server.unassignIlhaSupervisor(world.session(userId), { ilhaId: ilha.id, supervisorId: supervisor });
       ({ deliveries, accepted } = settle(outcome));
       break;
     }
@@ -586,13 +640,13 @@ describe('isolamento entre tenants (propriedade)', () => {
 
   it('as sequências não são vacuas: há operações aceitas de cada tipo e tentativas cross-tenant recusadas', () => {
     // Semente fixa: este teste mede COBERTURA (contagens), então precisa ser determinístico. A campanha acima segue aleatória.
-    const stats = campaign(40, 20261116);
+    const stats = campaign(40, 20261118);
     expect(stats.steps).toBeGreaterThan(250);
     expect(stats.accepted).toBeGreaterThan(100);
     for (const kind of ['connect', 'send', 'openDirect', 'markRead', 'typing', 'grant']) {
       expect(stats.acceptedByKind.get(kind) ?? 0, `aceitas: ${kind}`).toBeGreaterThan(0);
     }
-    for (const kind of ['registerSupervisor', 'registerAgent', 'setActive', 'createIlha', 'renameIlha', 'assignSupervisor', 'moveAgent']) {
+    for (const kind of ['registerSupervisor', 'registerAgent', 'setActive', 'createIlha', 'renameIlha', 'assignSupervisor', 'addAgentToIlha', 'removeAgentFromIlha', 'unassignSupervisor']) {
       expect(stats.changedByKind.get(kind) ?? 0, `aceitas e com efeito: ${kind}`).toBeGreaterThan(0);
     }
     expect(stats.staleChecked, 'sessões obsoletas verificadas').toBeGreaterThan(0);

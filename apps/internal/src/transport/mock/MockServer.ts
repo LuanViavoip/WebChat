@@ -7,12 +7,14 @@ import {
   type DirectConversation,
 } from '@viavoip/internal-domain';
 import {
+  addAgentToIlha,
   assignIlhaSupervisor,
   canConnect,
   createIlha,
   deactivateUser,
   grantCapability,
-  moveAgent,
+  removeAgentFromIlha,
+  unassignIlhaSupervisor,
   reactivateUser,
   registerAgent,
   registerSupervisor,
@@ -39,7 +41,8 @@ import type {
   CreateIlhaRequest,
   LoginGroup,
   MarkReadRequest,
-  MoveAgentRequest,
+  AgentIlhaRequest,
+  UnassignIlhaSupervisorRequest,
   OpenDirectRequest,
   RegisterAgentRequest,
   RegisterSupervisorRequest,
@@ -455,8 +458,21 @@ export class MockServer {
     );
   }
 
-  moveAgent(session: Session, request: MoveAgentRequest): Outcome<StaffUser> {
-    return this.mutate(session, 'directory', (state, actorId) => moveAgent(state, actorId, request.userId, request.ilhaId), userAfter(request.userId));
+  unassignIlhaSupervisor(session: Session, request: UnassignIlhaSupervisorRequest): Outcome<Ilha> {
+    return this.mutate(
+      session,
+      'directory',
+      (state, actorId) => unassignIlhaSupervisor(state, actorId, request.ilhaId, request.supervisorId),
+      ilhaAfter(request.ilhaId),
+    );
+  }
+
+  addAgentToIlha(session: Session, request: AgentIlhaRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId) => addAgentToIlha(state, actorId, request.userId, request.ilhaId), userAfter(request.userId));
+  }
+
+  removeAgentFromIlha(session: Session, request: AgentIlhaRequest): Outcome<StaffUser> {
+    return this.mutate(session, 'directory', (state, actorId) => removeAgentFromIlha(state, actorId, request.userId, request.ilhaId), userAfter(request.userId));
   }
 
   /** Conceder/revogar capacidade, pelas mesmas `grantCapability`/`revokeCapability` do domínio; grava o grantLog. */

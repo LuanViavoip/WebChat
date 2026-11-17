@@ -63,11 +63,11 @@ describe('administração no transporte: isolamento entre empresas', () => {
 
     const t = marcos.transport;
     const supervisor = await t.registerSupervisor({ name: 'Nova Supervisora', ilhaIds: [] });
-    const agent = await t.registerAgent({ name: 'Novo Agente', ilhaId: ICS_ILHAS.sul });
-    const ilha = await t.createIlha({ name: 'Plantão', supervisorId: supervisor.id });
+    const agent = await t.registerAgent({ name: 'Novo Agente', ilhaIds: [ICS_ILHAS.sul]});
+    const ilha = await t.createIlha({ name: 'Plantão', supervisorIds: [supervisor.id]});
     await t.renameIlha({ ilhaId: ilha.id, name: 'Plantão Noturno' });
     await t.assignIlhaSupervisor({ ilhaId: ilha.id, supervisorId: ICS_USERS.rafael });
-    await t.moveAgent({ userId: agent.id, ilhaId: ICS_ILHAS.exames });
+    await t.addAgentToIlha({ userId: agent.id, ilhaId: ICS_ILHAS.exames });
     await t.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false });
     await t.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: true });
     await t.deactivateUser({ userId: ICS_USERS.bruno });
@@ -89,7 +89,7 @@ describe('administração no transporte: isolamento entre empresas', () => {
     const backend = lab.tab();
     const marcos = await lab.join(backend, MARCOS);
     const helena = await lab.join(backend, HELENA);
-    await helena.transport.registerAgent({ name: 'Agente BV', ilhaId: BV_ILHAS.atendimento });
+    await helena.transport.registerAgent({ name: 'Agente BV', ilhaIds: [BV_ILHAS.atendimento]});
     await helena.transport.setGrant({ userId: BV_USERS.paula, capability: 'chat.use', granted: false });
     expect(marcos.events).toEqual([]);
     expect(await marcos.transport.grantLog()).toEqual([]);
@@ -118,8 +118,8 @@ describe('administração no transporte: isolamento entre empresas', () => {
     await rejection(marcos.transport.setGrant({ userId: ICS_USERS.marcos, capability: 'chat.use', granted: false }));
     await rejection(marcos.transport.setGrant({ userId: BV_USERS.paula, capability: 'chat.use', granted: false }));
     await rejection(marcos.transport.deactivateUser({ userId: BV_USERS.paula }));
-    await rejection(marcos.transport.moveAgent({ userId: BV_USERS.paula, ilhaId: ICS_ILHAS.norte }));
-    await rejection(marcos.transport.registerAgent({ name: 'X', ilhaId: BV_ILHAS.atendimento }));
+    await rejection(marcos.transport.addAgentToIlha({ userId: BV_USERS.paula, ilhaId: ICS_ILHAS.norte }));
+    await rejection(marcos.transport.registerAgent({ name: 'X', ilhaIds: [BV_ILHAS.atendimento]}));
     await rejection(ana.transport.grantLog());
     for (const probe of probes) {
       expect(probe.events, `eventos de ${probe.session.userId}`).toEqual([]);
@@ -137,10 +137,10 @@ describe('administração no transporte: isolamento entre empresas', () => {
       [t.setGrant({ userId: BV_USERS.paula, capability: 'chat.use', granted: false }), t.setGrant({ userId: ghostUser, capability: 'chat.use', granted: false })],
       [t.deactivateUser({ userId: BV_USERS.paula }), t.deactivateUser({ userId: ghostUser })],
       [t.reactivateUser({ userId: BV_USERS.paula }), t.reactivateUser({ userId: ghostUser })],
-      [t.moveAgent({ userId: BV_USERS.paula, ilhaId: ICS_ILHAS.sul }), t.moveAgent({ userId: ghostUser, ilhaId: ICS_ILHAS.sul })],
-      [t.registerAgent({ name: 'X', ilhaId: BV_ILHAS.atendimento }), t.registerAgent({ name: 'X', ilhaId: ghostIlha })],
+      [t.addAgentToIlha({ userId: BV_USERS.paula, ilhaId: ICS_ILHAS.sul }), t.addAgentToIlha({ userId: ghostUser, ilhaId: ICS_ILHAS.sul })],
+      [t.registerAgent({ name: 'X', ilhaIds: [BV_ILHAS.atendimento]}), t.registerAgent({ name: 'X', ilhaIds: [ghostIlha] })],
       [t.renameIlha({ ilhaId: BV_ILHAS.atendimento, name: 'X' }), t.renameIlha({ ilhaId: ghostIlha, name: 'X' })],
-      [t.createIlha({ name: 'X', supervisorId: BV_USERS.otavio }), t.createIlha({ name: 'X', supervisorId: ghostUser })],
+      [t.createIlha({ name: 'X', supervisorIds: [BV_USERS.otavio]}), t.createIlha({ name: 'X', supervisorIds: [ghostUser] })],
       [
         t.assignIlhaSupervisor({ ilhaId: ICS_ILHAS.norte, supervisorId: BV_USERS.otavio }),
         t.assignIlhaSupervisor({ ilhaId: ICS_ILHAS.norte, supervisorId: ghostUser }),
@@ -162,7 +162,7 @@ describe('administração no transporte: eventos e escopo do grantLog', () => {
     const rafael = await lab.join(backend, RAFAEL);
     const ana = await lab.join(backend, ANA);
 
-    const created = await marcos.transport.registerAgent({ name: 'Agente Novo', ilhaId: ICS_ILHAS.norte });
+    const created = await marcos.transport.registerAgent({ name: 'Agente Novo', ilhaIds: [ICS_ILHAS.norte]});
     for (const probe of [marcos, carla, rafael, ana]) {
       const [event] = ofType(probe, 'directory');
       expect(event?.directory.users[created.id]?.name, probe.session.userId).toBe('Agente Novo');
@@ -228,12 +228,14 @@ describe('administração entre abas (TabSync)', () => {
     expect(helena.events).toEqual([]);
 
     carla.events.length = 0;
-    const ilha = await marcos.transport.createIlha({ name: 'Ilha Remota', supervisorId: created.id });
+    const ilha = await marcos.transport.createIlha({ name: 'Ilha Remota', supervisorIds: [created.id]});
     expect(ofType(carla, 'directory').at(-1)?.directory.ilhas[ilha.id]?.name).toBe('Ilha Remota');
     await marcos.transport.renameIlha({ ilhaId: ilha.id, name: 'Ilha Renomeada' });
     expect(ofType(carla, 'directory').at(-1)?.directory.ilhas[ilha.id]?.name).toBe('Ilha Renomeada');
-    await marcos.transport.moveAgent({ userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul });
-    expect(ofType(carla, 'directory').at(-1)?.directory.users[ICS_USERS.ana]).toMatchObject({ ilhaId: ICS_ILHAS.sul });
+    await marcos.transport.addAgentToIlha({ userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.exames });
+    expect(ofType(carla, 'directory').at(-1)?.directory.users[ICS_USERS.ana]).toMatchObject({
+      ilhaIds: [ICS_ILHAS.norte, ICS_ILHAS.sul, ICS_ILHAS.exames],
+    });
     expect(paula.events).toEqual([]);
     expect(helena.events).toEqual([]);
   });
@@ -301,7 +303,7 @@ describe('administração entre abas (TabSync)', () => {
     const bruno = await lab.join(tabB, as(ICS_TENANT_ID, ICS_USERS.bruno));
     const carla = await lab.join(tabB, CARLA);
     const paula = await lab.join(tabB, PAULA);
-    await marcos.transport.registerAgent({ name: 'Perdido', ilhaId: ICS_ILHAS.sul });
+    await marcos.transport.registerAgent({ name: 'Perdido', ilhaIds: [ICS_ILHAS.sul]});
     await marcos.transport.deactivateUser({ userId: ICS_USERS.bruno });
     expect(carla.events).toEqual([]);
     await vi.advanceTimersByTimeAsync(600);
@@ -316,14 +318,14 @@ describe('administração: persistência e login', () => {
   it('diretório, ilhas e grantLog sobrevivem ao reload (outro servidor sobre o mesmo storage)', async () => {
     const first = lab.tab();
     const marcos = await lab.join(first, MARCOS);
-    const agent = await marcos.transport.registerAgent({ name: 'Zélia Persistida', ilhaId: ICS_ILHAS.norte });
-    const ilha = await marcos.transport.createIlha({ name: 'Ilha Persistida', supervisorId: ICS_USERS.rafael });
+    const agent = await marcos.transport.registerAgent({ name: 'Zélia Persistida', ilhaIds: [ICS_ILHAS.norte]});
+    const ilha = await marcos.transport.createIlha({ name: 'Ilha Persistida', supervisorIds: [ICS_USERS.rafael]});
     await marcos.transport.setGrant({ userId: agent.id, capability: 'chat.use', granted: false });
     await marcos.transport.deactivateUser({ userId: ICS_USERS.bruno });
 
     const reloaded = lab.tab();
     const state = reloaded.server.getState().get(ICS_TENANT_ID);
-    expect(state?.directory.users[agent.id]).toMatchObject({ name: 'Zélia Persistida', role: 'agent', ilhaId: ICS_ILHAS.norte });
+    expect(state?.directory.users[agent.id]).toMatchObject({ name: 'Zélia Persistida', role: 'agent', ilhaIds: [ICS_ILHAS.norte] });
     expect(state?.directory.users[agent.id]?.grants.has('chat.use')).toBe(false);
     expect(state?.directory.users[ICS_USERS.bruno]?.active).toBe(false);
     expect(state?.directory.ilhas[ilha.id]?.name).toBe('Ilha Persistida');
@@ -335,7 +337,7 @@ describe('administração: persistência e login', () => {
   it('"Entrar como" lê o estado do servidor: o recém-cadastrado aparece depois de recriar o servidor', async () => {
     const first = lab.tab();
     const marcos = await lab.join(first, MARCOS);
-    const agent = await marcos.transport.registerAgent({ name: 'Zélia Nova', ilhaId: ICS_ILHAS.sul });
+    const agent = await marcos.transport.registerAgent({ name: 'Zélia Nova', ilhaIds: [ICS_ILHAS.sul]});
     const supervisor = await marcos.transport.registerSupervisor({ name: 'Sérgio Novo', ilhaIds: [] });
     const reloaded = lab.tab();
     const ics = reloaded.server.loginGroups().find((group) => group.tenant.id === ICS_TENANT_ID);
@@ -371,7 +373,7 @@ describe('administração: persistência e login', () => {
     const transport = new MockTransport({ backend: migrated, delays: { connectMs: 0 } });
     await transport.connect(MARCOS);
     await transport.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false });
-    expect(migrated.server.toPersisted().version).toBe(4);
+    expect(migrated.server.toPersisted().version).toBe(5);
     expect(migrated.server.getState().get(ICS_TENANT_ID)?.grantLog).toHaveLength(1);
     transport.disconnect();
     migrated.close();

@@ -1,6 +1,6 @@
 import { ROLE_DEFAULT } from '@viavoip/internal-domain';
 import { directConversation, directConversationId, type ConversationId } from '@viavoip/internal-domain';
-import type { Agent, Directory, Ilha, IlhaId, StaffUser, Supervisor, UserId } from '@viavoip/internal-domain';
+import type { Agent, Directory, Ilha, IlhaId, IlhaIds, StaffUser, Supervisor, UserId } from '@viavoip/internal-domain';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import type { Tenant, TenantId } from '@viavoip/internal-domain';
 import type { ConnectRequest } from '../ChatTransport';
@@ -33,7 +33,12 @@ export const BV_USERS = {
   rui: uid('bv-rui'),
 } as const;
 
-export const ICS_ILHAS = { norte: iid('ics-norte'), sul: iid('ics-sul'), exames: iid('ics-exames') } as const;
+export const ICS_ILHAS = {
+  norte: iid('ics-norte'),
+  sul: iid('ics-sul'),
+  exames: iid('ics-exames'),
+  plantao: iid('ics-plantao'),
+} as const;
 export const BV_ILHAS = { atendimento: iid('bv-atendimento') } as const;
 
 export const ICS_TENANT: Tenant = { id: ICS_TENANT_ID, name: 'ICS Saúde', timeZone: 'America/Sao_Paulo' };
@@ -59,8 +64,8 @@ function supervisor(tenantId: TenantId, id: UserId, name: string): Supervisor {
   return { id, tenantId, name, active: true, role: 'supervisor', grants: new Set(ROLE_DEFAULT.supervisor) };
 }
 
-function agent(tenantId: TenantId, id: UserId, name: string, ilhaId: IlhaId): Agent {
-  return { id, tenantId, name, active: true, role: 'agent', ilhaId, grants: new Set(ROLE_DEFAULT.agent) };
+function agent(tenantId: TenantId, id: UserId, name: string, ilhaIds: IlhaIds): Agent {
+  return { id, tenantId, name, active: true, role: 'agent', ilhaIds, grants: new Set(ROLE_DEFAULT.agent) };
 }
 
 function admin(tenantId: TenantId, id: UserId, name: string): StaffUser {
@@ -84,17 +89,20 @@ export function icsDirectory(): Directory {
       admin(t, u.marcos, 'Marcos Dono'),
       supervisor(t, u.carla, 'Carla Mendes'),
       supervisor(t, u.rafael, 'Rafael Lima'),
-      agent(t, u.ana, 'Ana Souza', ICS_ILHAS.norte),
-      agent(t, u.bruno, 'Bruno Costa', ICS_ILHAS.norte),
-      agent(t, u.camila, 'Camila Ribeiro', ICS_ILHAS.sul),
-      agent(t, u.diego, 'Diego Martins', ICS_ILHAS.sul),
-      agent(t, u.elisa, 'Elisa Barbosa', ICS_ILHAS.exames),
-      agent(t, u.fabio, 'Fábio Nunes', ICS_ILHAS.exames),
+      // N:N (plano da fusão, C2): Ana está em duas ilhas da Carla; a ilha Plantão tem dois supervisores
+      // (Carla e Rafael) e Fábio está em Exames (Rafael) e Plantão: supervisores diferentes no mesmo agente.
+      agent(t, u.ana, 'Ana Souza', [ICS_ILHAS.norte, ICS_ILHAS.sul]),
+      agent(t, u.bruno, 'Bruno Costa', [ICS_ILHAS.norte]),
+      agent(t, u.camila, 'Camila Ribeiro', [ICS_ILHAS.sul]),
+      agent(t, u.diego, 'Diego Martins', [ICS_ILHAS.sul]),
+      agent(t, u.elisa, 'Elisa Barbosa', [ICS_ILHAS.exames]),
+      agent(t, u.fabio, 'Fábio Nunes', [ICS_ILHAS.exames, ICS_ILHAS.plantao]),
     ],
     [
-      { id: ICS_ILHAS.norte, tenantId: t, name: 'Norte', supervisorId: u.carla },
-      { id: ICS_ILHAS.sul, tenantId: t, name: 'Sul', supervisorId: u.carla },
-      { id: ICS_ILHAS.exames, tenantId: t, name: 'Exames', supervisorId: u.rafael },
+      { id: ICS_ILHAS.norte, tenantId: t, name: 'Norte', supervisorIds: [u.carla] },
+      { id: ICS_ILHAS.sul, tenantId: t, name: 'Sul', supervisorIds: [u.carla] },
+      { id: ICS_ILHAS.exames, tenantId: t, name: 'Exames', supervisorIds: [u.rafael] },
+      { id: ICS_ILHAS.plantao, tenantId: t, name: 'Plantão', supervisorIds: [u.carla, u.rafael] },
     ],
   );
 }
@@ -107,10 +115,10 @@ export function bvDirectory(): Directory {
     [
       admin(t, u.helena, 'Helena Prado'),
       supervisor(t, u.otavio, 'Otávio Reis'),
-      agent(t, u.paula, 'Paula Teixeira', BV_ILHAS.atendimento),
-      agent(t, u.rui, 'Rui Cardoso', BV_ILHAS.atendimento),
+      agent(t, u.paula, 'Paula Teixeira', [BV_ILHAS.atendimento]),
+      agent(t, u.rui, 'Rui Cardoso', [BV_ILHAS.atendimento]),
     ],
-    [{ id: BV_ILHAS.atendimento, tenantId: t, name: 'Atendimento', supervisorId: u.otavio }],
+    [{ id: BV_ILHAS.atendimento, tenantId: t, name: 'Atendimento', supervisorIds: [u.otavio] }],
   );
 }
 

@@ -15,7 +15,7 @@ import {
   type GrantDenial,
   type RoleDenial,
 } from './capabilities';
-import type { Agent, Directory, Ilha, IlhaId, StaffUser, UserId } from './identity';
+import type { Agent, Directory, Ilha, IlhaId, IlhaIds, StaffUser, UserId } from './identity';
 import { own } from './records';
 import { err, ok, type Result } from './result';
 import type { TenantId } from './tenant';
@@ -34,7 +34,9 @@ export type OpError =
   | 'not-higher-rank'
   | 'ilha-required'
   | 'unknown-ilha'
-  | 'supervises-ilha';
+  | 'supervises-ilha'
+  | 'last-ilha'
+  | 'last-supervisor';
 
 type OpResult = Result<Directory, OpError>;
 
@@ -49,6 +51,8 @@ export const DENIAL_TEXT: Readonly<Record<OpError, string>> = {
   'ilha-required': 'escolha uma ilha',
   'unknown-ilha': 'ilha inexistente',
   'supervises-ilha': 'supervisiona uma ilha',
+  'last-ilha': 'o agente precisa de ao menos uma ilha',
+  'last-supervisor': 'a ilha precisa de ao menos um supervisor',
   'invalid-name': 'nome inválido',
   'invalid-supervisor': 'supervisor inválido',
   'target-not-agent': 'só vale para agente',
@@ -103,30 +107,56 @@ function initialGrants(actor: StaffUser, role: AssignableRole): ReadonlySet<Capa
   return new Set([...grantsAfterRoleChange(role)].filter((capability) => held.has(capability)));
 }
 
-/** A ilha de um agente precisa existir, ser do tenant e ter um supervisor válido do mesmo tenant. */
+/** A ilha de um agente precisa existir, ser do tenant e ter ao menos um supervisor, todos válidos e do mesmo tenant. */
 function checkAgentIlha(d: Directory, ilhaId: IlhaId | undefined): OpError | undefined {
   if (!ilhaId) {
     return 'ilha-required';
   }
   const ilha = own(d.ilhas, ilhaId);
-  const supervisor = ilha ? own(d.users, ilha.supervisorId) : undefined;
-  if (!ilha || ilha.tenantId !== d.tenantId || supervisor?.role !== 'supervisor' || supervisor.tenantId !== d.tenantId) {
+  if (!ilha || ilha.tenantId !== d.tenantId || ilha.supervisorIds.length === 0) {
     return 'unknown-ilha';
   }
-  return undefined;
+  const valid = ilha.supervisorIds.every((id) => {
+    const supervisor = own(d.users, id);
+    return supervisor?.role === 'supervisor' && supervisor.tenantId === d.tenantId;
+  });
+  return valid ? undefined : 'unknown-ilha';
+}
+
+function isIlhaList(value: IlhaId | readonly IlhaId[]): value is readonly IlhaId[] {
+  return Array.isArray(value);
+}
+
+/** Ilhas pedidas (sem repetir, na ordem). Vazio: `ilha-required`; qualquer uma inválida: o erro dela. */
+function checkAgentIlhas(
+  d: Directory,
+  ilhaIds: readonly IlhaId[] | undefined,
+): Result<IlhaIds, OpError> {
+  const unique = [...new Set(ilhaIds ?? [])];
+  const [first, ...rest] = unique;
+  if (first === undefined) {
+    return err('ilha-required');
+  }
+  for (const ilhaId of unique) {
+    const problem = checkAgentIlha(d, ilhaId);
+    if (problem) {
+      return err(problem);
+    }
+  }
+  return ok([first, ...rest]);
 }
 
 /**
  * Muda a ROLE de alguém existente. Só o admin; nunca mexe em grants para MAIS: os grants do alvo
- * ficam como estão, apenas cortados pelo teto da role nova. Agente→agente em outra ilha é "mover"
- * (`moveAgent`). Rebaixar quem supervisiona uma ilha é recusado.
+ * ficam como estão, apenas cortados pelo teto da role nova. Agente→agente é `no-change`; mudar as ilhas
+ * de um agente é `addAgentToIlha`/`removeAgentFromIlha`. Rebaixar quem supervisiona alguma ilha é recusado.
  */
 export function applyAssignRole(
   d: Directory,
   actorId: UserId,
   targetId: UserId,
   role: AssignableRole,
-  ilhaId?: IlhaId,
+  ilhaIds?: readonly IlhaId[],
 ): OpResult {
   const found = resolvePair(d, actorId, targetId);
   if (!found.ok) {
@@ -146,7 +176,7 @@ export function applyAssignRole(
   if (
     role !== 'supervisor' &&
     target.role === 'supervisor' &&
-    Object.values(d.ilhas).some((ilha) => ilha.supervisorId === target.id)
+    Object.values(d.ilhas).some((ilha) => ilha.supervisorIds.includes(target.id))
   ) {
     return err('supervises-ilha');
   }
@@ -155,11 +185,11 @@ export function applyAssignRole(
   if (role === 'supervisor') {
     return ok(withUser(d, { ...base, role }));
   }
-  const problem = checkAgentIlha(d, ilhaId);
-  if (problem || !ilhaId) {
-    return err(problem ?? 'ilha-required');
+  const checked = checkAgentIlhas(d, ilhaIds);
+  if (!checked.ok) {
+    return checked;
   }
-  const agent: Agent = { ...base, role, ilhaId };
+  const agent: Agent = { ...base, role, ilhaIds: checked.value };
   return ok(withUser(d, agent));
 }
 
@@ -167,12 +197,13 @@ export type NewUser = {
   readonly id: UserId;
   readonly name: string;
   readonly role: AssignableRole;
-  readonly ilhaId?: IlhaId;
+  /** Agente: ao menos uma. Ignorado no supervisor. */
+  readonly ilhaIds?: readonly IlhaId[];
 };
 
 /** Cadastro de usuário novo. Autorização pelos mesmos predicados que a UI usa. */
 export function applyCreate(d: Directory, actorId: UserId, input: NewUser): OpResult {
-  const allowed = input.role === 'agent' ? canRegisterAgentIn(d, actorId, input.ilhaId) : canRegisterSupervisorIn(d, actorId);
+  const allowed = input.role === 'agent' ? canRegisterAgentIn(d, actorId, input.ilhaIds) : canRegisterSupervisorIn(d, actorId);
   if (!allowed.ok) {
     return allowed;
   }
@@ -185,10 +216,14 @@ export function applyCreate(d: Directory, actorId: UserId, input: NewUser): OpRe
     return err('duplicate-user');
   }
   const base = { id: input.id, tenantId: d.tenantId, name, active: true, grants: initialGrants(actor, input.role) };
-  if (input.role === 'supervisor' || !input.ilhaId) {
-    return input.role === 'supervisor' ? ok(withUser(d, { ...base, role: 'supervisor' })) : err('ilha-required');
+  if (input.role === 'supervisor') {
+    return ok(withUser(d, { ...base, role: 'supervisor' }));
   }
-  const agent: Agent = { ...base, role: 'agent', ilhaId: input.ilhaId };
+  const checked = checkAgentIlhas(d, input.ilhaIds);
+  if (!checked.ok) {
+    return checked;
+  }
+  const agent: Agent = { ...base, role: 'agent', ilhaIds: checked.value };
   return ok(withUser(d, agent));
 }
 
@@ -295,8 +330,8 @@ function authorizeTarget(d: Directory, actorId: UserId, targetId: UserId): Resul
 // e as operações abaixo chamam estes mesmos predicados (uma única fonte de verdade).
 // Só `no-change` (estado de destino já alcançado) é checado apenas na operação.
 
-/** Cadastrar agente na ilha: admin em qualquer ilha válida do tenant; supervisor só em ilha dele. */
-export function canRegisterAgentIn(d: Directory, actorId: UserId, ilhaId: IlhaId | undefined): Verdict {
+/** Cadastrar agente nas ilhas: admin em qualquer ilha válida do tenant; supervisor só se supervisiona TODAS as pedidas. Uma ilha só ou uma lista. */
+export function canRegisterAgentIn(d: Directory, actorId: UserId, ilhas: IlhaId | readonly IlhaId[] | undefined): Verdict {
   const actor = own(d.users, actorId);
   if (!actor) {
     return err('unknown-actor');
@@ -305,12 +340,16 @@ export function canRegisterAgentIn(d: Directory, actorId: UserId, ilhaId: IlhaId
   if (!role.ok) {
     return role;
   }
-  const problem = checkAgentIlha(d, ilhaId);
-  if (problem) {
-    return err(problem);
+  const requested = ilhas === undefined ? undefined : isIlhaList(ilhas) ? ilhas : [ilhas];
+  const checked = checkAgentIlhas(d, requested);
+  if (!checked.ok) {
+    return checked;
   }
-  if (actor.role === 'supervisor' && (!ilhaId || !supervisedIlhaIds(d, actor.id).has(ilhaId))) {
-    return err('outside-islands');
+  if (actor.role === 'supervisor') {
+    const mine = supervisedIlhaIds(d, actor.id);
+    if (!checked.value.every((ilhaId) => mine.has(ilhaId))) {
+      return err('outside-islands');
+    }
   }
   return ok(true);
 }
@@ -366,8 +405,12 @@ export function canSetActiveIn(d: Directory, actorId: UserId, targetId: UserId):
   return authorized.ok ? ok(true) : authorized;
 }
 
-/** Mover agente: origem E destino do supervisor; o admin, qualquer ilha do tenant. */
-export function canMoveAgentIn(d: Directory, actorId: UserId, agentId: UserId, destinationId: IlhaId): Verdict {
+/**
+ * Acrescentar o vínculo agente-ilha (mover vira adicionar/remover vínculo; plano da fusão, C2).
+ * O agente tem de estar no escopo do ator (alguma ilha dele) E a ilha de destino tem de ser dele;
+ * o admin, qualquer ilha do tenant. Vínculo já existente é `no-change` (checado só na operação).
+ */
+export function canAddAgentToIlhaIn(d: Directory, actorId: UserId, agentId: UserId, ilhaId: IlhaId): Verdict {
   const authorized = authorizeTarget(d, actorId, agentId);
   if (!authorized.ok) {
     return authorized;
@@ -376,11 +419,35 @@ export function canMoveAgentIn(d: Directory, actorId: UserId, agentId: UserId, d
   if (target.role !== 'agent') {
     return err('target-not-agent');
   }
-  const destination = own(d.ilhas, destinationId);
-  if (!destination || destination.tenantId !== d.tenantId) {
+  const problem = checkAgentIlha(d, ilhaId);
+  if (problem) {
+    return err(problem);
+  }
+  return actor.role === 'supervisor' && !supervisedIlhaIds(d, actor.id).has(ilhaId) ? err('outside-islands') : ok(true);
+}
+
+/**
+ * Remover o vínculo agente-ilha: o supervisor só tira vínculo de ilha DELE (nunca puxa o agente de
+ * ilha de outro supervisor); o último vínculo não sai (`last-ilha`), nem para o admin. Vínculo
+ * inexistente é `no-change` (checado só na operação).
+ */
+export function canRemoveAgentFromIlhaIn(d: Directory, actorId: UserId, agentId: UserId, ilhaId: IlhaId): Verdict {
+  const authorized = authorizeTarget(d, actorId, agentId);
+  if (!authorized.ok) {
+    return authorized;
+  }
+  const { actor, target } = authorized.value;
+  if (target.role !== 'agent') {
+    return err('target-not-agent');
+  }
+  const ilha = own(d.ilhas, ilhaId);
+  if (!ilha || ilha.tenantId !== d.tenantId) {
     return err('unknown-ilha');
   }
-  return actor.role === 'supervisor' && destination.supervisorId !== actor.id ? err('outside-islands') : ok(true);
+  if (actor.role === 'supervisor' && !supervisedIlhaIds(d, actor.id).has(ilhaId)) {
+    return err('outside-islands');
+  }
+  return target.ilhaIds.includes(ilhaId) && target.ilhaIds.length === 1 ? err('last-ilha') : ok(true);
 }
 
 export function registerSupervisor(
@@ -414,7 +481,7 @@ export function registerSupervisor(
   }
   let next = created.value;
   for (const ilha of ilhas) {
-    next = withIlha(next, { ...ilha, supervisorId: id });
+    next = withIlha(next, { ...ilha, supervisorIds: [...ilha.supervisorIds, id] });
   }
   return ok(withDirectory(state, next));
 }
@@ -422,10 +489,10 @@ export function registerSupervisor(
 export function registerAgent(
   state: AdminState,
   actorId: UserId,
-  input: { readonly name: string; readonly ilhaId: IlhaId },
+  input: { readonly name: string; readonly ilhaIds: readonly IlhaId[] },
   deps: OpDeps,
 ): AdminResult {
-  const allowed = canRegisterAgentIn(state.directory, actorId, input.ilhaId);
+  const allowed = canRegisterAgentIn(state.directory, actorId, input.ilhaIds);
   if (!allowed.ok) {
     return allowed;
   }
@@ -433,7 +500,7 @@ export function registerAgent(
   if (!name) {
     return err('invalid-name');
   }
-  const created = applyCreate(state.directory, actorId, { id: deps.newUserId(), name, role: 'agent', ilhaId: input.ilhaId });
+  const created = applyCreate(state.directory, actorId, { id: deps.newUserId(), name, role: 'agent', ilhaIds: input.ilhaIds });
   return created.ok ? ok(withDirectory(state, created.value)) : created;
 }
 
@@ -464,7 +531,7 @@ export function reactivateUser(state: AdminState, actorId: UserId, targetId: Use
 export function createIlha(
   state: AdminState,
   actorId: UserId,
-  input: { readonly name: string; readonly supervisorId: UserId },
+  input: { readonly name: string; readonly supervisorIds: readonly UserId[] },
   deps: OpDeps,
 ): AdminResult {
   const d = state.directory;
@@ -476,14 +543,16 @@ export function createIlha(
   if (!name) {
     return err('invalid-name');
   }
-  if (!isUsableSupervisor(d, input.supervisorId)) {
+  // Ao menos um supervisor, todos usáveis (ativos, do tenant); repetidos contam uma vez.
+  const supervisorIds = [...new Set(input.supervisorIds)];
+  if (supervisorIds.length === 0 || !supervisorIds.every((id) => isUsableSupervisor(d, id))) {
     return err('invalid-supervisor');
   }
   const id = deps.newIlhaId();
   if (own(d.ilhas, id) !== undefined) {
     return err('duplicate-ilha');
   }
-  return ok(withDirectory(state, withIlha(d, { id, tenantId: d.tenantId, name, supervisorId: input.supervisorId })));
+  return ok(withDirectory(state, withIlha(d, { id, tenantId: d.tenantId, name, supervisorIds })));
 }
 
 export function renameIlha(state: AdminState, actorId: UserId, ilhaId: IlhaId, name: string): AdminResult {
@@ -516,6 +585,7 @@ function isUsableSupervisor(d: Directory, id: UserId): boolean {
   return supervisor?.role === 'supervisor' && supervisor.tenantId === d.tenantId && supervisor.active;
 }
 
+/** Acrescenta um supervisor à ilha (N:N): os que já estavam continuam. */
 export function assignIlhaSupervisor(state: AdminState, actorId: UserId, ilhaId: IlhaId, supervisorId: UserId): AdminResult {
   const d = state.directory;
   const allowed = canManageIlhasIn(d, actorId);
@@ -529,15 +599,38 @@ export function assignIlhaSupervisor(state: AdminState, actorId: UserId, ilhaId:
   if (!isUsableSupervisor(d, supervisorId)) {
     return err('invalid-supervisor');
   }
-  if (ilha.supervisorId === supervisorId) {
+  if (ilha.supervisorIds.includes(supervisorId)) {
     return err('no-change');
   }
-  return ok(withDirectory(state, withIlha(d, { ...ilha, supervisorId })));
+  return ok(withDirectory(state, withIlha(d, { ...ilha, supervisorIds: [...ilha.supervisorIds, supervisorId] })));
 }
 
-export function moveAgent(state: AdminState, actorId: UserId, agentId: UserId, destinationId: IlhaId): AdminResult {
+/**
+ * Tira UM supervisor da ilha (só o admin, `ilhas.manage`). Não mexe nos grants de ninguém (sem cascata).
+ * A ilha nunca fica sem supervisor por operação: o último não sai.
+ */
+export function unassignIlhaSupervisor(state: AdminState, actorId: UserId, ilhaId: IlhaId, supervisorId: UserId): AdminResult {
   const d = state.directory;
-  const allowed = canMoveAgentIn(d, actorId, agentId, destinationId);
+  const allowed = canManageIlhasIn(d, actorId);
+  if (!allowed.ok) {
+    return allowed;
+  }
+  const ilha = own(d.ilhas, ilhaId);
+  if (!ilha || ilha.tenantId !== d.tenantId) {
+    return err('unknown-ilha');
+  }
+  if (!ilha.supervisorIds.includes(supervisorId)) {
+    return err('no-change');
+  }
+  if (ilha.supervisorIds.length === 1) {
+    return err('last-supervisor');
+  }
+  return ok(withDirectory(state, withIlha(d, { ...ilha, supervisorIds: ilha.supervisorIds.filter((id) => id !== supervisorId) })));
+}
+
+export function addAgentToIlha(state: AdminState, actorId: UserId, agentId: UserId, ilhaId: IlhaId): AdminResult {
+  const d = state.directory;
+  const allowed = canAddAgentToIlhaIn(d, actorId, agentId, ilhaId);
   if (!allowed.ok) {
     return allowed;
   }
@@ -545,10 +638,28 @@ export function moveAgent(state: AdminState, actorId: UserId, agentId: UserId, d
   if (target?.role !== 'agent') {
     return err('target-not-agent');
   }
-  if (target.ilhaId === destinationId) {
+  if (target.ilhaIds.includes(ilhaId)) {
     return err('no-change');
   }
-  return ok(withDirectory(state, withUser(d, { ...target, ilhaId: destinationId })));
+  return ok(withDirectory(state, withUser(d, { ...target, ilhaIds: [...target.ilhaIds, ilhaId] })));
+}
+
+export function removeAgentFromIlha(state: AdminState, actorId: UserId, agentId: UserId, ilhaId: IlhaId): AdminResult {
+  const d = state.directory;
+  const allowed = canRemoveAgentFromIlhaIn(d, actorId, agentId, ilhaId);
+  if (!allowed.ok) {
+    return allowed;
+  }
+  const target = own(d.users, agentId);
+  if (target?.role !== 'agent') {
+    return err('target-not-agent');
+  }
+  if (!target.ilhaIds.includes(ilhaId)) {
+    return err('no-change');
+  }
+  const [first, ...rest] = target.ilhaIds.filter((id) => id !== ilhaId);
+  // `canRemoveAgentFromIlhaIn` já recusou o último vínculo; o guard só prova o tipo `[IlhaId, ...IlhaId[]]`.
+  return first === undefined ? err('last-ilha') : ok(withDirectory(state, withUser(d, { ...target, ilhaIds: [first, ...rest] })));
 }
 
 function changeGrant(

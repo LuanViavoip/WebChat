@@ -321,6 +321,8 @@ export type Tenant = {
   readonly timeZone: string;                                // IANA, ex. 'America/Sao_Paulo'; define o "dia"
 };
 
+> **Atualização da F4 (fusão com o WebChat, 17/11/2026):** os tipos abaixo são do plano original (ilha 1:1). No código, desde a F4, a ilha é **N:N**: `Agent.ilhaIds` (lista com ao menos uma ilha), `Ilha.supervisorIds` (lista) e `GroupConversation.origin` (`{ kind: 'ilha', ilhaId }` ou `{ kind: 'custom', createdBy }`, no lugar de `createdBy` e `ilhaId`). O supervisor gerencia o agente se supervisiona **alguma** ilha dele; "mover" virou acrescentar/remover vínculo (`addAgentToIlha`, `removeAgentFromIlha`). O texto e os tipos abaixo ficam como histórico do plano; a regra vigente está em `docs/decisions.md` (seção da fusão) e `docs/fusao/plano-fusao.md` (C2, C6).
+
 export type Role = 'admin' | 'supervisor' | 'agent' | 'client';
 
 type UserBase = {

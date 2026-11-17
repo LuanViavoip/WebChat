@@ -90,7 +90,7 @@ describe('App: Entrar como lê o estado do servidor', () => {
     const first = new MockBackend({ store });
     const admin = new MockTransport({ backend: first, delays: instant });
     await admin.connect(MARCOS);
-    const agent = await admin.registerAgent({ name: 'Zélia Cadastrada', ilhaId: ICS_ILHAS.sul });
+    const agent = await admin.registerAgent({ name: 'Zélia Cadastrada', ilhaIds: [ICS_ILHAS.sul]});
     const supervisor = await admin.registerSupervisor({ name: 'Sérgio Cadastrado', ilhaIds: [] });
     admin.disconnect();
     first.close();
@@ -115,7 +115,7 @@ describe('App: Entrar como lê o estado do servidor', () => {
     const backend = new MockBackend({ store: new MemoryMockStore() });
     const admin = new MockTransport({ backend, delays: instant });
     await admin.connect(MARCOS);
-    const agent = await admin.registerAgent({ name: 'Zélia ComoParam', ilhaId: ICS_ILHAS.norte });
+    const agent = await admin.registerAgent({ name: 'Zélia ComoParam', ilhaIds: [ICS_ILHAS.norte]});
     admin.disconnect();
     window.history.replaceState(null, '', `/?como=${agent.id}`);
     render(<App transport={new MockTransport({ backend, delays: instant })} />);
@@ -133,7 +133,7 @@ describe('App: a tela "Entrar como" relê o servidor quando outra aba mexe', () 
 
     const otherTab = new MockTransport({ backend, delays: instant });
     await otherTab.connect(MARCOS);
-    await otherTab.registerAgent({ name: 'Zélia Outra Aba', ilhaId: ICS_ILHAS.sul });
+    await otherTab.registerAgent({ name: 'Zélia Outra Aba', ilhaIds: [ICS_ILHAS.sul]});
     // Nada mudou ainda: a tela só relê quando há motivo (foco, visibilidade, storage).
     expect(ics().queryByRole('button', { name: /Zélia Outra Aba/ })).not.toBeInTheDocument();
     act(() => {

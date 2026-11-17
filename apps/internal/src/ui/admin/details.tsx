@@ -3,7 +3,8 @@ import { useId, useRef, useState, type SyntheticEvent, type ReactNode } from 're
 import type { Capability } from '@viavoip/internal-domain';
 import {
   canManageIlhasIn,
-  canMoveAgentIn,
+  canAddAgentToIlhaIn,
+  canRemoveAgentFromIlhaIn,
   canSetActiveIn,
   describeDenial,
 } from '@viavoip/internal-domain';
@@ -12,7 +13,7 @@ import { own } from '@viavoip/internal-domain';
 import { conversationInitials, roleLabel } from '../conversations';
 import { capabilityLabel } from './capabilityLabels';
 import { SelectField, TextField } from './forms';
-import { byName, nameProblem } from './helpers';
+import { byName, ilhaLabel, nameProblem } from './helpers';
 import { GrantLogList } from './GrantLogList';
 import { PermissionsPanel } from './PermissionsPanel';
 import type { ConsoleContext } from './types';
@@ -102,19 +103,19 @@ export function UserDetail({
 }) {
   const { me, directory } = ctx;
   const isSelf = target.id === me.id;
-  const ilhaName = target.role === 'agent' ? own(directory.ilhas, target.ilhaId)?.name : undefined;
+  const ilhaName = target.role === 'agent' ? ilhaLabel(directory, target.ilhaIds) : undefined;
   const supervised =
-    target.role === 'supervisor' ? byName(Object.values(directory.ilhas).filter((ilha) => ilha.supervisorId === target.id)) : [];
+    target.role === 'supervisor' ? byName(Object.values(directory.ilhas).filter((ilha) => ilha.supervisorIds.includes(target.id))) : [];
   const [pending, setPending] = useState<ReadonlySet<Capability>>(new Set());
 
   const activeVerdict = canSetActiveIn(directory, me.id, target.id);
   const activeReasonId = useId();
 
-  const moveOptions =
+  const addOptions =
     target.role === 'agent'
       ? byName(
           Object.values(directory.ilhas).filter(
-            (ilha) => ilha.id !== target.ilhaId && canMoveAgentIn(directory, me.id, target.id, ilha.id).ok,
+            (ilha) => !target.ilhaIds.includes(ilha.id) && canAddAgentToIlhaIn(directory, me.id, target.id, ilha.id).ok,
           ),
         )
       : [];
@@ -128,7 +129,7 @@ export function UserDetail({
     setPending((current) => new Set([...current].filter((item) => item !== capability)));
   }
 
-  const subtitle = [roleLabel(target.role), ilhaName ? `Ilha ${ilhaName}` : undefined, target.active ? 'Ativo' : 'Desativado']
+  const subtitle = [roleLabel(target.role), ilhaName, target.active ? 'Ativo' : 'Desativado']
     .filter((part) => part !== undefined)
     .join(' · ');
 
@@ -177,7 +178,7 @@ export function UserDetail({
             )}
           </Block>
         ) : null}
-        {target.role === 'agent' && !isSelf ? <MoveAgentBlock ctx={ctx} agent={target} options={moveOptions} /> : null}
+        {target.role === 'agent' && !isSelf ? <AgentIlhasBlock ctx={ctx} agent={target} options={addOptions} /> : null}
         <Block title="Permissões">
           <PermissionsPanel
             directory={directory}
@@ -204,9 +205,12 @@ export function UserDetail({
   );
 }
 
-function MoveAgentBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: StaffUser; options: readonly Ilha[] }) {
+function AgentIlhasBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: StaffUser; options: readonly Ilha[] }) {
   const [picked, setPicked] = useState('');
+  const reasonBase = useId();
+  const { directory, me } = ctx;
   const ilhaId = options.some((ilha) => ilha.id === picked) ? picked : (options[0]?.id ?? '');
+  const linked = agent.role === 'agent' ? byName(agent.ilhaIds.flatMap((id) => own(directory.ilhas, id) ?? [])) : [];
   async function submit(event: SyntheticEvent) {
     event.preventDefault();
     const destination = options.find((ilha) => ilha.id === ilhaId);
@@ -214,14 +218,43 @@ function MoveAgentBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: S
       return;
     }
     await ctx.perform(
-      () => ctx.actions.moveAgent(agent.id, destination.id),
-      () => `${agent.name} movido para a ilha ${destination.name}.`,
+      () => ctx.actions.addAgentToIlha(agent.id, destination.id),
+      () => `${agent.name} agora também está na ilha ${destination.name}.`,
     );
   }
   return (
-    <Block title="Ilha do agente">
+    <Block title="Ilhas do agente">
+      <ul className="admin-chips" aria-label={`Ilhas de ${agent.name}`}>
+        {linked.map((ilha) => {
+          const verdict = canRemoveAgentFromIlhaIn(directory, me.id, agent.id, ilha.id);
+          return (
+            <li key={ilha.id}>
+              {ilha.name}{' '}
+              <button
+                type="button"
+                className="admin-secondary"
+                disabled={!verdict.ok || ctx.busy}
+                {...(!verdict.ok ? { 'aria-describedby': `${reasonBase}-${ilha.id}` } : {})}
+                onClick={() => {
+                  void ctx.perform(
+                    () => ctx.actions.removeAgentFromIlha(agent.id, ilha.id),
+                    () => `${agent.name} saiu da ilha ${ilha.name}.`,
+                  );
+                }}
+              >
+                Remover da ilha {ilha.name}
+              </button>
+              {!verdict.ok ? (
+                <span id={`${reasonBase}-${ilha.id}`} className="perm-reason">
+                  {describeDenial(verdict.error)}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
       {options.length === 0 ? (
-        <p className="admin-muted">Não há outra ilha disponível para mover este agente.</p>
+        <p className="admin-muted">Não há outra ilha disponível para adicionar a este agente.</p>
       ) : (
         <form
           className="admin-inline-form"
@@ -230,13 +263,13 @@ function MoveAgentBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: S
           }}
         >
           <SelectField
-            label="Mover para a ilha"
+            label="Adicionar à ilha"
             value={ilhaId}
             onChange={setPicked}
             options={options.map((ilha) => ({ value: ilha.id, label: ilha.name }))}
           />
           <button type="submit" className="admin-secondary" disabled={ctx.busy}>
-            Mover
+            Adicionar
           </button>
         </form>
       )}
@@ -247,9 +280,12 @@ function MoveAgentBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: S
 export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; ilha: Ilha; onBack: () => void; level: 1 | 2 }) {
   const { directory, me } = ctx;
   const allowed = canManageIlhasIn(directory, me.id);
-  const supervisors = byName(Object.values(directory.users).filter((user) => user.role === 'supervisor' && user.active));
-  const agents = byName(Object.values(directory.users).filter((user) => user.role === 'agent' && user.ilhaId === ilha.id));
-  const current = own(directory.users, ilha.supervisorId);
+  // Candidatos: supervisores ativos que ainda não supervisionam esta ilha (N:N: atribuir ACRESCENTA).
+  const supervisors = byName(
+    Object.values(directory.users).filter((user) => user.role === 'supervisor' && user.active && !ilha.supervisorIds.includes(user.id)),
+  );
+  const agents = byName(Object.values(directory.users).filter((user) => user.role === 'agent' && user.ilhaIds.includes(ilha.id)));
+  const current = byName(ilha.supervisorIds.flatMap((id) => own(directory.users, id) ?? []));
   // `null` = o campo ainda não foi editado: mostra o que o servidor tem (acompanha renomeação de outra aba).
   // Editado, mantém o texto de quem digita.
   const [draft, setDraft] = useState<string | null>(null);
@@ -258,13 +294,14 @@ export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; 
   const setName = (value: string) => {
     setDraft(value);
   };
-  const picked = pickedSupervisor ?? ilha.supervisorId;
+  const picked = pickedSupervisor ?? '';
   const setPicked = (value: string) => {
     setPickedSupervisor(value);
   };
   const nameRef = useRef<HTMLInputElement>(null);
   const supervisorId = supervisors.some((user) => user.id === picked) ? picked : (supervisors[0]?.id ?? '');
   const reasonId = useId();
+  const supReasonBase = useId();
 
   async function rename(event: SyntheticEvent) {
     event.preventDefault();
@@ -302,7 +339,7 @@ export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; 
     <>
       <DetailHeader
         title={ilha.name}
-        subtitle={`Supervisor: ${current?.name ?? 'sem supervisor'}`}
+        subtitle={`${current.length > 1 ? 'Supervisores' : 'Supervisor'}: ${current.map((user) => user.name).join(', ') || 'sem supervisor'}`}
         titleId="admin-detail-title"
         onBack={onBack}
         level={level}
@@ -328,8 +365,36 @@ export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; 
           </form>
         </Block>
         <Block title="Supervisor">
+          {current.length > 0 ? (
+            <ul className="admin-chips" aria-label={`Supervisores da ilha ${ilha.name}`}>
+              {current.map((user) => (
+                <li key={user.id}>
+                  {user.name}{' '}
+                  <button
+                    type="button"
+                    className="admin-secondary"
+                    disabled={!allowed.ok || ctx.busy || current.length === 1}
+                    {...(current.length === 1 ? { 'aria-describedby': `${supReasonBase}-${user.id}` } : {})}
+                    onClick={() => {
+                      void ctx.perform(
+                        () => ctx.actions.unassignIlhaSupervisor(ilha.id, user.id),
+                        () => `${user.name} deixou de supervisionar a ilha ${ilha.name}.`,
+                      );
+                    }}
+                  >
+                    Remover {user.name}
+                  </button>
+                  {current.length === 1 ? (
+                    <span id={`${supReasonBase}-${user.id}`} className="perm-reason">
+                      {describeDenial('last-supervisor')}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {supervisors.length === 0 ? (
-            <p className="admin-muted">Nenhum supervisor ativo disponível.</p>
+            <p className="admin-muted">Nenhum outro supervisor ativo disponível.</p>
           ) : (
             <form
               className="admin-inline-form"

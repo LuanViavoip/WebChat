@@ -13,7 +13,8 @@ import type {
   CreateIlhaRequest,
   LoginGroup,
   MarkReadRequest,
-  MoveAgentRequest,
+  AgentIlhaRequest,
+  UnassignIlhaSupervisorRequest,
   RegisterAgentRequest,
   RegisterSupervisorRequest,
   RenameIlhaRequest,
@@ -223,8 +224,16 @@ export class ScriptedTransport implements ChatTransport {
     return this.admin('assignIlhaSupervisor', request, () => this.ilhaOrThrow(request.ilhaId));
   }
 
-  moveAgent(request: MoveAgentRequest): Promise<StaffUser> {
-    return this.admin('moveAgent', request, () => this.userOrThrow(request.userId));
+  unassignIlhaSupervisor(request: UnassignIlhaSupervisorRequest): Promise<Ilha> {
+    return this.admin('unassignIlhaSupervisor', request, () => this.ilhaOrThrow(request.ilhaId));
+  }
+
+  addAgentToIlha(request: AgentIlhaRequest): Promise<StaffUser> {
+    return this.admin('addAgentToIlha', request, () => this.userOrThrow(request.userId));
+  }
+
+  removeAgentFromIlha(request: AgentIlhaRequest): Promise<StaffUser> {
+    return this.admin('removeAgentFromIlha', request, () => this.userOrThrow(request.userId));
   }
 
   setGrant(request: SetGrantRequest): Promise<StaffUser> {

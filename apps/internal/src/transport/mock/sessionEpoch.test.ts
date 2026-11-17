@@ -85,7 +85,7 @@ describe('época de sessão: desativar encerra TODAS as sessões abertas, reativ
     ['markRead', (p: Probe) => p.transport.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'x' })],
     ['grantLog', (p: Probe) => p.transport.grantLog()],
     ['setGrant', (p: Probe) => p.transport.setGrant({ userId: ICS_USERS.bruno, capability: 'chat.use', granted: false })],
-    ['registerAgent', (p: Probe) => p.transport.registerAgent({ name: 'X', ilhaId: ICS_ILHAS.norte })],
+    ['registerAgent', (p: Probe) => p.transport.registerAgent({ name: 'X', ilhaIds: [ICS_ILHAS.norte]})],
   ])('(c) %s chamado ANTES de qualquer reconcile: a própria chamada detecta a época e a sessão cai', async (_name, call) => {
     const adminTab = lab.tab(bus);
     const carlaTab = lab.tab(bus);

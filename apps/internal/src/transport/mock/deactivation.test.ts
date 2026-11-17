@@ -112,7 +112,7 @@ describe('usuário desativado', () => {
       t.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'm' }),
       t.openDirect({ with: ICS_USERS.ana }),
       t.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false }),
-      t.registerAgent({ name: 'X', ilhaId: ICS_ILHAS.norte }),
+      t.registerAgent({ name: 'X', ilhaIds: [ICS_ILHAS.norte]}),
       t.deactivateUser({ userId: ICS_USERS.ana }),
       t.grantLog(),
     ];

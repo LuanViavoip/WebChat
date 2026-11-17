@@ -78,3 +78,17 @@ Decisões fixadas pelo Luan em 16/11/2026:
 A D7 foi retirada porque o hml já roda em HTTPS (conferido na VPS; não verificável pelo repo), então as notificações do navegador funcionam lá. A numeração foi preservada.
 
 Consequência declarada: a regra "agente com agente fica de fora" deixa de valer quando o namespace `/internal` entrar (fase F6). Estas são decisões, não estado do código: até lá, nada muda no código.
+
+### F4: reconciliação do modelo N:N (C2, C6), 17/11/2026
+
+Implementada em `packages/internal-domain` e `apps/internal` (nenhuma linha de servidor). As regras do plano valem como estão; onde o plano não decidia, ficou a opção que dá MENOS poder:
+
+- **Tipos:** `Agent.ilhaIds` (`[IlhaId, ...IlhaId[]]`, sem repetição), `Ilha.supervisorIds` (`readonly UserId[]`) e `GroupConversation.origin` (`ilha` ou `custom`, com `createdBy` dentro da origem `custom`).
+- **Agente sem ilha não existe.** O tipo exige uma; `validateDirectory` dá `orphan-agent`; remover o último vínculo é negado (`last-ilha`), até para o admin.
+- **Ilha com agente exige supervisor.** Cada ilha de um agente precisa ter ao menos um supervisor, todos válidos (`orphan-agent` se não). O tipo admite 0 supervisores (ilha sem agentes), mas nenhuma operação deixa a ilha sem supervisor: o último não sai (`last-supervisor`).
+- **Quem mexe em supervisores de uma ilha:** só o admin (`ilhas.manage`), como antes. Atribuir passou a ACRESCENTAR (os outros ficam); `unassignIlhaSupervisor` tira um. Cadastrar supervisor "nas ilhas X" o acrescenta a elas; não substitui quem já estava.
+- **Mover = acrescentar/remover vínculo.** `moveAgent` saiu; entraram `addAgentToIlha` e `removeAgentFromIlha` no domínio, no `ChatTransport` e na UI. O supervisor só acrescenta a ilha DELA a agente do escopo dele, e só remove vínculo de ilha DELA (nunca puxa o agente de ilha de outro supervisor). Cadastro de agente: o supervisor precisa supervisionar TODAS as ilhas pedidas.
+- **Grupo `origin: 'ilha'`:** membros só pela sincronização da ilha, sem edição manual (`membersEditableManually`). A sincronização e a Etapa 6 não foram implementadas.
+- **Teto (`canGrantIn`) e "sem revogação em cascata" não mudaram;** o escopo olha o diretório atual (`inManagementScope` = alguma ilha em comum).
+- **`localStorage` do mock:** schema v5. Estado v4/v3/v2 (1:1) é migrado (um vínculo vira lista de um; grupo antigo vira `custom`); estado v5 com forma antiga ou incoerente é descartado e a seed é recriada.
+
