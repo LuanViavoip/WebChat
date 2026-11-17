@@ -1,5 +1,13 @@
 # Changelog da documentação
 
+## 2026-11-17 — F4: modelo N:N de ilhas (C2) e origem dos grupos (C6)
+
+- `packages/internal-domain` e `apps/internal` (nenhuma linha de servidor, protocolo, migration ou seed SQL). `Agent.ilhaId` virou `ilhaIds` (ao menos uma, sem repetição), `Ilha.supervisorId` virou `supervisorIds`, e `GroupConversation` troca `createdBy`/`ilhaId` por `origin` (`ilha` ou `custom`). `inManagementScope` vale para ALGUMA ilha do supervisor; `supervisorOf` virou `supervisorsOf`; `conversationTier` e o escopo do `grantLog` seguem o mesmo critério.
+- "Mover" virou acrescentar/remover vínculo: `addAgentToIlha`, `removeAgentFromIlha` e `unassignIlhaSupervisor` (domínio, `MockServer`, `ChatTransport`, `ChatSession` e UI). `moveAgent` e `canMoveAgentIn` saíram. Atribuir supervisor à ilha e cadastrar supervisor "nas ilhas X" passaram a ACRESCENTAR. Regras e escolhas conservadoras em `docs/decisions.md` (seção "F4").
+- Seed do mock: Ana em Norte e Sul, ilha Plantão com dois supervisores (Carla e Rafael) e Fábio em Exames e Plantão. `localStorage` do mock na versão 5: estado 1:1 antigo (v4/v3/v2) é migrado; estado incoerente é descartado.
+- Testes novos: `ilhaNN.test.ts`, `cardinalityMigration.test.ts`, matriz N:N em `capabilities.test.ts`, P5 e P6 sobre diretórios N:N arbitrários (`testing/directoryArb.ts`). Asserções alteradas listadas no relatório da F4 (cardinalidade e seed apenas).
+- `pnpm test`: 1653 testes (pacote de domínio 912 em 11 arquivos, app interno 541 em 44; protocol 11, adaptador SM 2, widget 19, console 61, servidor 107). Playwright do app: 159 passam e 97 pulados (1366 42/22, 1920 48/16, 2560 30/34, 390 39/25), sem flaky. Os PNGs de `apps/internal/docs/screenshots` foram regravados pelo e2e e descartados (não recapturados).
+
 ## 2026-11-16 — F3: pacote `@viavoip/internal-domain`
 
 - `apps/internal/src/domain/*` (11 módulos de código e 10 testes) movido com `git mv` para `packages/internal-domain/src`, sem mudança de lógica, tipos ou asserções. `src/index.ts` reexporta todos os módulos; o app importa de `@viavoip/internal-domain`. `apps/internal/src/domain` deixou de existir.

@@ -1,5 +1,7 @@
 # Status de implementação — Fase 5.5 (main em `ed89e11`)
 
+**F4 (branch `feat/f4-modelo-nn`, sobre a `main` em `683d419`, sem merge):** o domínio do chat interno passou a N:N (`Agent.ilhaIds`, `Ilha.supervisorIds`, `GroupConversation.origin`); o mock, o `ChatTransport` e a Equipe/Administração acompanham. `pnpm test` passou com **1653 testes** em 17/11/2026: pacote de domínio 912 (11 arquivos), app interno 541 (44 arquivos), mais protocol 11, adaptador SM 2, widget 19, console 61 e servidor 107. Playwright do app: 159 passam e 97 são pulados, como antes. O servidor ainda não importa o pacote e `sector_agents`/`sector_supervisors` não foram tocadas (F5).
+
 **F3 (branch `feat/f3-internal-domain`, empilhada sobre a F2, sem merge):** `apps/internal/src/domain` foi movido para `packages/internal-domain` sem mudança de comportamento. `pnpm test` passou com os mesmos **1530 testes** em 16/11/2026: pacote de domínio 801 (10 arquivos), app interno 529 (43 arquivos), mais protocol 11, adaptador SM 2, widget 19, console 61 e servidor 107. Playwright do app: 159 passam e 97 são pulados, como antes. O servidor ainda não importa o pacote.
 
 **F2 (branch `feat/f2-importa-sm-webchat`, antes do merge):** o `apps/internal` entrou por `git subtree` e `pnpm test` passou com **1530 testes** em 16/11/2026 (protocol 11, adaptador SM 2, widget 19, console 61, servidor 107, app interno 1330). A frase abaixo descreve a `main` anterior à F2.
