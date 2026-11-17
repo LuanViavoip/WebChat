@@ -15,7 +15,7 @@ import { conversationInitials, roleLabel } from '../conversations';
 import { useMediaQuery } from '../useMediaQuery';
 import { DetailScroll, IlhaDetail, SCROLL_FOCUSABLE, NewDetailHeader, UserDetail } from './details';
 import { NewAgentForm, NewIlhaForm, NewSupervisorForm } from './forms';
-import { byName } from './helpers';
+import { byName, ilhaLabel } from './helpers';
 import { GrantLogList } from './GrantLogList';
 import type { AdminActions, ConsoleContext, Selection } from './types';
 
@@ -415,8 +415,8 @@ function PeopleSection({
       <ul className="conversation-list">
         {users.map((user) => {
           const selected = selection?.kind === 'user' && selection.id === user.id;
-          const ilha = user.role === 'agent' ? own(directory.ilhas, user.ilhaId)?.name : undefined;
-          const detail = [roleLabel(user.role), ilha ? `Ilha ${ilha}` : undefined].filter((part) => part !== undefined).join(' · ');
+          const ilha = user.role === 'agent' ? ilhaLabel(directory, user.ilhaIds) : undefined;
+          const detail = [roleLabel(user.role), ilha].filter((part) => part !== undefined).join(' · ');
           return (
             <li key={user.id}>
               <button
@@ -471,8 +471,9 @@ function IlhaSection({
       <ul className="conversation-list">
         {ilhas.map((ilha) => {
           const selected = selection?.kind === 'ilha' && selection.id === ilha.id;
-          const supervisor = own(directory.users, ilha.supervisorId)?.name ?? 'sem supervisor';
-          const count = Object.values(directory.users).filter((user) => user.role === 'agent' && user.ilhaId === ilha.id).length;
+          const supervisor =
+            ilha.supervisorIds.map((id) => own(directory.users, id)?.name).filter((name) => name !== undefined).join(', ') || 'sem supervisor';
+          const count = Object.values(directory.users).filter((user) => user.role === 'agent' && user.ilhaIds.includes(ilha.id)).length;
           return (
             <li key={ilha.id}>
               <button

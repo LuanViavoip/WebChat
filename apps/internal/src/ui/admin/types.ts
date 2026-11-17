@@ -12,7 +12,9 @@ export type AdminActions = Pick<
   | 'createIlha'
   | 'renameIlha'
   | 'assignIlhaSupervisor'
-  | 'moveAgent'
+  | 'unassignIlhaSupervisor'
+  | 'addAgentToIlha'
+  | 'removeAgentFromIlha'
   | 'setGrant'
   | 'loadGrantLog'
 >;

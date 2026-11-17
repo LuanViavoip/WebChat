@@ -174,7 +174,7 @@ export function NewAgentForm({ ctx }: { ctx: ConsoleContext }) {
       return;
     }
     const result = await ctx.perform(
-      () => ctx.actions.registerAgent(clean, chosen.id),
+      () => ctx.actions.registerAgent(clean, [chosen.id]),
       (user) => `Agente ${user.name} cadastrado na ilha ${chosen.name}.`,
     );
     if (result.ok) {
@@ -215,7 +215,7 @@ export function NewIlhaForm({ ctx, supervisors }: { ctx: ConsoleContext; supervi
       return;
     }
     const result = await ctx.perform(
-      () => ctx.actions.createIlha(clean, chosen.id),
+      () => ctx.actions.createIlha(clean, [chosen.id]),
       (ilha) => `Ilha ${ilha.name} criada.`,
     );
     if (result.ok) {

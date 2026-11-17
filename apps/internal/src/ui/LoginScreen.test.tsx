@@ -60,7 +60,7 @@ describe('LoginScreen', () => {
     if (!first) {
       throw new Error('seed');
     }
-    const novo = { ...first, id: 'ics-novo' as typeof first.id, name: 'Zélia Nova', role: 'agent' as const, ilhaId: ICS_ILHAS.sul };
+    const novo = { ...first, id: 'ics-novo' as typeof first.id, name: 'Zélia Nova', role: 'agent' as const, ilhaIds: [ICS_ILHAS.sul] as const };
     const groups = [{ ...ics, users: [{ ...first, active: false }, ...others, novo] }, ...rest];
     render(<LoginScreen groups={groups} onPick={() => undefined} />);
     const list = within(screen.getByRole('region', { name: 'ICS Saúde' }));

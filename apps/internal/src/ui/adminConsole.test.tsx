@@ -201,7 +201,7 @@ describe('Console: Supervisores, Ilhas e Agentes', () => {
     const paula = r.backend.query((server) =>
       Object.values(server.getState().get(ICS_TENANT_ID)?.directory.users ?? {}).find((u) => u.name === 'Paula Nova'),
     );
-    expect(ilhas?.[ICS_ILHAS.exames]?.supervisorId).toBe(paula?.id);
+    expect(ilhas?.[ICS_ILHAS.exames]?.supervisorIds).toEqual([ICS_USERS.rafael, paula?.id]);
     expect(detailPane().getByRole('list', { name: 'Ilhas de Paula Nova' })).toHaveTextContent('Exames');
     r.close();
   });
@@ -248,13 +248,18 @@ describe('Console: Supervisores, Ilhas e Agentes', () => {
     await user.selectOptions(detailPane().getByLabelText('Supervisor da ilha'), 'Carla Mendes');
     await user.click(detailPane().getByRole('button', { name: 'Atribuir supervisor' }));
     await waitFor(() => {
-      expect(listPane().getByRole('button', { name: /Leste 2/ })).toHaveTextContent('Carla Mendes · 0 agentes');
+      expect(listPane().getByRole('button', { name: /Leste 2/ })).toHaveTextContent('Rafael Lima, Carla Mendes · 0 agentes');
     });
-    expect(detailPane().getByText('Supervisor: Carla Mendes')).toBeInTheDocument();
+    // N:N: atribuir ACRESCENTA; o subtítulo lista os dois, em ordem alfabética
+    expect(detailPane().getByText('Supervisores: Carla Mendes, Rafael Lima')).toBeInTheDocument();
+    // e o admin pode tirar um deles (o último não sai)
+    await user.click(detailPane().getByRole('button', { name: 'Remover Rafael Lima' }));
+    expect(await detailPane().findByText('Supervisor: Carla Mendes')).toBeInTheDocument();
+    expect(detailPane().getByRole('button', { name: 'Remover Carla Mendes' })).toBeDisabled();
     r.close();
   });
 
-  it('cadastra agente numa ilha, move de ilha e desativa, e a lista acompanha', async () => {
+  it('cadastra agente numa ilha, acrescenta e remove vínculo de ilha e desativa, e a lista acompanha', async () => {
     const user = userEvent.setup();
     const r = rig();
     await r.open(ICS_USERS.marcos);
@@ -267,12 +272,18 @@ describe('Console: Supervisores, Ilhas e Agentes', () => {
     const added = await listPane().findByRole('button', { name: /Zeca Agente/ });
     expect(added).toHaveTextContent('Agente · Ilha Sul');
 
-    await user.selectOptions(detailPane().getByLabelText('Mover para a ilha'), 'Exames');
-    await user.click(detailPane().getByRole('button', { name: 'Mover' }));
+    await user.selectOptions(detailPane().getByLabelText('Adicionar à ilha'), 'Exames');
+    await user.click(detailPane().getByRole('button', { name: 'Adicionar' }));
+    await waitFor(() => {
+      expect(listPane().getByRole('button', { name: /Zeca Agente/ })).toHaveTextContent('Agente · Ilhas Sul, Exames');
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Zeca Agente agora também está na ilha Exames.');
+    // mover = remover o vínculo antigo; o último vínculo não sai
+    await user.click(detailPane().getByRole('button', { name: 'Remover da ilha Sul' }));
     await waitFor(() => {
       expect(listPane().getByRole('button', { name: /Zeca Agente/ })).toHaveTextContent('Agente · Ilha Exames');
     });
-    expect(screen.getByRole('status')).toHaveTextContent('Zeca Agente movido para a ilha Exames.');
+    expect(detailPane().getByRole('button', { name: 'Remover da ilha Exames' })).toBeDisabled();
 
     await user.click(detailPane().getByRole('button', { name: 'Desativar' }));
     expect(await listPane().findByText('Desativado')).toBeInTheDocument();
@@ -337,31 +348,32 @@ describe('Equipe do supervisor', () => {
     for (const mine of [/Ana Souza/, /Bruno Costa/, /Camila Ribeiro/, /Diego Martins/]) {
       expect(listPane().getByRole('button', { name: mine })).toBeInTheDocument();
     }
-    // Agente de outra ilha (Exames, do Rafael) nem aparece, então não é acionável.
+    // Agente só de outra ilha (Exames, do Rafael) nem aparece, então não é acionável.
     expect(listPane().queryByRole('button', { name: /Elisa Barbosa/ })).not.toBeInTheDocument();
-    expect(listPane().queryByRole('button', { name: /Fábio Nunes/ })).not.toBeInTheDocument();
+    // N:N: Fábio está em Exames (Rafael) E em Plantão (Carla e Rafael): basta UMA ilha dela.
+    expect(listPane().getByRole('button', { name: /Fábio Nunes/ })).toBeInTheDocument();
     expect(listPane().queryByRole('button', { name: /Rafael Lima/ })).not.toBeInTheDocument();
     r.close();
   });
 
-  it('o seletor de ilha do cadastro e do mover só lista as ilhas dele', async () => {
+  it('o seletor de ilha do cadastro e do vínculo só lista as ilhas dele', async () => {
     const user = userEvent.setup();
     const r = rig();
     await r.open(ICS_USERS.carla);
     await openConsole(user, 'Equipe');
     await user.click(listPane().getByRole('button', { name: 'Novo agente' }));
-    expect(optionsOf(detailPane().getByLabelText('Ilha'))).toEqual(['Norte', 'Sul']);
+    expect(optionsOf(detailPane().getByLabelText('Ilha'))).toEqual(['Norte', 'Plantão', 'Sul']);
     await user.type(detailPane().getByLabelText('Nome'), 'Nina Nova');
     await user.selectOptions(detailPane().getByLabelText('Ilha'), 'Sul');
     await user.click(detailPane().getByRole('button', { name: 'Cadastrar agente' }));
     expect(await listPane().findByRole('button', { name: /Nina Nova/ })).toHaveTextContent('Ilha Sul');
 
     await pick(user, /Ana Souza/);
-    // Ana está na Norte: só a Sul é destino válido; Exames é do Rafael.
-    expect(optionsOf(detailPane().getByLabelText('Mover para a ilha'))).toEqual(['Sul']);
-    await user.click(detailPane().getByRole('button', { name: 'Mover' }));
+    // Ana está em Norte e Sul: só a Plantão é destino válido; Exames é só do Rafael.
+    expect(optionsOf(detailPane().getByLabelText('Adicionar à ilha'))).toEqual(['Plantão']);
+    await user.click(detailPane().getByRole('button', { name: 'Adicionar' }));
     await waitFor(() => {
-      expect(listPane().getByRole('button', { name: /Ana Souza/ })).toHaveTextContent('Ilha Sul');
+      expect(listPane().getByRole('button', { name: /Ana Souza/ })).toHaveTextContent('Ilhas Norte, Sul, Plantão');
     });
     r.close();
   });
@@ -433,7 +445,7 @@ describe('Novo grupo (só group.manage, ao vivo)', () => {
     const marcos = await r.open(ICS_USERS.marcos);
     expect(within(carla).getByRole('button', { name: 'Novo grupo' })).toBeEnabled();
     expect(within(carla).getByLabelText('Ilha do grupo')).toBeInTheDocument();
-    expect(optionsOf(within(carla).getByLabelText('Ilha do grupo'))).toEqual(['Sem ilha', 'Norte', 'Sul']);
+    expect(optionsOf(within(carla).getByLabelText('Ilha do grupo'))).toEqual(['Sem ilha', 'Norte', 'Sul', 'Plantão']);
 
     await user.click(within(marcos).getByRole('button', { name: 'Administração' }));
     await pick(user, /Carla Mendes/);
