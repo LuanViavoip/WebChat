@@ -31,9 +31,8 @@ const grupo: GroupConversation = {
   id: asConversationId('grp:1'),
   tenantId: T1,
   title: 'Plantão',
-  createdBy: sup1.id,
+  origin: { kind: 'custom', createdBy: sup1.id },
   members: [sup1.id, ag1.id],
-  ilhaId: null,
   createdAt: '2026-11-10T12:00:00.000Z',
 };
 

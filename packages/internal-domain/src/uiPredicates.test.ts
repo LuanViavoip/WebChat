@@ -16,7 +16,7 @@ describe('canUseCapabilityIn (entradas da UI: "Novo grupo" etc.)', () => {
   });
 
   it('grant fora do teto (dado corrompido) nunca vale, e ator desativado ou desconhecido é negado', () => {
-    const corrupted = withUser(d, makeUser('agent', 'ag-1', { grants: ['group.manage'], ilhaId: iid('ilha-1') }));
+    const corrupted = withUser(d, makeUser('agent', 'ag-1', { grants: ['group.manage'], ilhaIds: [iid('ilha-1')] }));
     expect(canUseCapabilityIn(corrupted, uid('ag-1'), 'group.manage').ok).toBe(false);
     const inactive = withUser(d, makeUser('supervisor', 'sup-1', { active: false }));
     expect(canUseCapabilityIn(inactive, uid('sup-1'), 'group.manage')).toEqual({ ok: false, error: 'actor-inactive' });

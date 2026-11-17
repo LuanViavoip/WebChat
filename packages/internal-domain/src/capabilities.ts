@@ -100,12 +100,12 @@ export function resolvePair(
 export function supervisedIlhaIds(d: Directory, supervisorId: UserId): ReadonlySet<string> {
   return new Set(
     Object.values(d.ilhas)
-      .filter((ilha) => ilha.supervisorId === supervisorId && ilha.tenantId === d.tenantId)
+      .filter((ilha) => ilha.supervisorIds.includes(supervisorId) && ilha.tenantId === d.tenantId)
       .map((ilha) => ilha.id),
   );
 }
 
-/** Escopo de gestão sobre o alvo: admin, qualquer um do tenant; supervisor, só agente de ilha dele; agente, ninguém. */
+/** Escopo de gestão sobre o alvo: admin, qualquer um do tenant; supervisor, só agente de ALGUMA ilha dele (N:N); agente, ninguém. */
 export function inManagementScope(d: Directory, actor: StaffUser, target: StaffUser): boolean {
   if (actor.tenantId !== d.tenantId || target.tenantId !== d.tenantId) {
     return false;
@@ -114,7 +114,11 @@ export function inManagementScope(d: Directory, actor: StaffUser, target: StaffU
     return true;
   }
   if (actor.role === 'supervisor') {
-    return target.role === 'agent' && supervisedIlhaIds(d, actor.id).has(target.ilhaId);
+    if (target.role !== 'agent') {
+      return false;
+    }
+    const mine = supervisedIlhaIds(d, actor.id);
+    return target.ilhaIds.some((ilhaId) => mine.has(ilhaId));
   }
   return false;
 }

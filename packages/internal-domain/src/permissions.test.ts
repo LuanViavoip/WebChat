@@ -28,9 +28,8 @@ function group(members: readonly StaffUser[], tenantId = T1): GroupConversation 
     id: asConversationId(`grp:${tenantId}:1`),
     tenantId,
     title: 'Grupo',
-    createdBy: ids[0],
+    origin: { kind: 'custom', createdBy: ids[0] },
     members: ids,
-    ilhaId: null,
     createdAt: '2026-11-10T12:00:00.000Z',
   };
 }

@@ -1,4 +1,4 @@
-import { moveAgent, type GrantLogEntry } from './directoryOps';
+import { addAgentToIlha, removeAgentFromIlha, type GrantLogEntry } from './directoryOps';
 import { canReadGrantLog, visibleGrantLog } from './grantLog';
 import { iid, seedDirectory, T1, T2, uid, user } from './testing/domainFixtures';
 
@@ -47,8 +47,13 @@ describe('visibleGrantLog', () => {
     expect(visibleGrantLog(seedDirectory(T2), user(d, 'admin'), log)).toEqual([]);
   });
 
-  it('o escopo é o atual: mover o agente muda o que o supervisor enxerga', () => {
-    const moved = moveAgent({ directory: d, grantLog: [] }, uid('admin'), uid('ag-1'), iid('ilha-2'));
+  it('o escopo é o atual: mover o agente (acrescentar + remover vínculo) muda o que o supervisor enxerga', () => {
+    // mover = acrescentar o vínculo novo e tirar o antigo
+    const added = addAgentToIlha({ directory: d, grantLog: [] }, uid('admin'), uid('ag-1'), iid('ilha-2'));
+    if (!added.ok) {
+      throw new Error('acrescentar deveria passar');
+    }
+    const moved = removeAgentFromIlha(added.value, uid('admin'), uid('ag-1'), iid('ilha-1'));
     if (!moved.ok) {
       throw new Error('mover deveria passar');
     }

@@ -1,5 +1,6 @@
 import fc from 'fast-check';
-import { iid, makeDirectory, makeUser, seedDirectory, T1, T2, uid } from './testing/domainFixtures';
+import { directoryArb } from './testing/directoryArb';
+import { iid, makeDirectory, makeUser, seedDirectoryNN, T1, T2, uid } from './testing/domainFixtures';
 import {
   CAPABILITIES,
   ROLE_CEILING,
@@ -9,7 +10,18 @@ import {
   canRevoke,
   type Capability,
 } from './capabilities';
-import { applyAssignRole, applyCreate, applyGrant, applyRevoke } from './directoryOps';
+import {
+  addAgentToIlha,
+  applyAssignRole,
+  applyCreate,
+  applyGrant,
+  applyRevoke,
+  deactivateUser,
+  removeAgentFromIlha,
+  type AdminResult,
+  type AdminState,
+  unassignIlhaSupervisor,
+} from './directoryOps';
 import { validateDirectory, type Directory, type StaffUser } from './identity';
 import { can } from './permissions';
 
@@ -107,7 +119,8 @@ describe('P6: tenant', () => {
 });
 
 // P5: sequências de operações sobre o diretório, enviesadas para atores que podem agir.
-const SEED_IDS = ['admin', 'sup-1', 'sup-2', 'ag-1', 'ag-2', 'ag-3', 'ag-4'];
+// Diretório inicial N:N (`seedDirectoryNN`): agentes em 2 ilhas e ilha com 2 supervisores.
+const SEED_IDS = ['admin', 'sup-1', 'sup-2', 'ag-1', 'ag-2', 'ag-3', 'ag-4', 'ag-5', 'ag-6', 'ag-7'];
 const NEW_IDS = ['novo-1', 'novo-2', 'novo-3', 'novo-4'];
 
 type Kind = 'grant' | 'revoke' | 'assign' | 'create';
@@ -118,6 +131,7 @@ type Op = {
   capability: Capability;
   role: 'supervisor' | 'agent';
   ilha: string;
+  ilhas: string[];
 };
 
 const actorArb = fc.oneof(
@@ -125,7 +139,7 @@ const actorArb = fc.oneof(
   { weight: 1, arbitrary: fc.constantFrom(...SEED_IDS, ...NEW_IDS) },
 );
 const targetArb = fc.oneof(
-  { weight: 4, arbitrary: fc.constantFrom('sup-1', 'sup-2', 'ag-1', 'ag-2', 'ag-3', 'ag-4', ...NEW_IDS) },
+  { weight: 4, arbitrary: fc.constantFrom('sup-1', 'sup-2', 'ag-1', 'ag-2', 'ag-3', 'ag-4', 'ag-5', 'ag-6', 'ag-7', ...NEW_IDS) },
   { weight: 1, arbitrary: fc.constantFrom(...SEED_IDS, ...NEW_IDS) },
 );
 const opArb: fc.Arbitrary<Op> = fc.record({
@@ -137,7 +151,8 @@ const opArb: fc.Arbitrary<Op> = fc.record({
     { weight: 1, arbitrary: capabilityArb },
   ),
   role: fc.constantFrom(...(['supervisor', 'agent'] as const)),
-  ilha: fc.constantFrom('ilha-1', 'ilha-2', 'ilha-inexistente'),
+  ilha: fc.constantFrom('ilha-1', 'ilha-2', 'ilha-3', 'ilha-inexistente'),
+  ilhas: fc.array(fc.constantFrom('ilha-1', 'ilha-2', 'ilha-3'), { maxLength: 2 }),
 });
 
 function step(d: Directory, op: Op): Directory | undefined {
@@ -149,8 +164,8 @@ function step(d: Directory, op: Op): Directory | undefined {
       : op.kind === 'revoke'
         ? applyRevoke(d, actor, target, op.capability)
         : op.kind === 'assign'
-          ? applyAssignRole(d, actor, target, op.role, iid(op.ilha))
-          : applyCreate(d, actor, { id: target, name: op.target, role: op.role, ilhaId: iid(op.ilha) });
+          ? applyAssignRole(d, actor, target, op.role, [iid(op.ilha), ...op.ilhas.map(iid)])
+          : applyCreate(d, actor, { id: target, name: op.target, role: op.role, ilhaIds: [iid(op.ilha), ...op.ilhas.map(iid)] });
   return result.ok ? result.value : undefined;
 }
 
@@ -160,12 +175,12 @@ const idsWithRole = (d: Directory, role: StaffUser['role']) =>
     .map((u) => u.id)
     .sort();
 
-describe('P5: fechamento sobre sequências de operações aceitas', () => {
+describe('P5: fechamento sobre sequências de operações aceitas (diretório inicial N:N)', () => {
   it('invariantes após cada operação aceita; mínimo de aceitas por tipo', () => {
     const accepted: Record<Kind, number> = { grant: 0, revoke: 0, assign: 0, create: 0 };
     fc.assert(
       fc.property(fc.array(opArb, { maxLength: 40 }), (ops) => {
-        let d = seedDirectory();
+        let d = seedDirectoryNN();
         const admins = idsWithRole(d, 'admin');
         for (const op of ops) {
           const before = d;
@@ -206,5 +221,97 @@ describe('P5: fechamento sobre sequências de operações aceitas', () => {
     for (const kind of ['grant', 'revoke', 'assign', 'create'] as const) {
       expect(accepted[kind], `operações ${kind} aceitas`).toBeGreaterThanOrEqual(20);
     }
+  });
+});
+
+// P5 sobre diretórios N:N ARBITRÁRIOS (gerador `directoryArb`): agentes em 1 a 3 ilhas, ilhas com 1 a 3 supervisores.
+type RawOp = { kind: 'grant' | 'revoke' | 'assign' | 'create' | 'addIlha' | 'removeIlha' | 'unassignSup'; actor: number; target: number; ilha: number; ilhas: number[]; capability: Capability; role: 'supervisor' | 'agent' };
+const rawOpArb: fc.Arbitrary<RawOp> = fc.record({
+  kind: fc.constantFrom('grant', 'revoke', 'assign', 'create', 'addIlha', 'removeIlha', 'unassignSup'),
+  actor: fc.nat({ max: 20 }),
+  target: fc.nat({ max: 20 }),
+  ilha: fc.nat({ max: 5 }),
+  ilhas: fc.array(fc.nat({ max: 5 }), { maxLength: 2 }),
+  capability: fc.oneof({ weight: 3, arbitrary: fc.constantFrom<Capability>('chat.use', 'group.manage', 'agents.manage', 'grants.manage') }, { weight: 1, arbitrary: capabilityArb }),
+  role: fc.constantFrom(...(['supervisor', 'agent'] as const)),
+});
+
+describe('P5 (N:N arbitrário): qualquer sequência de operações aceitas mantém o diretório válido', () => {
+  it('validateDirectory ok, grants ⊆ teto, um admin, ninguém altera o próprio registro', () => {
+    let accepted = 0;
+    let multi = 0;
+    const lift = (r: AdminResult): { ok: true; value: Directory } | { ok: false; error: string } =>
+      r.ok ? { ok: true, value: r.value.directory } : r;
+    fc.assert(
+      fc.property(directoryArb, fc.array(rawOpArb, { maxLength: 25 }), (start, ops) => {
+        let d: Directory = start;
+        for (const op of ops) {
+          const all = Object.keys(d.users).sort();
+          // 3 de cada 4 vezes o ator é admin/supervisor (agente só nega): mais operações aceitas
+          const powerful = all.filter((id) => d.users[uid(id)]?.role !== 'agent');
+          const actorPool = op.actor % 4 === 0 ? all : powerful;
+          const ilhas = ['inexistente', ...Object.keys(d.ilhas).sort()];
+          const pick = (list: readonly string[], i: number): string => list[i % list.length] ?? '';
+          const actor = uid(pick(actorPool, op.actor));
+          const target = uid(op.kind === 'create' ? `novo-${String(accepted)}` : pick(all, op.target));
+          const ilha = iid(pick(ilhas.slice(1), op.ilha));
+          const ilhaList = [ilha, ...op.ilhas.map((i) => iid(pick(ilhas.slice(1), i)))];
+          const before = d;
+          const st: AdminState = { directory: d, grantLog: [] };
+          const next =
+            op.kind === 'grant' ? applyGrant(d, actor, target, op.capability)
+            : op.kind === 'revoke' ? applyRevoke(d, actor, target, op.capability)
+            : op.kind === 'assign' ? applyAssignRole(d, actor, target, op.role, ilhaList)
+            : op.kind === 'create' ? applyCreate(d, actor, { id: target, name: 'Novo', role: op.role, ilhaIds: ilhaList })
+            : op.kind === 'addIlha' ? lift(addAgentToIlha(st, actor, target, ilha))
+            : op.kind === 'removeIlha' ? lift(removeAgentFromIlha(st, actor, target, ilha))
+            : lift(unassignIlhaSupervisor(st, actor, ilha, target));
+          if (!next.ok) continue;
+          accepted += 1;
+          d = next.value;
+          expect(validateDirectory(d).ok).toBe(true);
+          expect(d.users[actor]).toEqual(before.users[actor]);
+          expect(Object.values(d.users).filter((u) => u.role === 'admin')).toHaveLength(1);
+          for (const u of Object.values(d.users)) {
+            expect(u.tenantId).toBe(T1);
+            for (const capability of u.grants) expect(ROLE_CEILING[u.role].has(capability)).toBe(true);
+            if (u.role === 'agent' && u.ilhaIds.length > 1) multi += 1;
+          }
+        }
+      }),
+      { numRuns: 500, seed: 20261117 },
+    );
+    expect(accepted).toBeGreaterThan(250);
+    expect(multi).toBeGreaterThan(250);
+  });
+});
+
+describe('P6 (N:N): ator de uma empresa nunca age sobre alvo de outra', () => {
+  it('toda operação por id contra a outra empresa falha com cross-tenant (ou unknown-ilha para ilha alheia)', () => {
+    const a = seedDirectoryNN(T1);
+    const b = seedDirectoryNN(T2);
+    const actors = Object.keys(a.users);
+    const targets = Object.keys(b.users);
+    const ilhasB = Object.keys(b.ilhas);
+    fc.assert(
+      fc.property(fc.constantFrom(...actors), fc.constantFrom(...targets), fc.constantFrom(...ilhasB), capabilityArb, (actorId, targetId, ilhaId, capability) => {
+        const state = { directory: a, grantLog: [] };
+        const actor = uid(actorId);
+        const target = uid(targetId);
+        expect(applyGrant(a, actor, target, capability)).toEqual({ ok: false, error: 'cross-tenant' });
+        expect(applyRevoke(a, actor, target, capability)).toEqual({ ok: false, error: 'cross-tenant' });
+        expect(applyAssignRole(a, actor, target, 'agent', [iid(ilhaId)])).toEqual({ ok: false, error: 'cross-tenant' });
+        expect(addAgentToIlha(state, actor, target, iid(ilhaId))).toEqual({ ok: false, error: 'cross-tenant' });
+        expect(removeAgentFromIlha(state, actor, target, iid(ilhaId))).toEqual({ ok: false, error: 'cross-tenant' });
+        expect(deactivateUser(state, actor, target)).toEqual({ ok: false, error: 'cross-tenant' });
+        // ilha de outra empresa não existe para este diretório: com alvo daqui, a negação é `unknown-ilha`
+        const own = uid(actors.find((id) => a.users[uid(id)]?.role === 'agent') ?? 'ag-1');
+        const verdict = addAgentToIlha(state, uid('admin'), own, iid(ilhaId));
+        expect(verdict.ok).toBe(false);
+        expect(verdict.ok ? '' : verdict.error).toBe('unknown-ilha');
+        expect(unassignIlhaSupervisor(state, uid('admin'), iid(ilhaId), target)).toEqual({ ok: false, error: 'unknown-ilha' });
+      }),
+      { numRuns: 300 },
+    );
   });
 });

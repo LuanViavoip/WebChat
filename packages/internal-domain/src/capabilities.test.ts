@@ -1,4 +1,4 @@
-import { makeUser, T1, T2 } from './testing/domainFixtures';
+import { iid, makeDirectory, makeIlha, makeUser, seedDirectoryNN, T1, T2, uid } from './testing/domainFixtures';
 import {
   CAPABILITIES,
   ROLE_CEILING,
@@ -6,13 +6,16 @@ import {
   ROLE_RANK,
   canAssignRole,
   canGrant,
+  canGrantIn,
   canRevoke,
+  canRevokeIn,
   grantsAfterRoleChange,
   type Capability,
   type GrantDenial,
   type RoleDenial,
 } from './capabilities';
 import type { StaffUser } from './identity';
+import { can } from './permissions';
 
 type R = 'admin' | 'supervisor' | 'agent';
 const ROLES: readonly R[] = ['admin', 'supervisor', 'agent'];
@@ -413,5 +416,61 @@ describe('posse efetiva = grants ∩ teto da role', () => {
     expect(canAssignRole(sup, { tenantId: T1 }, 'supervisor').ok).toBe(false);
     expect(canAssignRole(sup, makeUser('agent', 'ag'), 'supervisor').ok).toBe(false);
     expect(canAssignRole(sup, { tenantId: T1 }, 'agent').ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Matriz N:N (plano da fusão, C2/D1/D4): o escopo do supervisor é "alguma ilha dele".
+// Esperado ESCRITO À MÃO. Diretório: seed N:N + `sup-3` (supervisor só da `ilha-4`, sem agentes).
+//   ag-1: ilha-1 (sup-1)            ag-3: ilha-2 (sup-2)
+//   ag-5: ilha-1 + ilha-2           ag-6: ilha-3 (sup-1 e sup-2)
+//   ag-7: ilha-1 + ilha-3
+// ---------------------------------------------------------------------------
+describe('escopo N:N: ator x agente-alvo (canGrantIn, canRevokeIn, assignRole)', () => {
+  const base = seedDirectoryNN();
+  const sup3 = makeUser('supervisor', 'sup-3');
+  const d = makeDirectory(T1, [...Object.values(base.users), sup3], [...Object.values(base.ilhas), makeIlha('ilha-4', 'sup-3')]);
+
+  const TARGETS = ['ag-1', 'ag-3', 'ag-5', 'ag-6', 'ag-7'] as const;
+  const EXPECTED: Record<string, Record<(typeof TARGETS)[number], 'ok' | 'outside-islands' | 'no-grants-manage'>> = {
+    admin: { 'ag-1': 'ok', 'ag-3': 'ok', 'ag-5': 'ok', 'ag-6': 'ok', 'ag-7': 'ok' },
+    // sup-1: ilha-1 e ilha-3
+    'sup-1': { 'ag-1': 'ok', 'ag-3': 'outside-islands', 'ag-5': 'ok', 'ag-6': 'ok', 'ag-7': 'ok' },
+    // sup-2: ilha-2 e ilha-3
+    'sup-2': { 'ag-1': 'outside-islands', 'ag-3': 'ok', 'ag-5': 'ok', 'ag-6': 'ok', 'ag-7': 'ok' },
+    // sup-3: só ilha-4 (sem agentes): nenhum
+    'sup-3': { 'ag-1': 'outside-islands', 'ag-3': 'outside-islands', 'ag-5': 'outside-islands', 'ag-6': 'outside-islands', 'ag-7': 'outside-islands' },
+    // agente: nunca (não tem grants.manage)
+    'ag-1': { 'ag-1': 'no-grants-manage', 'ag-3': 'no-grants-manage', 'ag-5': 'no-grants-manage', 'ag-6': 'no-grants-manage', 'ag-7': 'no-grants-manage' },
+  };
+  const rows = Object.entries(EXPECTED).flatMap(([actor, row]) =>
+    TARGETS.filter((target) => target !== actor).map((target) => [`${actor} -> ${target}`, actor, target, row[target]] as const),
+  );
+
+  it.each(rows)('canGrantIn chat.use: %s', (_name, actor, target, want) => {
+    expect(outcome(canGrantIn(d, uid(actor), uid(target), 'chat.use'))).toBe(want);
+  });
+
+  it.each(rows)('canRevokeIn chat.use: %s', (_name, actor, target, want) => {
+    expect(outcome(canRevokeIn(d, uid(actor), uid(target), 'chat.use'))).toBe(want);
+  });
+
+  const assignWant = (want: string): string => (want === 'no-grants-manage' ? 'no-manage-capability' : want);
+  it.each(rows)('can(assignRole agent): %s', (_name, actor, target, want) => {
+    const actorUser = d.users[uid(actor)];
+    const targetUser = d.users[uid(target)];
+    if (!actorUser || !targetUser) throw new Error('fixture');
+    expect(outcome(can(actorUser, { type: 'assignRole', target: targetUser, role: 'agent' }, d))).toBe(assignWant(want));
+  });
+
+  it('um supervisor de duas ilhas do mesmo agente (ag-7 em ilha-1 e ilha-3) conta uma vez e continua dentro do teto', () => {
+    expect(outcome(canGrantIn(d, uid('sup-1'), uid('ag-7'), 'chat.use'))).toBe('ok');
+    expect(outcome(canGrantIn(d, uid('sup-1'), uid('ag-7'), 'group.manage'))).toBe('above-target-ceiling');
+  });
+
+  it('escopo olha o diretório ATUAL: sem a ilha em comum, o supervisor perde o alvo (sem revogação em cascata do que já concedeu)', () => {
+    const semIlha3 = { ...d, ilhas: { ...d.ilhas, [iid('ilha-3')]: makeIlha('ilha-3', 'sup-2') } };
+    expect(outcome(canGrantIn(semIlha3, uid('sup-1'), uid('ag-6'), 'chat.use'))).toBe('outside-islands');
+    expect(outcome(canGrantIn(semIlha3, uid('sup-1'), uid('ag-7'), 'chat.use'))).toBe('ok'); // ainda em ilha-1
   });
 });

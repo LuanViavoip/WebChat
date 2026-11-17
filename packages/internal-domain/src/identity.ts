@@ -23,7 +23,9 @@ type UserBase = {
 /** Dono da empresa. Criado fora do app (provisionamento); um por empresa. */
 export type Admin = UserBase & { readonly role: 'admin' };
 export type Supervisor = UserBase & { readonly role: 'supervisor' };
-export type Agent = UserBase & { readonly role: 'agent'; readonly ilhaId: IlhaId };
+/** Ao menos uma ilha, sem repetição (N:N: o agente pode estar em várias; plano da fusão, C2/D1). */
+export type IlhaIds = readonly [IlhaId, ...IlhaId[]];
+export type Agent = UserBase & { readonly role: 'agent'; readonly ilhaIds: IlhaIds };
 /** Reservado para o canal do cliente. Nunca entra em sessão interna. */
 export type ClientUser = Omit<UserBase, 'grants'> & { readonly role: 'client' };
 
@@ -34,7 +36,8 @@ export type Ilha = {
   readonly id: IlhaId;
   readonly tenantId: TenantId;
   readonly name: string;
-  readonly supervisorId: UserId;
+  /** N:N: uma ilha pode ter vários supervisores. O tipo admite 0 (ilha sem agentes); com agente, exige ≥1. */
+  readonly supervisorIds: readonly UserId[];
 };
 
 /** Sempre de UM tenant. O tipo não impede misturar; validateDirectory e os testes de isolamento impedem. */
@@ -57,10 +60,16 @@ export function validateDirectory(d: Directory): Result<Directory, DirectoryErro
     if (user.role !== 'agent') {
       continue;
     }
-    const ilha = own(d.ilhas, user.ilhaId);
-    const supervisor = ilha ? own(d.users, ilha.supervisorId) : undefined;
-    if (supervisor?.role !== 'supervisor') {
+    // Todas as ilhas do agente existem, sem repetição, e cada uma tem ao menos um supervisor, todos válidos.
+    const ilhaIds: readonly IlhaId[] = user.ilhaIds;
+    if (ilhaIds.length === 0 || new Set(ilhaIds).size !== ilhaIds.length) {
       return err('orphan-agent');
+    }
+    for (const ilhaId of ilhaIds) {
+      const ilha = own(d.ilhas, ilhaId);
+      if (!ilha || ilha.supervisorIds.length === 0 || !ilha.supervisorIds.every((id) => own(d.users, id)?.role === 'supervisor')) {
+        return err('orphan-agent');
+      }
     }
   }
   for (const user of users) {
@@ -82,10 +91,19 @@ export function validateDirectory(d: Directory): Result<Directory, DirectoryErro
   return ok(d);
 }
 
-export function supervisorOf(d: Directory, agent: Agent): Supervisor | undefined {
-  const ilha = own(d.ilhas, agent.ilhaId);
-  const supervisor = ilha ? own(d.users, ilha.supervisorId) : undefined;
-  return supervisor?.role === 'supervisor' ? supervisor : undefined;
+/** Supervisores do agente: os de TODAS as ilhas dele, sem repetir (ordem das ilhas, depois a de `supervisorIds`). */
+export function supervisorsOf(d: Directory, agent: Agent): readonly Supervisor[] {
+  const found = new Map<UserId, Supervisor>();
+  for (const ilhaId of agent.ilhaIds) {
+    const ilha = own(d.ilhas, ilhaId);
+    for (const id of ilha?.supervisorIds ?? []) {
+      const supervisor = own(d.users, id);
+      if (supervisor?.role === 'supervisor') {
+        found.set(supervisor.id, supervisor);
+      }
+    }
+  }
+  return [...found.values()];
 }
 
 export type ParseStaffUserError = { readonly error: 'client-not-supported' | 'invalid' };
@@ -96,7 +114,7 @@ export function parseStaffUser(raw: unknown): StaffUser | ParseStaffUserError {
     return { error: 'invalid' };
   }
   const record = raw as Record<string, unknown>;
-  const { id, tenantId, name, active, role, grants, ilhaId } = record;
+  const { id, tenantId, name, active, role, grants, ilhaIds } = record;
   if (role === 'client') {
     return { error: 'client-not-supported' };
   }
@@ -123,8 +141,13 @@ export function parseStaffUser(raw: unknown): StaffUser | ParseStaffUserError {
   if (role === 'admin' || role === 'supervisor') {
     return { ...base, role };
   }
-  if (role === 'agent' && typeof ilhaId === 'string' && ilhaId !== '') {
-    return { ...base, role, ilhaId: ilhaId as IlhaId };
+  if (role === 'agent' && Array.isArray(ilhaIds)) {
+    const list = ilhaIds as unknown[];
+    const valid = list.every((item): item is string => typeof item === 'string' && item !== '');
+    if (valid && list.length > 0 && new Set(list).size === list.length) {
+      const [first, ...rest] = list;
+      return { ...base, role, ilhaIds: [first as IlhaId, ...(rest as IlhaId[])] };
+    }
   }
   return { error: 'invalid' };
 }

@@ -1,5 +1,5 @@
 import fc from 'fast-check';
-import { iid, makeDirectory, makeIlha, makeUser, seedDirectory, T1, T2, uid, user } from './testing/domainFixtures';
+import { iid, makeDirectory, makeIlha, makeUser, seedDirectoryNN, T1, T2, uid, user } from './testing/domainFixtures';
 import { CAPABILITIES, ROLE_CEILING, type Capability } from './capabilities';
 import {
   applyAssignRole,
@@ -7,13 +7,15 @@ import {
   canConnect,
   createIlha,
   deactivateUser,
+  addAgentToIlha,
   grantCapability,
-  moveAgent,
   reactivateUser,
   registerAgent,
   registerSupervisor,
+  removeAgentFromIlha,
   renameIlha,
   revokeCapability,
+  unassignIlhaSupervisor,
   type AdminResult,
   type AdminState,
   type OpDeps,
@@ -30,7 +32,9 @@ type Kind =
   | 'createIlha'
   | 'renameIlha'
   | 'assignIlhaSupervisor'
-  | 'moveAgent'
+  | 'unassignIlhaSupervisor'
+  | 'addAgentIlha'
+  | 'removeAgentIlha'
   | 'assignRole';
 
 type Op = {
@@ -45,15 +49,15 @@ type Op = {
 
 const KINDS: readonly Kind[] = [
   'grant', 'revoke', 'deactivate', 'reactivate', 'registerSupervisor', 'registerAgent',
-  'createIlha', 'renameIlha', 'assignIlhaSupervisor', 'moveAgent', 'assignRole',
+  'createIlha', 'renameIlha', 'assignIlhaSupervisor', 'unassignIlhaSupervisor', 'addAgentIlha', 'removeAgentIlha', 'assignRole',
 ];
 
-const SEEDED = ['admin', 'sup-1', 'sup-2', 'ag-1', 'ag-2', 'ag-3', 'ag-4'];
+const SEEDED = ['admin', 'sup-1', 'sup-2', 'ag-1', 'ag-2', 'ag-3', 'ag-4', 'ag-5', 'ag-6', 'ag-7'];
 const CREATED = ['novo-1', 'novo-2', 'novo-3', 'novo-4', 'novo-5'];
 // ids de outro tenant, forjados, inexistentes e de protótipo
 const FORGED = ['admin-b', 'sup-1-b', 'ag-1-b', 'ilha-1-b', 'inexistente', '__proto__', 'constructor', ''];
 const ALIENS = ['alien-admin', 'alien-sup', 'alien-ag'];
-const ILHAS = ['ilha-1', 'ilha-2', 'ilha-novo-1', 'ilha-novo-2', 'ilha-novo-3', 'alien-ilha'];
+const ILHAS = ['ilha-1', 'ilha-2', 'ilha-3', 'ilha-novo-1', 'ilha-novo-2', 'ilha-novo-3', 'alien-ilha'];
 
 const actorArb = fc.oneof(
   { weight: 5, arbitrary: fc.constantFrom('admin', 'sup-1', 'sup-2') },
@@ -61,9 +65,11 @@ const actorArb = fc.oneof(
   { weight: 1, arbitrary: fc.constantFrom(...ALIENS, ...FORGED) },
 );
 const targetArb = fc.oneof(
-  { weight: 3, arbitrary: fc.constantFrom('ag-1', 'ag-2', 'ag-3', 'ag-4', 'sup-1', 'sup-2', ...CREATED) },
+  { weight: 3, arbitrary: fc.constantFrom('ag-1', 'ag-2', 'ag-3', 'ag-4', 'ag-5', 'ag-6', 'ag-7', 'sup-1', 'sup-2', ...CREATED) },
   // alvos com lacunas no seed: há o que conceder
-  { weight: 3, arbitrary: fc.constantFrom('ag-2', 'ag-4', 'sup-2') },
+  { weight: 3, arbitrary: fc.constantFrom('ag-2', 'ag-4', 'ag-5', 'sup-2') },
+  // supervisores como alvo: atribuir/remover supervisor de ilha (N:N) precisa de alvos que ainda não estejam na ilha
+  { weight: 3, arbitrary: fc.constantFrom('sup-1', 'sup-2') },
   { weight: 1, arbitrary: fc.constantFrom('admin') },
   { weight: 2, arbitrary: fc.constantFrom(...ALIENS, ...FORGED) },
 );
@@ -87,9 +93,9 @@ const opArb: fc.Arbitrary<Op> = fc.record({
 
 type Fixture = { state: AdminState; planted: boolean };
 
-/** Seed com lacunas para haver o que conceder: agentes sem chat.use e um supervisor (sup-2) sem chat.use, grants.manage e duas outras. */
+/** Seed N:N com lacunas para haver o que conceder: agentes sem chat.use e um supervisor (sup-2) sem chat.use, grants.manage e duas outras. */
 function seedWithGaps(): Directory {
-  const seed = seedDirectory();
+  const seed = seedDirectoryNN();
   const patch = (id: string, grants: readonly Capability[]): StaffUser => ({ ...user(seed, id), grants: new Set(grants) });
   const sup2 = user(seed, 'sup-2');
   return {
@@ -113,7 +119,7 @@ function plantedState(): AdminState {
   const alien = [
     makeUser('admin', 'alien-admin', { tenantId: T2 }),
     makeUser('supervisor', 'alien-sup', { tenantId: T2 }),
-    makeUser('agent', 'alien-ag', { tenantId: T2, ilhaId: iid('alien-ilha') }),
+    makeUser('agent', 'alien-ag', { tenantId: T2, ilhaIds: [iid('alien-ilha')] }),
   ];
   const d = makeDirectory(T1, [...Object.values(base.users), ...alien], [...Object.values(base.ilhas), makeIlha('alien-ilha', 'alien-sup', T2)]);
   return { directory: d, grantLog: [] };
@@ -155,17 +161,21 @@ function apply(state: AdminState, op: Op, deps: OpDeps): AdminResult {
     case 'registerSupervisor':
       return registerSupervisor(state, actor, { name: 'Sup', ilhaIds: op.ilhas.map(iid) }, deps);
     case 'registerAgent':
-      return registerAgent(state, actor, { name: 'Ag', ilhaId: iid(op.ilha) }, deps);
+      return registerAgent(state, actor, { name: 'Ag', ilhaIds: [iid(op.ilha), ...op.ilhas.map(iid)] }, deps);
     case 'createIlha':
-      return createIlha(state, actor, { name: 'Nova', supervisorId: target }, deps);
+      return createIlha(state, actor, { name: 'Nova', supervisorIds: op.ilhas.length > 1 ? [target, uid('sup-2')] : [target] }, deps);
     case 'renameIlha':
       return renameIlha(state, actor, iid(op.ilha), `Ilha ${op.target}`);
     case 'assignIlhaSupervisor':
       return assignIlhaSupervisor(state, actor, iid(op.ilha), target);
-    case 'moveAgent':
-      return moveAgent(state, actor, target, iid(op.ilha));
+    case 'unassignIlhaSupervisor':
+      return unassignIlhaSupervisor(state, actor, iid(op.ilha), target);
+    case 'addAgentIlha':
+      return addAgentToIlha(state, actor, target, iid(op.ilha));
+    case 'removeAgentIlha':
+      return removeAgentFromIlha(state, actor, target, iid(op.ilha));
     case 'assignRole': {
-      const r = applyAssignRole(state.directory, actor, target, op.role, iid(op.ilha));
+      const r = applyAssignRole(state.directory, actor, target, op.role, [iid(op.ilha)]);
       return r.ok ? { ok: true, value: { ...state, directory: r.value } } : r;
     }
   }
@@ -185,10 +195,13 @@ function referencesAlien(op: Op): boolean {
     case 'registerSupervisor':
       return op.ilhas.includes('alien-ilha');
     case 'registerAgent':
+      return ilha || op.ilhas.includes('alien-ilha');
     case 'renameIlha':
       return ilha;
     case 'assignIlhaSupervisor':
-    case 'moveAgent':
+    case 'unassignIlhaSupervisor':
+    case 'addAgentIlha':
+    case 'removeAgentIlha':
       return target || ilha;
     case 'assignRole':
       return target || (op.role === 'agent' && ilha); // a ilha só conta para a role agent
@@ -287,7 +300,7 @@ function runSequence(ops: readonly Op[], fixture: Fixture, stats: Stats): AdminS
       bump(stats, 'supervisor-aceita');
       const sup = uid(op.actor);
       // escopo calculado independente do código sob teste
-      const own = new Set(Object.values(before.directory.ilhas).filter((i) => i.supervisorId === sup).map((i) => String(i.id)));
+      const own = new Set(Object.values(before.directory.ilhas).filter((i) => i.supervisorIds.includes(sup)).map((i) => String(i.id)));
       expect(own.size).toBeGreaterThan(0);
       expect(JSON.stringify(after.directory.ilhas)).toBe(JSON.stringify(before.directory.ilhas));
       for (const id of userIds(after.directory)) {
@@ -297,10 +310,18 @@ function runSequence(ops: readonly Op[], fixture: Fixture, stats: Stats): AdminS
         bump(stats, 'supervisor-mexeu-em-agente');
         expect(a?.role).toBe('agent');
         expect(a?.tenantId).toBe(T1);
-        if (a?.role === 'agent') expect(own.has(a.ilhaId)).toBe(true);
         if (b) {
+          // N:N: o agente já era do escopo dele (alguma ilha) e só os vínculos de ilhas DELE mudam
           expect(b.role).toBe('agent');
-          if (b.role === 'agent') expect(own.has(b.ilhaId)).toBe(true);
+          if (b.role === 'agent' && a?.role === 'agent') {
+            expect(b.ilhaIds.some((x) => own.has(x))).toBe(true);
+            const changed = [...b.ilhaIds.filter((x) => !a.ilhaIds.includes(x)), ...a.ilhaIds.filter((x) => !b.ilhaIds.includes(x))];
+            for (const x of changed) expect(own.has(x)).toBe(true);
+            if (changed.length > 0) bump(stats, 'supervisor-mudou-vinculo');
+          }
+        } else if (a?.role === 'agent') {
+          // agente recém-cadastrado: só em ilhas dele
+          expect(a.ilhaIds.every((x) => own.has(x))).toBe(true);
         }
       }
     }
@@ -408,6 +429,7 @@ describe('propriedades do console de administração (sequências arbitrárias)'
     expect(stats['cadastro-por-supervisor-sem-chat'] ?? 0).toBeGreaterThanOrEqual(3);
     expect(stats['supervisor-aceita'] ?? 0).toBeGreaterThanOrEqual(100);
     expect(stats['supervisor-mexeu-em-agente'] ?? 0).toBeGreaterThanOrEqual(50);
+    expect(stats['supervisor-mudou-vinculo'] ?? 0).toBeGreaterThanOrEqual(5);
     expect(stats['negada:outside-islands'] ?? 0).toBeGreaterThanOrEqual(50);
     expect(stats['negada:cross-tenant'] ?? 0).toBeGreaterThanOrEqual(50);
     expect(stats['alien-ator-negado'] ?? 0).toBeGreaterThanOrEqual(20);

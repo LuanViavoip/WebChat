@@ -1,5 +1,5 @@
 import type { Directory, IlhaId, StaffUser, UserId } from './identity';
-import { supervisorOf } from './identity';
+import { supervisorsOf } from './identity';
 import { own } from './records';
 import { err, ok, type Result } from './result';
 import type { Brand, TenantId } from './tenant';
@@ -16,17 +16,30 @@ export type DirectConversation = {
   readonly participants: DirectPair;
 };
 
+/**
+ * Origem do grupo (plano da fusão, C6/D8):
+ * - `ilha`: o grupo automático da ilha (setor); membros só pela sincronização da ilha, sem edição manual;
+ * - `custom`: criado por admin/supervisor (Etapa 6); segue as regras de grupo.
+ */
+export type GroupOrigin =
+  | { readonly kind: 'ilha'; readonly ilhaId: IlhaId }
+  | { readonly kind: 'custom'; readonly createdBy: UserId };
+
 /** Só o tipo nesta etapa: sem fluxo de criação de grupo (Etapa 6). */
 export type GroupConversation = {
   readonly kind: 'group';
   readonly id: ConversationId;
   readonly tenantId: TenantId;
   readonly title: string;
-  readonly createdBy: UserId;
+  readonly origin: GroupOrigin;
   readonly members: readonly [UserId, ...UserId[]];
-  readonly ilhaId: IlhaId | null;
   readonly createdAt: string;
 };
+
+/** Membros de grupo de ilha vêm só da sincronização da ilha; só o grupo custom aceita edição manual de membros. */
+export function membersEditableManually(group: GroupConversation): boolean {
+  return group.origin.kind === 'custom';
+}
 
 export type Conversation = DirectConversation | GroupConversation;
 
@@ -79,8 +92,8 @@ export type ConversationTier = 'priority' | 'colleagues';
  * Regras da seção "Grupos e supervisão":
  * - conversa de outro tenant (não deveria chegar aqui): colleagues;
  * - grupo: sempre priority;
- * - agente: a direta com o supervisor da própria ilha;
- * - supervisor: as diretas com os agentes das ilhas dele;
+ * - agente: a direta com o supervisor de qualquer ilha dele;
+ * - supervisor: as diretas com os agentes de alguma ilha dele;
  * - admin: as diretas com supervisores (decisão: o admin "supervisiona" supervisores).
  * Todo o resto (inclusive supervisor com admin ou com outro supervisor) é colega.
  */
@@ -102,9 +115,9 @@ export function conversationTier(c: Conversation, me: StaffUser, d: Directory): 
   }
   switch (me.role) {
     case 'agent':
-      return supervisorOf(d, me)?.id === other.id ? 'priority' : 'colleagues';
+      return supervisorsOf(d, me).some((supervisor) => supervisor.id === other.id) ? 'priority' : 'colleagues';
     case 'supervisor':
-      return other.role === 'agent' && supervisorOf(d, other)?.id === me.id ? 'priority' : 'colleagues';
+      return other.role === 'agent' && supervisorsOf(d, other).some((supervisor) => supervisor.id === me.id) ? 'priority' : 'colleagues';
     case 'admin':
       return other.role === 'supervisor' ? 'priority' : 'colleagues';
   }
