@@ -1,5 +1,5 @@
 import { MockBackend } from './MockBackend';
-import type { MockStore } from './MockStore';
+import { LocalStorageMockStore, MOCK_STORE_KEY, type MockStore } from './MockStore';
 import { createSeedState, ICS_TENANT_ID, ICS_USERS } from './seed';
 import { fromPersisted, PERSIST_VERSION, toPersisted, type PersistedState } from './state';
 
@@ -88,5 +88,30 @@ describe('migração 1:1 -> N:N do localStorage do mock', () => {
     expect(fromPersisted(withGroup(fresh(), group({})))).toBeUndefined();
     expect(fromPersisted(withGroup(fresh(), group({ origin: { kind: 'ilha', ilhaId: 'fantasma' } })))).toBeUndefined();
     expect(fromPersisted(withGroup(fresh(), group({ origin: { kind: 'custom', createdBy: 'fantasma' } })))).toBeUndefined();
+  });
+
+  it.each([['null', null], ['array vazio', []], ['número', 42], ['string', 'x'], ['só a versão', { version: 5 }], ['tenants não é lista', { version: 5, tenants: {} }], ['versão 4 sem tenants', { version: 4 }], ['tenant nulo', { version: 5, tenants: [null] }]])(
+    'raiz estranha (%s) é descartada sem exceção',
+    (_n, raw) => {
+      expect(() => fromPersisted(raw)).not.toThrow();
+      expect(fromPersisted(raw)).toBeUndefined();
+    },
+  );
+
+  it('o backend com storage estranho (inclusive JSON inválido no localStorage) recria a seed sem exceção', () => {
+    for (const raw of [null, [], 42, 'x', { version: 5 }]) {
+      const backend = new MockBackend({ store: rawStore(raw), now: () => '2026-11-16T12:00:00.000Z' });
+      expect(Object.keys(backend.server.getState().get(ICS_TENANT_ID)?.directory.users ?? {})).toHaveLength(9);
+      backend.close();
+    }
+    const storage = new Map<string, string>([[MOCK_STORE_KEY, '{nao-json']]);
+    const store = new LocalStorageMockStore({
+      getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => void storage.set(k, v),
+      removeItem: (k: string) => void storage.delete(k),
+    });
+    const backend = new MockBackend({ store });
+    expect(backend.server.getState().get(ICS_TENANT_ID)).toBeDefined();
+    backend.close();
   });
 });

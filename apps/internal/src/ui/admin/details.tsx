@@ -207,6 +207,7 @@ export function UserDetail({
 
 function AgentIlhasBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: StaffUser; options: readonly Ilha[] }) {
   const [picked, setPicked] = useState('');
+  const reasonBase = useId();
   const { directory, me } = ctx;
   const ilhaId = options.some((ilha) => ilha.id === picked) ? picked : (options[0]?.id ?? '');
   const linked = agent.role === 'agent' ? byName(agent.ilhaIds.flatMap((id) => own(directory.ilhas, id) ?? [])) : [];
@@ -233,7 +234,7 @@ function AgentIlhasBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: 
                 type="button"
                 className="admin-secondary"
                 disabled={!verdict.ok || ctx.busy}
-                title={!verdict.ok ? describeDenial(verdict.error) : undefined}
+                {...(!verdict.ok ? { 'aria-describedby': `${reasonBase}-${ilha.id}` } : {})}
                 onClick={() => {
                   void ctx.perform(
                     () => ctx.actions.removeAgentFromIlha(agent.id, ilha.id),
@@ -243,6 +244,11 @@ function AgentIlhasBlock({ ctx, agent, options }: { ctx: ConsoleContext; agent: 
               >
                 Remover da ilha {ilha.name}
               </button>
+              {!verdict.ok ? (
+                <span id={`${reasonBase}-${ilha.id}`} className="perm-reason">
+                  {describeDenial(verdict.error)}
+                </span>
+              ) : null}
             </li>
           );
         })}
@@ -295,6 +301,7 @@ export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; 
   const nameRef = useRef<HTMLInputElement>(null);
   const supervisorId = supervisors.some((user) => user.id === picked) ? picked : (supervisors[0]?.id ?? '');
   const reasonId = useId();
+  const supReasonBase = useId();
 
   async function rename(event: SyntheticEvent) {
     event.preventDefault();
@@ -367,7 +374,7 @@ export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; 
                     type="button"
                     className="admin-secondary"
                     disabled={!allowed.ok || ctx.busy || current.length === 1}
-                    title={current.length === 1 ? describeDenial('last-supervisor') : undefined}
+                    {...(current.length === 1 ? { 'aria-describedby': `${supReasonBase}-${user.id}` } : {})}
                     onClick={() => {
                       void ctx.perform(
                         () => ctx.actions.unassignIlhaSupervisor(ilha.id, user.id),
@@ -377,6 +384,11 @@ export function IlhaDetail({ ctx, ilha, onBack, level }: { ctx: ConsoleContext; 
                   >
                     Remover {user.name}
                   </button>
+                  {current.length === 1 ? (
+                    <span id={`${supReasonBase}-${user.id}`} className="perm-reason">
+                      {describeDenial('last-supervisor')}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>

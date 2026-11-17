@@ -4,6 +4,7 @@ import {
   conversationTier,
   directConversation,
   directConversationId,
+  membersEditableManually,
   sortConversations,
   type Conversation,
   type ConversationSummary,
@@ -183,5 +184,15 @@ describe('sortConversations', () => {
     );
     expect(priority.map((item) => item.id)).toEqual([dm(sup1, ag1).id]);
     expect(colleagues.map((item) => item.id)).toEqual([dm(sup1, ag3).id]);
+  });
+});
+
+describe('membersEditableManually (origem do grupo, C6/D8)', () => {
+  it('grupo de ilha: membros só pela sincronização da ilha, sem edição manual', () => {
+    expect(membersEditableManually({ ...grupo, origin: { kind: 'ilha', ilhaId: 'ilha-1' as never } })).toBe(false);
+  });
+
+  it('grupo custom: aceita edição manual de membros', () => {
+    expect(membersEditableManually({ ...grupo, origin: { kind: 'custom', createdBy: sup1.id } })).toBe(true);
   });
 });

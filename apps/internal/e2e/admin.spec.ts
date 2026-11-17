@@ -208,8 +208,42 @@ test.describe('console de administração com duas páginas', () => {
     await expect(paula.getByRole('region', { name: /Detalhes de Camila Ribeiro/ })).toBeVisible();
     await expect(paula.getByText('Não há outra ilha disponível para adicionar a este agente.')).toBeVisible();
     await expect(paula.getByLabel('Adicionar à ilha')).toHaveCount(0);
+    // N:N: "Ilhas do agente" com o último vínculo bloqueado e o motivo visível (aria-describedby).
+    await expect(paula.getByRole('button', { name: 'Remover da ilha Sul' })).toBeDisabled();
+    await expect(paula.getByText('o agente precisa de ao menos uma ilha')).toBeVisible();
+    await expectNoSeriousOrCritical(paula, 'Paula detalhe do agente com Ilhas do agente');
     await expect(paula.locator('.admin-detail')).not.toContainText('Norte');
     await paulaMark.expectNoReload();
+  });
+
+  test('N:N: o admin vê o agente em duas ilhas e a ilha com dois supervisores, sem violações de acessibilidade', async ({ context }, testInfo) => {
+    const mobile = isMobileProject(testInfo);
+    const admin = await context.newPage();
+    await enterAs(admin, USERS.marcos, { reset: true });
+    await openConsole(admin, 'Administração', 'Agentes');
+    await admin.getByRole('button', { name: /Fábio Nunes/ }).click();
+    await expect(admin.getByRole('region', { name: /Detalhes de Fábio Nunes/ })).toBeVisible();
+    await expect(admin.getByRole('list', { name: 'Ilhas de Fábio Nunes' })).toContainText('Plantão');
+    await expect(admin.getByRole('list', { name: 'Ilhas de Fábio Nunes' })).toContainText('Exames');
+    await expectNoSeriousOrCritical(admin, 'admin detalhe do agente em duas ilhas');
+    if (mobile) {
+      await showList(admin, true);
+    }
+    await sections(admin).getByRole('button', { name: 'Ilhas', exact: true }).click();
+    await admin.getByRole('button', { name: /Plantão/ }).click();
+    await expect(admin.getByRole('region', { name: /Detalhes da ilha Plantão/ })).toBeVisible();
+    await expect(admin.getByRole('list', { name: 'Supervisores da ilha Plantão' })).toContainText('Carla Mendes');
+    await expect(admin.getByRole('list', { name: 'Supervisores da ilha Plantão' })).toContainText('Rafael Lima');
+    await expect(admin.getByRole('button', { name: 'Remover Carla Mendes' })).toBeEnabled();
+    await expectNoSeriousOrCritical(admin, 'admin detalhe da ilha com dois supervisores');
+    // Ilha de um supervisor só: o último não sai, com o motivo visível.
+    if (mobile) {
+      await showList(admin, true);
+    }
+    await admin.getByRole('button', { name: /Exames/ }).first().click();
+    await expect(admin.getByRole('button', { name: 'Remover Rafael Lima' })).toBeDisabled();
+    await expect(admin.getByText('a ilha precisa de ao menos um supervisor')).toBeVisible();
+    await expectNoSeriousOrCritical(admin, 'admin detalhe da ilha com um supervisor');
   });
 
   test('conta desativada: a sessão aberta cai com aviso, some do Entrar como, a URL direta avisa e reativar devolve o acesso', async ({
