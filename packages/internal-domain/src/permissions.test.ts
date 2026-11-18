@@ -1,4 +1,4 @@
-import { makeDirectory, makeUser, seedDirectory, T1, T2, user } from './testing/domainFixtures';
+import { iid, makeDirectory, makeUser, seedDirectory, T1, T2, user } from './testing/domainFixtures';
 import { CAPABILITIES, type Capability } from './capabilities';
 import { directConversation, type Conversation, type GroupConversation, asConversationId } from './conversation';
 import type { Directory, StaffUser, UserId } from './identity';
@@ -7,6 +7,7 @@ import { can, type Action } from './permissions';
 const d = seedDirectory();
 const admin = user(d, 'admin');
 const sup1 = user(d, 'sup-1');
+const sup2 = user(d, 'sup-2');
 const ag1 = user(d, 'ag-1');
 const ag2 = user(d, 'ag-2');
 const ag3 = user(d, 'ag-3');
@@ -30,6 +31,7 @@ function group(members: readonly StaffUser[], tenantId = T1): GroupConversation 
     title: 'Grupo',
     origin: { kind: 'custom', createdBy: ids[0] },
     members: ids,
+    formerMemberIds: [],
     createdAt: '2026-11-10T12:00:00.000Z',
   };
 }
@@ -38,6 +40,22 @@ function verdict(actor: StaffUser, action: Action, dir: Directory = d): string {
   const result = can(actor, action, dir);
   return result.ok ? 'ok' : result.error;
 }
+
+describe('gestão de grupos', () => {
+  const custom = group([sup1, ag1]);
+  const automatico: GroupConversation = { ...custom, origin: { kind: 'ilha', ilhaId: iid('ilha-1') } };
+  it('exige capacidade e restringe a edição ao dono ou admin', () => {
+    expect(verdict(ag1, { type: 'group.manage' })).toBe('no-capability');
+    expect(verdict(sup1, { type: 'group.manage', group: custom })).toBe('ok');
+    expect(verdict(sup2, { type: 'group.manage', group: custom })).toBe('not-owner');
+    expect(verdict(admin, { type: 'group.manage', group: custom })).toBe('ok');
+    expect(verdict(sup1, { type: 'group.manage', group: { ...custom, origin: { kind: 'custom', createdBy: admin.id } } })).toBe('not-owner');
+  });
+  it('permite somente ao admin editar grupo de ilha', () => {
+    expect(verdict(sup1, { type: 'group.manage', group: automatico })).toBe('not-owner');
+    expect(verdict(admin, { type: 'group.manage', group: automatico })).toBe('ok');
+  });
+});
 
 // Uma linha por Action; cada uma com a variante cross-tenant esperando 'cross-tenant'.
 describe('can: uma linha por Action (ok + variante cross-tenant)', () => {

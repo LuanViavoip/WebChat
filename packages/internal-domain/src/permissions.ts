@@ -8,7 +8,7 @@ import {
   type GrantDenial,
   type RoleDenial,
 } from './capabilities';
-import type { Conversation } from './conversation';
+import type { Conversation, GroupConversation } from './conversation';
 import type { Directory, StaffUser, UserId } from './identity';
 import { own } from './records';
 import { err, ok, type Result } from './result';
@@ -17,6 +17,7 @@ import type { TenantId } from './tenant';
 /** Nesta etapa: diretas, envio, console e gestão de grants/roles. Grupos e avisos entram depois. */
 export type Action =
   | { readonly type: 'direct.open'; readonly with: StaffUser }
+  | { readonly type: 'group.manage'; readonly group?: GroupConversation }
   | { readonly type: 'conversation.send'; readonly conversation: Conversation }
   | { readonly type: 'admin.console' }
   | { readonly type: 'grant'; readonly target: StaffUser; readonly capability: Capability }
@@ -35,7 +36,8 @@ export type PermissionDenial =
   | 'same-user'
   | 'target-inactive'
   | 'target-no-chat-use'
-  | 'not-participant';
+  | 'not-participant'
+  | 'not-owner';
 
 /**
  * Ordem: tenant de toda entidade referenciada (ator, diretório, alvo, conversa e seus
@@ -86,6 +88,11 @@ export function can(claimedActor: StaffUser, action: Action, d: Directory): Resu
       }
       return participantsOf(act.conversation).includes(actor.id) ? ok(true) : err('not-participant');
     }
+    case 'group.manage':
+      if (!held.has('group.manage')) return err('no-capability');
+      if (!held.has('chat.use')) return err('no-chat-use');
+      return !act.group || actor.role === 'admin' || (act.group.origin.kind === 'custom' && act.group.origin.createdBy === actor.id)
+        ? ok(true) : err('not-owner');
     case 'admin.console':
       return held.has('admin.console') ? ok(true) : err('no-capability');
     case 'grant':
@@ -127,6 +134,15 @@ function resolveAction(action: Action, d: Directory): Result<Action, 'cross-tena
         return member !== undefined && member.tenantId === d.tenantId;
       });
       return conversation.tenantId === d.tenantId && known ? ok(action) : err('cross-tenant');
+    }
+    case 'group.manage': {
+      const group = action.group;
+      if (!group) return ok(action);
+      const originValid = group.origin.kind === 'custom'
+        ? own(d.users, group.origin.createdBy)?.tenantId === d.tenantId
+        : own(d.ilhas, group.origin.ilhaId)?.tenantId === d.tenantId;
+      const membersValid = group.members.every((id) => own(d.users, id)?.tenantId === d.tenantId);
+      return group.tenantId === d.tenantId && originValid && membersValid ? ok(action) : err('cross-tenant');
     }
     case 'admin.console':
       return ok(action);

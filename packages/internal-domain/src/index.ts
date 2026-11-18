@@ -3,6 +3,8 @@ export * from './capabilities';
 export * from './conversation';
 export * from './directoryOps';
 export * from './grantLog';
+export * from './group';
+export * from './groupStatus';
 export * from './identity';
 export * from './message';
 export * from './permissions';
