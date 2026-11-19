@@ -10,6 +10,7 @@ const EMPTY: ChatSessionState = {
   connection: 'disconnected',
   error: null,
   errorConversationId: null,
+  bootstrap: null,
   tenant: null,
   me: null,
   directory: null,
@@ -18,6 +19,14 @@ const EMPTY: ChatSessionState = {
   conversations: {},
   summaries: [],
   activeConversationId: null,
+  presence: {},
+  prefs: {},
+  starred: [],
+  pinnedMessages: {},
+  reactions: {},
+  polls: {},
+  quickReplies: [],
+  scheduled: [],
 };
 
 const NO_MESSAGES: ChatMessage[] = [];

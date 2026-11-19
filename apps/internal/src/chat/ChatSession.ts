@@ -1,24 +1,66 @@
-import { asClientId } from '@viavoip/internal-domain';
-import { type ValidAttachment } from '@viavoip/internal-domain';
-import type { Conversation, ConversationId, ConversationSummary, GroupConversation } from '@viavoip/internal-domain';
-import type { Capability } from '@viavoip/internal-domain';
-import { describeDenial, DENIAL_TEXT, type GrantLogEntry, type OpError } from '@viavoip/internal-domain';
-import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
-import { previewOf, type ChatMessage, type MessageStatus } from '@viavoip/internal-domain';
-import type { Tenant } from '@viavoip/internal-domain';
+import {
+  asClientId,
+  describeDenial,
+  DENIAL_TEXT,
+  previewOf,
+  type Capability,
+  type ChatMessage,
+  type Conversation,
+  type ConversationId,
+  type ConversationPrefs,
+  type ConversationPrefsRequest,
+  type ConversationSummary,
+  type Directory,
+  type GrantLogEntry,
+  type GroupConversation,
+  type Ilha,
+  type IlhaId,
+  type MessageId,
+  type MessageReceipts,
+  type MessageRef,
+  type MessageStatus,
+  type OpError,
+  type PollTally,
+  type Presence,
+  type QuickReply,
+  type QuickReplyId,
+  type ReactionGroup,
+  type SaveQuickReplyRequest,
+  type ScheduleRequest,
+  type ScheduledId,
+  type ScheduledItem,
+  type SetPresenceRequest,
+  type StaffUser,
+  type Tenant,
+  type UserId,
+  type ValidAttachment,
+  type VotePollRequest,
+} from '@viavoip/internal-domain';
 import { isSessionAborted, isUploadCanceled } from '../transport/abort';
 import { ACCOUNT_DEACTIVATED, isForbidden } from '../transport/errors';
 import type {
   Bootstrap,
+  CancelScheduledRequest,
   ChatEvent,
   ChatTransport,
+  ComposeActivity,
   ConnectRequest,
   CreateGroupRequest,
-  ComposeActivity,
-  UpdateGroupRequest,
+  DeleteRequest,
+  EditRequest,
+  ForwardRequest,
+  ForwardResult,
+  HistoryPage,
+  HistoryRequest,
   OutboundPayload,
+  PinMessageRequest,
+  ReactRequest,
+  SearchHit,
+  SearchRequest,
   SessionEndReason,
+  StarRequest,
   TransportStatus,
+  UpdateGroupRequest,
 } from '../transport/ChatTransport';
 import { DEFAULT_SESSION } from '../transport/mock/seed';
 import { browserObjectUrls, type ObjectUrlFactory } from '../transport/objectUrls';
@@ -58,23 +100,63 @@ export type SessionEnded = { readonly reason: SessionEndReason; readonly message
 
 export const SESSION_DEACTIVATED_TEXT = 'Sua conta foi desativada. Fale com o administrador.';
 
-/** Resultado de uma ação de administração. `message` é pt-BR, pronta para a UI (nunca revela outra empresa). */
-export type AdminActionResult<T = undefined> =
+/** Resultado de uma ação da sessão. `message` é pt-BR, pronta para a UI (nunca revela outra empresa). */
+export type ActionResult<T = undefined> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly message: string };
 
+export type AdminActionResult<T = undefined> = ActionResult<T>;
+
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+export type SendOptions = {
+  readonly replyTo?: MessageId;
+  readonly mentions?: readonly UserId[];
+};
+
 const FORBIDDEN_TEXT = 'Operação não permitida.';
+
+const V1_REASON_TEXT: Readonly<Record<string, string>> = {
+  'not-author': 'apenas o autor pode fazer isso',
+  'not-editable-kind': 'este tipo de mensagem não pode ser editado',
+  'window-expired': 'o prazo para esta alteração expirou',
+  'already-deleted': 'a mensagem já foi apagada',
+  'not-deletable-kind': 'este tipo de mensagem não pode ser apagado',
+  'not-participant': 'você não participa desta conversa',
+  'not-participant-source': 'você não participa da conversa de origem',
+  'not-participant-target': 'você não participa da conversa de destino',
+  'not-forwardable-kind': 'este tipo de mensagem não pode ser encaminhado',
+  'read-only-target': 'a conversa de destino está somente leitura',
+  'too-many': 'limite máximo atingido',
+  'not-group': 'disponível apenas em grupos',
+  closed: 'enquete encerrada',
+  'multiple-not-allowed': 'esta enquete aceita apenas uma opção',
+  'unknown-option': 'opção de enquete inválida',
+  'not-member': 'você não participa deste grupo',
+  'in-past': 'escolha uma data e hora no futuro',
+  'too-far': 'o agendamento deve ser de no máximo 30 dias',
+  'bad-shortcut': 'atalho inválido',
+  'duplicate-shortcut': 'já existe uma resposta rápida com este atalho',
+  'scope-forbidden': 'sem permissão para este escopo',
+};
 
 function isOpError(reason: string): reason is OpError {
   return Object.hasOwn(DENIAL_TEXT, reason);
 }
 
-function adminFailure(error: unknown): { readonly ok: false; readonly message: string } {
-  if (isForbidden(error) && isOpError(error.reason)) {
-    const text = describeDenial(error.reason);
-    return { ok: false, message: `Operação não permitida: ${text}.` };
+function actionFailure(error: unknown, fallback = 'Não foi possível concluir a operação.'): { readonly ok: false; readonly message: string } {
+  if (isForbidden(error)) {
+    if (isOpError(error.reason)) {
+      const text = describeDenial(error.reason);
+      return { ok: false, message: `Operação não permitida: ${text}.` };
+    }
+    const v1Reason = Object.hasOwn(V1_REASON_TEXT, error.reason) ? V1_REASON_TEXT[error.reason] : undefined;
+    if (v1Reason) {
+      return { ok: false, message: `Operação não permitida: ${v1Reason}.` };
+    }
+    return { ok: false, message: FORBIDDEN_TEXT };
   }
-  return { ok: false, message: isForbidden(error) ? FORBIDDEN_TEXT : errorMessage(error, 'Não foi possível concluir a operação.') };
+  return { ok: false, message: errorMessage(error, fallback) };
 }
 
 export type ChatSessionState = {
@@ -82,6 +164,7 @@ export type ChatSessionState = {
   error: string | null;
   /** A conversa a que o erro pertence (falha de envio); `null` = erro da sessão (conexão, abrir conversa). */
   errorConversationId: ConversationId | null;
+  bootstrap: Bootstrap | null;
   tenant: Tenant | null;
   me: StaffUser | null;
   /** O diretório do tenant, atualizado pelos eventos `directory` e `grants` (sem reload). */
@@ -97,6 +180,14 @@ export type ChatSessionState = {
   /** As conversas da sessão, da mais recente para a mais antiga (a seção fica a cargo da UI). */
   summaries: readonly ConversationSummary[];
   activeConversationId: ConversationId | null;
+  presence: Readonly<Record<UserId, Presence>>;
+  prefs: Readonly<Record<ConversationId, ConversationPrefs>>;
+  starred: readonly MessageRef[];
+  pinnedMessages: Readonly<Record<ConversationId, readonly MessageId[]>>;
+  reactions: Readonly<Record<MessageId, readonly ReactionGroup[]>>;
+  polls: Readonly<Record<MessageId, PollTally>>;
+  quickReplies: readonly QuickReply[];
+  scheduled: readonly ScheduledItem[];
 };
 
 export type ChatSessionListener = (state: ChatSessionState) => void;
@@ -133,6 +224,7 @@ export class ChatSession {
   private errorConversationId: ConversationId | null = null;
   private generation = 0;
   private identity: ConnectRequest;
+  private bootstrap: Bootstrap | null = null;
   private tenant: Tenant | null = null;
   private me: StaffUser | null = null;
   private directory: Directory | null = null;
@@ -141,6 +233,14 @@ export class ChatSession {
   private grantLogVersion = 0;
   private sessionEnded: SessionEnded | null = null;
   private activeConversationId: ConversationId | null = null;
+  private presence: Readonly<Record<UserId, Presence>> = {};
+  private prefs: Readonly<Record<ConversationId, ConversationPrefs>> = {};
+  private starred: readonly MessageRef[] = [];
+  private pinnedMessages: Readonly<Record<ConversationId, readonly MessageId[]>> = {};
+  private reactions: Readonly<Record<MessageId, readonly ReactionGroup[]>> = {};
+  private polls: Readonly<Record<MessageId, PollTally>> = {};
+  private quickReplies: readonly QuickReply[] = [];
+  private scheduled: readonly ScheduledItem[] = [];
   private threads = new Map<ConversationId, Thread>();
   private readonly listeners = new Set<ChatSessionListener>();
   private unsubscribeTransport: (() => void) | undefined;
@@ -183,6 +283,7 @@ export class ChatSession {
     }
     this.clearAllUploads();
     this.threads = new Map();
+    this.bootstrap = null;
     this.tenant = null;
     this.me = null;
     this.directory = null;
@@ -190,6 +291,14 @@ export class ChatSession {
     this.grantLogVersion += 1;
     this.sessionEnded = null;
     this.activeConversationId = null;
+    this.presence = {};
+    this.prefs = {};
+    this.starred = [];
+    this.pinnedMessages = {};
+    this.reactions = {};
+    this.polls = {};
+    this.quickReplies = [];
+    this.scheduled = [];
     this.clearError();
     this.connection = 'disconnected';
     this.bindTransport(generation);
@@ -263,7 +372,7 @@ export class ChatSession {
   }
 
   /** Carrega o grantLog legível por este usuário. Agente: `ok: false`, e `grantLog` segue `null`. */
-  async loadGrantLog(): Promise<AdminActionResult> {
+  async loadGrantLog(): Promise<ActionResult> {
     const generation = this.generation;
     const version = this.grantLogVersion;
     try {
@@ -274,16 +383,130 @@ export class ChatSession {
       }
       return { ok: true, value: undefined };
     } catch (error) {
-      return adminFailure(error);
+      return actionFailure(error);
     }
   }
 
+  history(request: HistoryRequest): Promise<ActionResult<HistoryPage>> {
+    return this.runAction(() => this.transport.history(request), 'Não foi possível carregar o histórico.');
+  }
+
+  react(request: ReactRequest): Promise<ActionResult> {
+    return this.runAction(async () => {
+      await this.transport.react(request);
+      return undefined;
+    }, 'Não foi possível reagir à mensagem.');
+  }
+
+  editMessage(request: EditRequest): Promise<ActionResult<ChatMessage>> {
+    return this.runAction(() => this.transport.editMessage(request), 'Não foi possível editar a mensagem.');
+  }
+
+  deleteMessage(request: DeleteRequest): Promise<ActionResult> {
+    return this.runAction(async () => {
+      await this.transport.deleteMessage(request);
+      return undefined;
+    }, 'Não foi possível apagar a mensagem.');
+  }
+
+  forward(request: Omit<ForwardRequest, 'clientId'>): Promise<ActionResult<ForwardResult>> {
+    return this.runAction(
+      () => this.transport.forward({ ...request, clientId: asClientId(this.createId()) }),
+      'Não foi possível encaminhar.',
+    );
+  }
+
+  setStar(request: StarRequest): Promise<ActionResult> {
+    return this.runAction(async () => {
+      await this.transport.setStar(request);
+      return undefined;
+    }, 'Não foi possível atualizar favorita.');
+  }
+
+  pinMessage(request: PinMessageRequest): Promise<ActionResult> {
+    return this.runAction(async () => {
+      await this.transport.pinMessage(request);
+      return undefined;
+    }, 'Não foi possível fixar a mensagem.');
+  }
+
+  messageInfo(request: MessageRef): Promise<ActionResult<MessageReceipts>> {
+    return this.runAction(() => this.transport.messageInfo(request), 'Não foi possível consultar os dados da mensagem.');
+  }
+
+  searchMessages(request: SearchRequest): Promise<ActionResult<readonly SearchHit[]>> {
+    return this.runAction(() => this.transport.searchMessages(request), 'Não foi possível pesquisar mensagens.');
+  }
+
+  setPresence(request: SetPresenceRequest): Promise<ActionResult<Presence>> {
+    return this.runAction(() => this.transport.setPresence(request), 'Não foi possível atualizar sua presença.');
+  }
+
+  setConversationPrefs(request: ConversationPrefsRequest): Promise<ActionResult<ConversationPrefs>> {
+    return this.runAction(
+      () => this.transport.setConversationPrefs(request),
+      'Não foi possível atualizar as preferências da conversa.',
+    );
+  }
+
+  votePoll(request: VotePollRequest): Promise<ActionResult<PollTally>> {
+    return this.runAction(() => this.transport.votePoll(request), 'Não foi possível registrar seu voto.');
+  }
+
+  closePoll(request: MessageRef): Promise<ActionResult> {
+    return this.runAction(async () => {
+      await this.transport.closePoll(request);
+      return undefined;
+    }, 'Não foi possível encerrar a enquete.');
+  }
+
+  schedule(request: DistributiveOmit<ScheduleRequest, 'clientId'>): Promise<ActionResult<ScheduledItem>> {
+    const clientId = asClientId(this.createId());
+    const fullRequest: ScheduleRequest =
+      request.kind === 'message'
+        ? { ...request, clientId }
+        : { ...request, clientId };
+    return this.runAction(
+      () => this.transport.schedule(fullRequest),
+      'Não foi possível concluir o agendamento.',
+    );
+  }
+
+  cancelScheduled(id: ScheduledId): Promise<ActionResult<ScheduledItem>> {
+    const request: CancelScheduledRequest = { id };
+    return this.runAction(
+      () => this.transport.cancelScheduled(request),
+      'Não foi possível cancelar o agendamento.',
+    );
+  }
+
+  saveQuickReply(request: SaveQuickReplyRequest): Promise<ActionResult<QuickReply>> {
+    return this.runAction(
+      () => this.transport.saveQuickReply(request),
+      'Não foi possível salvar a resposta rápida.',
+    );
+  }
+
+  deleteQuickReply(id: QuickReplyId): Promise<ActionResult> {
+    return this.runAction(async () => {
+      await this.transport.deleteQuickReply({ id });
+      return undefined;
+    }, 'Não foi possível excluir a resposta rápida.');
+  }
+
   /** Devolve o que o servidor criou/alterou (usuário ou ilha), para a UI selecionar o item novo. */
-  private async adminAction<T>(call: () => Promise<T>): Promise<AdminActionResult<T>> {
+  private adminAction<T>(call: () => Promise<T>): Promise<AdminActionResult<T>> {
+    return this.runAction(call);
+  }
+
+  private async runAction<T>(
+    call: () => Promise<T>,
+    fallback = 'Não foi possível concluir a operação.',
+  ): Promise<ActionResult<T>> {
     try {
       return { ok: true, value: await call() };
     } catch (error) {
-      return adminFailure(error);
+      return actionFailure(error, fallback);
     }
   }
 
@@ -377,7 +600,11 @@ export class ChatSession {
     this.transport.setActivity({ conversationId, activity });
   }
 
-  async send(conversationId: ConversationId, input: string | OutboundPayload): Promise<void> {
+  async send(
+    conversationId: ConversationId,
+    input: string | OutboundPayload,
+    options?: SendOptions,
+  ): Promise<void> {
     const thread = this.threads.get(conversationId);
     if (!thread || thread.readOnly) {
       return;
@@ -391,13 +618,14 @@ export class ChatSession {
     thread.aliases.link(clientId, clientId);
     this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), normalized, this.now(), 'sending'));
     this.emit();
-    await this.dispatchSend(conversationId, thread, clientId, normalized, generation);
+    await this.dispatchSend(conversationId, thread, clientId, normalized, generation, options);
   }
 
   async sendAttachment(
     conversationId: ConversationId,
     attachment: ValidAttachment,
     caption?: string,
+    options?: SendOptions,
   ): Promise<void> {
     const thread = this.threads.get(conversationId);
     if (!thread || thread.readOnly) {
@@ -410,7 +638,7 @@ export class ChatSession {
     this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), payload, this.now(), 'sending'));
     thread.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
     this.emit();
-    await this.runUpload(conversationId, thread, clientId);
+    await this.runUpload(conversationId, thread, clientId, options);
   }
 
   cancelUpload(conversationId: ConversationId, messageId: string): void {
@@ -465,10 +693,27 @@ export class ChatSession {
     this.applyStatus(thread, message.id, 'sending', true);
     this.emit();
     const clientId = message.clientId ?? message.id;
-    await this.dispatchSend(conversationId, thread, clientId, payloadFromMessage(message), generation);
+    await this.dispatchSend(
+      conversationId,
+      thread,
+      clientId,
+      payloadFromMessage(message),
+      generation,
+      message.type !== 'system' && message.type !== 'deleted'
+        ? {
+            ...(message.replyTo ? { replyTo: message.replyTo.messageId } : {}),
+            ...(message.mentions ? { mentions: message.mentions } : {}),
+          }
+        : undefined,
+    );
   }
 
-  private async runUpload(conversationId: ConversationId, thread: Thread, clientId: string): Promise<void> {
+  private async runUpload(
+    conversationId: ConversationId,
+    thread: Thread,
+    clientId: string,
+    options?: SendOptions,
+  ): Promise<void> {
     const entry = thread.uploads.get(clientId);
     if (!entry) {
       return;
@@ -480,6 +725,7 @@ export class ChatSession {
     const { attachment, caption } = entry;
     try {
       const { url } = await this.transport.upload({
+        target: { kind: 'conversation', conversationId },
         conversationId,
         clientId,
         file: attachment.file,
@@ -503,7 +749,7 @@ export class ChatSession {
       this.objectUrls.revoke(current.previewUrl);
       this.replaceMessageUrl(thread, clientId, url);
       this.emit();
-      await this.dispatchSend(conversationId, thread, clientId, payloadForAttachment(attachment, url, caption), generation);
+      await this.dispatchSend(conversationId, thread, clientId, payloadForAttachment(attachment, url, caption), generation, options);
     } catch (error) {
       if (isUploadCanceled(error)) {
         return;
@@ -548,9 +794,16 @@ export class ChatSession {
     clientId: string,
     payload: OutboundPayload,
     generation?: number,
+    options?: SendOptions,
   ): Promise<void> {
     try {
-      await this.transport.send({ conversationId, clientId: asClientId(clientId), payload });
+      await this.transport.send({
+        conversationId,
+        clientId: asClientId(clientId),
+        payload,
+        ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
+        ...(options?.mentions ? { mentions: options.mentions } : {}),
+      });
     } catch (error) {
       if (isSessionAborted(error)) {
         return;
@@ -605,9 +858,18 @@ export class ChatSession {
   }
 
   private applyBootstrap(bootstrap: Bootstrap, generation: number, fresh: boolean): void {
+    this.bootstrap = bootstrap;
     this.tenant = bootstrap.tenant;
     this.me = bootstrap.me;
     this.directory = bootstrap.directory;
+    this.presence = bootstrap.presence;
+    this.prefs = bootstrap.prefs;
+    this.starred = bootstrap.starred;
+    this.pinnedMessages = bootstrap.pinnedMessages;
+    this.reactions = bootstrap.reactions;
+    this.polls = bootstrap.polls;
+    this.quickReplies = bootstrap.quickReplies;
+    this.scheduled = bootstrap.scheduled;
     // Um bootstrap aceito é uma conexão viva: um `sessionEnded` de antes (reconexão após conta reativada) não vale mais.
     this.sessionEnded = null;
     for (const summary of bootstrap.conversations) {
@@ -1021,6 +1283,7 @@ export class ChatSession {
       connection: this.connection,
       error: this.error,
       errorConversationId: this.errorConversationId,
+      bootstrap: this.bootstrap,
       tenant: this.tenant,
       me: this.me,
       directory: this.directory,
@@ -1029,6 +1292,14 @@ export class ChatSession {
       conversations: conversations,
       summaries,
       activeConversationId: this.activeConversationId,
+      presence: this.presence,
+      prefs: this.prefs,
+      starred: this.starred,
+      pinnedMessages: this.pinnedMessages,
+      reactions: this.reactions,
+      polls: this.polls,
+      quickReplies: this.quickReplies,
+      scheduled: this.scheduled,
     };
   }
 

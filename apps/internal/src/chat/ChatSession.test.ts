@@ -1,7 +1,16 @@
-import { asClientId, asMessageId } from '@viavoip/internal-domain';
-import { validateFiles } from '@viavoip/internal-domain';
-import type { ConversationId } from '@viavoip/internal-domain';
-import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
+import {
+  asClientId,
+  asIsoInstant,
+  asMessageId,
+  asQuickReplyId,
+  asScheduledId,
+  parseEmoji,
+  validateFiles,
+  type ChatMessage,
+  type ConversationId,
+  type TextMessage,
+} from '@viavoip/internal-domain';
+import { ForbiddenError, NotImplementedError } from '../transport/errors';
 import { createFakeObjectUrls } from '../test/fakeObjectUrls';
 import { ScriptedTransport } from '../test/scriptedTransport';
 import { SessionAbortedError } from '../transport/abort';
@@ -562,6 +571,152 @@ describe('ChatSession', () => {
       url: 'uploaded:guia.pdf',
       sizeBytes: 80,
     });
+  });
+});
+
+describe('ChatSession v1: estado do Bootstrap e métodos ActionResult', () => {
+  it('preenche os campos novos de estado a partir do Bootstrap e zera em novo start', async () => {
+    const transport = new ScriptedTransport();
+    const msgId = asMessageId('m-pin');
+    const like = parseEmoji('👍');
+    if (!like) throw new Error('emoji');
+    transport.pinnedMessages = { [LIVE_CONVERSATION_ID]: [msgId] };
+    transport.starred = [{ conversationId: LIVE_CONVERSATION_ID, messageId: msgId }];
+    transport.reactions = { [msgId]: [{ emoji: like, userIds: [ICS_USERS.carla] }] };
+    transport.quickReplies = [
+      {
+        id: asQuickReplyId('qr-1'),
+        tenantId: ICS_TENANT_ID,
+        shortcut: '/oi',
+        text: 'Olá!',
+        scope: { kind: 'personal', ownerId: ICS_USERS.carla },
+        updatedAt: asIsoInstant('2026-11-10T10:00:00.000Z'),
+      },
+    ];
+    const session = new ChatSession(transport);
+    await session.start();
+
+    const state = session.getState();
+    expect(state.bootstrap?.serverNow).toBe(transport.serverNow);
+    expect(state.presence[ICS_USERS.carla]?.status).toEqual({ kind: 'available' });
+    expect(state.pinnedMessages[LIVE_CONVERSATION_ID]).toEqual([msgId]);
+    expect(state.starred).toEqual([{ conversationId: LIVE_CONVERSATION_ID, messageId: msgId }]);
+    expect(state.reactions[msgId]).toHaveLength(1);
+    expect(state.quickReplies).toHaveLength(1);
+    expect(state.prefs).toEqual({});
+    expect(state.polls).toEqual({});
+    expect(state.scheduled).toEqual([]);
+
+    transport.holdConnect = true;
+    const restarting = session.start();
+    expect(session.getState().bootstrap).toBeNull();
+    expect(session.getState().quickReplies).toEqual([]);
+    transport.releaseConnect();
+    await restarting;
+    session.stop();
+  });
+
+  it('delega operações v1 ao transporte e devolve ActionResult em pt-BR', async () => {
+    const transport = new ScriptedTransport();
+    const session = new ChatSession(transport, { createId: () => 'cid-v1' });
+    await session.start();
+    const msgId = asMessageId('m-1');
+    const like = parseEmoji('👍');
+    if (!like) throw new Error('emoji');
+
+    await session.send(LIVE_CONVERSATION_ID, 'olá', { replyTo: msgId, mentions: [ICS_USERS.bruno] });
+    expect(transport.sent[0]).toMatchObject({
+      replyTo: msgId,
+      mentions: [ICS_USERS.bruno],
+    });
+
+    expect(await session.history({ conversationId: LIVE_CONVERSATION_ID, limit: 20 })).toEqual({
+      ok: true,
+      value: { messages: [], hasMore: false },
+    });
+    expect(await session.react({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, emoji: like })).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await session.editMessage({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, text: 'novo' })).toMatchObject({
+      ok: true,
+      value: { text: 'novo' },
+    });
+    expect(await session.deleteMessage({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, scope: 'everyone' })).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(
+      await session.forward({
+        sources: [{ conversationId: LIVE_CONVERSATION_ID, messageId: msgId }],
+        targets: [LIVE_CONVERSATION_ID],
+      }),
+    ).toMatchObject({ ok: true, value: { perTarget: [{ target: LIVE_CONVERSATION_ID, outcome: 'sent' }] } });
+    expect(transport.callsOf('forward')[0]?.clientId).toBe('cid-v1');
+    expect(await session.setStar({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, starred: true })).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await session.pinMessage({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, pinned: true })).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await session.messageInfo({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId })).toEqual({
+      ok: true,
+      value: { messageId: msgId, recipients: [] },
+    });
+    expect(await session.searchMessages({ query: 'olá', limit: 10 })).toEqual({ ok: true, value: [] });
+    expect(await session.setPresence({ status: 'pause', reason: 'lanche' })).toMatchObject({
+      ok: true,
+      value: { status: { kind: 'pause', reason: 'lanche' } },
+    });
+    expect(await session.setConversationPrefs({ conversationId: LIVE_CONVERSATION_ID, pinned: true })).toMatchObject({
+      ok: true,
+      value: { archived: false },
+    });
+    expect(await session.votePoll({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, optionIds: [] })).toMatchObject({
+      ok: true,
+      value: { closed: false },
+    });
+    expect(await session.closePoll({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId })).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(
+      await session.schedule({
+        kind: 'message',
+        conversationId: LIVE_CONVERSATION_ID,
+        text: 'agendada',
+        sendAt: asIsoInstant('2026-11-20T10:00:00.000Z'),
+      }),
+    ).toMatchObject({ ok: true, value: { kind: 'message', text: 'agendada' } });
+    expect(await session.cancelScheduled(asScheduledId('sched-1'))).toMatchObject({
+      ok: true,
+      value: { state: { phase: 'canceled' } },
+    });
+    expect(
+      await session.saveQuickReply({
+        shortcut: '/ola',
+        text: 'Olá!',
+        scope: { kind: 'personal', ownerId: ICS_USERS.carla },
+      }),
+    ).toMatchObject({ ok: true, value: { shortcut: '/ola' } });
+    expect(await session.deleteQuickReply(asQuickReplyId('qr-1'))).toEqual({ ok: true, value: undefined });
+
+    transport.rejectMethod('editMessage', new ForbiddenError('window-expired'));
+    expect(await session.editMessage({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, text: 'tarde' })).toEqual({
+      ok: false,
+      message: 'Operação não permitida: o prazo para esta alteração expirou.',
+    });
+
+    transport.rejectMethod('react', new NotImplementedError('react'));
+    const unimplemented = await session.react({ conversationId: LIVE_CONVERSATION_ID, messageId: msgId, emoji: like });
+    expect(unimplemented.ok).toBe(false);
+    if (!unimplemented.ok) {
+      expect(unimplemented.message).toMatch(/ainda não implementada/i);
+    }
+
+    session.stop();
   });
 });
 
