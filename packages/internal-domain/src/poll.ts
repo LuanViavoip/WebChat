@@ -1,6 +1,7 @@
 import type { ConversationId } from './conversation';
 import type { MessageId, PollOptionId } from './ids';
 import type { UserId } from './identity';
+import type { PollMessage } from './message';
 import { err, ok, type Result } from './result';
 
 export type VotePollRequest = {
@@ -72,4 +73,40 @@ export function validatePoll(input: {
     options: [first, second, ...rest],
     multiple: input.multiple,
   });
+}
+
+export function applyVote(
+  t: PollTally,
+  userId: UserId,
+  optionIds: readonly PollOptionId[],
+  poll: PollMessage,
+): Result<PollTally, PollDenial> {
+  if (t.closed || poll.closedAt !== null) {
+    return err('closed');
+  }
+  const allowed = new Set(poll.options.map((option) => option.id));
+  const unique: PollOptionId[] = [];
+  const seen = new Set<PollOptionId>();
+  for (const optionId of optionIds) {
+    if (!allowed.has(optionId)) {
+      return err('unknown-option');
+    }
+    if (seen.has(optionId)) {
+      continue;
+    }
+    seen.add(optionId);
+    unique.push(optionId);
+  }
+  if (unique.length > 1 && !poll.multiple) {
+    return err('multiple-not-allowed');
+  }
+  const voters: Record<PollOptionId, readonly UserId[]> = {};
+  const totals: Record<PollOptionId, number> = {};
+  for (const option of poll.options) {
+    const remaining = (t.voters[option.id] ?? []).filter((id) => id !== userId);
+    const nextVoters = unique.includes(option.id) ? [...remaining, userId] : remaining;
+    voters[option.id] = nextVoters;
+    totals[option.id] = nextVoters.length;
+  }
+  return ok({ totals, voters, closed: false });
 }

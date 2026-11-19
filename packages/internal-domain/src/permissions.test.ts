@@ -80,6 +80,14 @@ describe('can: uma linha por Action (ok + variante cross-tenant)', () => {
       d,
       'cross-tenant',
     ],
+    ['message.pin em direta (participante)', ag1, { type: 'message.pin', conversation: dm(ag1, ag2) }, d, 'ok'],
+    [
+      'message.pin em direta de outro tenant',
+      ag1,
+      { type: 'message.pin', conversation: dm(agB, supB) },
+      d,
+      'cross-tenant',
+    ],
     ['admin.console admin', admin, { type: 'admin.console' }, d, 'ok'],
     ['admin.console ator de outro tenant', admin, { type: 'admin.console' }, dB, 'cross-tenant'],
     ['grant supervisor->agente chat.use', sup1, { type: 'grant', target: ag1, capability: 'chat.use' }, d, 'ok'],
@@ -234,6 +242,27 @@ describe('can: casos obrigatórios', () => {
     expect(verdict(proto, { type: 'admin.console' })).toBe('unknown-actor');
     expect(verdict(ctor, { type: 'admin.console' })).toBe('unknown-actor');
     expect(verdict(ag1, { type: 'direct.open', with: ctor })).toBe('cross-tenant');
+  });
+});
+
+describe('message.pin (D-V1-11)', () => {
+  it('em direta, qualquer um dos dois participantes fixa', () => {
+    const direct = dm(ag1, ag2);
+    expect(verdict(ag1, { type: 'message.pin', conversation: direct })).toBe('ok');
+    expect(verdict(ag2, { type: 'message.pin', conversation: direct })).toBe('ok');
+    expect(verdict(ag3, { type: 'message.pin', conversation: direct })).toBe('not-participant');
+    expect(verdict(admin, { type: 'message.pin', conversation: direct })).toBe('not-participant');
+  });
+
+  it('em grupo, só quem gerencia (dono custom ou admin)', () => {
+    const custom = group([sup1, ag1]);
+    const automatico: GroupConversation = { ...custom, origin: { kind: 'ilha', ilhaId: iid('ilha-1') } };
+    expect(verdict(ag1, { type: 'message.pin', conversation: custom })).toBe('no-capability');
+    expect(verdict(sup1, { type: 'message.pin', conversation: custom })).toBe('ok');
+    expect(verdict(sup2, { type: 'message.pin', conversation: custom })).toBe('not-owner');
+    expect(verdict(admin, { type: 'message.pin', conversation: custom })).toBe('ok');
+    expect(verdict(sup1, { type: 'message.pin', conversation: automatico })).toBe('not-owner');
+    expect(verdict(admin, { type: 'message.pin', conversation: automatico })).toBe('ok');
   });
 });
 

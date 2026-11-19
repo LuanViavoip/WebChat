@@ -30,7 +30,7 @@ export type MessageBase = {
   readonly clientId?: ClientId;
   readonly authorId: UserId;
   readonly author: MessageAuthor;
-  readonly timestamp: string;
+  readonly timestamp: IsoInstant;
   readonly status: MessageStatus;
   readonly replyTo?: ReplyRef;
   readonly forwarded?: ForwardMark;

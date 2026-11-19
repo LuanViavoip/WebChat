@@ -27,6 +27,7 @@ export type Action =
   | { readonly type: 'direct.open'; readonly with: StaffUser }
   | { readonly type: 'group.manage'; readonly group?: GroupConversation }
   | { readonly type: 'conversation.send'; readonly conversation: Conversation }
+  | { readonly type: 'message.pin'; readonly conversation: Conversation }
   | {
       readonly type: 'announcement.publish';
       readonly audience?: Audience;
@@ -114,6 +115,22 @@ export function can(claimedActor: StaffUser, action: Action, d: Directory): Resu
       }
       return participantsOf(act.conversation).includes(actor.id) ? ok(true) : err('not-participant');
     }
+    case 'message.pin': {
+      if (!held.has('chat.use')) {
+        return err('no-chat-use');
+      }
+      const conversation = act.conversation;
+      if (conversation.kind === 'direct') {
+        return participantsOf(conversation).includes(actor.id) ? ok(true) : err('not-participant');
+      }
+      if (!held.has('group.manage')) {
+        return err('no-capability');
+      }
+      return actor.role === 'admin' ||
+        (conversation.origin.kind === 'custom' && conversation.origin.createdBy === actor.id)
+        ? ok(true)
+        : err('not-owner');
+    }
     case 'group.manage':
       if (!held.has('group.manage')) return err('no-capability');
       if (!held.has('chat.use')) return err('no-chat-use');
@@ -169,6 +186,10 @@ export function can(claimedActor: StaffUser, action: Action, d: Directory): Resu
       return actor.role === 'supervisor' && existing && !inManagementScope(d, actor, existing)
         ? err('outside-islands')
         : verdict;
+    }
+    default: {
+      const exhaustive: never = act;
+      return exhaustive;
     }
   }
 }
@@ -284,7 +305,8 @@ function resolveAction(action: Action, d: Directory): Result<Action, 'cross-tena
       }
       return ok({ type: 'direct.open', with: target });
     }
-    case 'conversation.send': {
+    case 'conversation.send':
+    case 'message.pin': {
       return conversationBelongsToTenant(action.conversation, d) ? ok(action) : err('cross-tenant');
     }
     case 'group.manage': {
@@ -329,6 +351,10 @@ function resolveAction(action: Action, d: Directory): Result<Action, 'cross-tena
         return err('cross-tenant');
       }
       return ok({ ...action, target });
+    }
+    default: {
+      const exhaustive: never = action;
+      return exhaustive;
     }
   }
 }

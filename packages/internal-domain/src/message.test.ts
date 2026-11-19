@@ -11,7 +11,7 @@ describe('previewOf', () => {
       tenantId: T1,
       conversationId: asConversationId('g'),
       actorId: uid('sup-1'),
-      timestamp: '2026-11-17T12:00:00.000Z',
+      timestamp: asIsoInstant('2026-11-17T12:00:00.000Z'),
       status: 'sent',
       type: 'system',
       action: 'created',
@@ -27,7 +27,7 @@ describe('previewOf', () => {
       conversationId: asConversationId('g'),
       authorId: uid('ag-1'),
       author: { id: 'ag-1', name: 'Agente 1' },
-      timestamp: '2026-11-17T12:00:00.000Z',
+      timestamp: asIsoInstant('2026-11-17T12:00:00.000Z'),
       status: 'sent' as const,
     };
     const poll: PollMessage = {

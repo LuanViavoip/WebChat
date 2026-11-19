@@ -38,6 +38,11 @@ export type MediaRule = {
 
 const MB = 1024 * 1024;
 
+/** Áudio de mensagem: até 15 min (D-V1-5). */
+export const AUDIO_MAX_MS = 15 * 60_000;
+/** Vídeo de aviso: até 5 min (D-V1-5). */
+export const ANNOUNCEMENT_VIDEO_MAX_MS = 5 * 60_000;
+
 export const MEDIA_RULES: Readonly<Record<MediaKind, MediaRule>> = {
   image: {
     kind: 'image',

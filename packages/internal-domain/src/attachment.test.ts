@@ -1,5 +1,7 @@
 import {
   ACCEPT_ATTRIBUTE,
+  ANNOUNCEMENT_VIDEO_MAX_MS,
+  AUDIO_MAX_MS,
   CAPTION_MAX_LENGTH,
   MEDIA_RULES,
   clampCaption,
@@ -269,5 +271,12 @@ describe('extensionForMime', () => {
     expect(extensionForMime('image/png')).toBe('.png');
     expect(extensionForMime('image/jpeg')).toBe('.jpg');
     expect(extensionForMime('image/pjpeg')).toBe('.jpg');
+  });
+});
+
+describe('limites de duração (D-V1-5)', () => {
+  it('exporta 15 min de áudio e 5 min de vídeo de aviso', () => {
+    expect(AUDIO_MAX_MS).toBe(15 * 60_000);
+    expect(ANNOUNCEMENT_VIDEO_MAX_MS).toBe(5 * 60_000);
   });
 });

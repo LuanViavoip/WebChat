@@ -1,7 +1,9 @@
-import type { ConversationId } from './conversation';
+import { CAPTION_MAX_LENGTH } from './attachment';
+import type { Conversation, ConversationId } from './conversation';
 import type { IsoInstant, MessageId } from './ids';
-import type { UserId } from './identity';
+import type { Directory, StaffUser, UserId } from './identity';
 import type { ChatMessage, DeletedMessage, ImageMessage, TextMessage, VideoMessage } from './message';
+import { own } from './records';
 import { err, ok, type Result } from './result';
 
 export const EDIT_WINDOW_MS = 15 * 60_000;
@@ -10,6 +12,7 @@ export const MAX_PINNED_MESSAGES = 3;
 export const MAX_PINNED_CONVERSATIONS = 3;
 export const MAX_FORWARD_TARGETS = 5;
 export const MAX_FORWARD_SOURCES = 10;
+export const TEXT_MAX_LENGTH = 4000;
 
 export type MessageRef = {
   readonly conversationId: ConversationId;
@@ -84,3 +87,123 @@ export type ForwardDenial =
   | 'not-forwardable-kind'
   | 'too-many'
   | 'read-only-target';
+
+export function applyEdit(
+  m: EditableMessage,
+  text: string,
+  at: IsoInstant,
+): Result<ChatMessage, EditDenial> {
+  const trimmed = text.trim();
+  switch (m.type) {
+    case 'text': {
+      if (!trimmed) {
+        return err('empty');
+      }
+      if (trimmed.length > TEXT_MAX_LENGTH) {
+        return err('too-long');
+      }
+      if (trimmed === m.text) {
+        return err('no-change');
+      }
+      return ok({ ...m, text: trimmed, editedAt: at });
+    }
+    case 'image':
+    case 'video': {
+      if (trimmed.length > CAPTION_MAX_LENGTH) {
+        return err('too-long');
+      }
+      const current = m.caption ?? '';
+      if (trimmed === current) {
+        return err('no-change');
+      }
+      if (!trimmed) {
+        const rest: EditableMessage = { ...m, editedAt: at };
+        delete (rest as { caption?: string }).caption;
+        return ok(rest);
+      }
+      return ok({ ...m, caption: trimmed, editedAt: at });
+    }
+    default: {
+      const exhaustive: never = m;
+      return exhaustive;
+    }
+  }
+}
+
+function participantsOf(conversation: Conversation): readonly UserId[] {
+  return conversation.kind === 'direct' ? conversation.participants : conversation.members;
+}
+
+function isFormerMember(conversation: Conversation, userId: UserId): boolean {
+  return conversation.kind === 'group' && conversation.formerMemberIds.includes(userId);
+}
+
+/** Mensagem comum: cópia com ForwardMark. Proibido: deleted, system e poll. 'announcement' tem regra própria (B.9.6). */
+export function canForwardMessage(
+  m: ChatMessage,
+  from: Conversation,
+  to: Conversation,
+  actor: StaffUser,
+): Result<true, ForwardDenial> {
+  if (from.tenantId !== to.tenantId || actor.tenantId !== from.tenantId || m.tenantId !== from.tenantId) {
+    return err('cross-tenant');
+  }
+  switch (m.type) {
+    case 'deleted':
+    case 'system':
+    case 'poll':
+    case 'announcement':
+      return err('not-forwardable-kind');
+    case 'text':
+    case 'image':
+    case 'audio':
+    case 'video':
+    case 'document':
+    case 'sticker':
+      break;
+    default: {
+      const exhaustive: never = m;
+      return exhaustive;
+    }
+  }
+  if (m.forwarded !== undefined && m.forwarded.times >= MAX_FORWARD_SOURCES) {
+    return err('too-many');
+  }
+  if (!participantsOf(from).includes(actor.id)) {
+    return err('not-participant-source');
+  }
+  if (isFormerMember(to, actor.id)) {
+    return err('read-only-target');
+  }
+  if (!participantsOf(to).includes(actor.id)) {
+    return err('not-participant-target');
+  }
+  return ok(true);
+}
+
+/** Recorta as menções válidas (só participantes ativos da conversa). A menção inválida vira texto comum. */
+export function validMentions(
+  ids: readonly UserId[],
+  conversation: Conversation,
+  d: Directory,
+): readonly UserId[] {
+  if (conversation.tenantId !== d.tenantId) {
+    return [];
+  }
+  const allowed = new Set(
+    participantsOf(conversation).filter((id) => {
+      const user = own(d.users, id);
+      return user !== undefined && user.active && user.tenantId === d.tenantId;
+    }),
+  );
+  const seen = new Set<UserId>();
+  const valid: UserId[] = [];
+  for (const id of ids) {
+    if (!allowed.has(id) || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    valid.push(id);
+  }
+  return valid;
+}
