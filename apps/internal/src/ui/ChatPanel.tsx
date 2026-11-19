@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { asConversationId, sortConversations, type ConversationId } from '@viavoip/internal-domain';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { asConversationId, sortConversations, type AnnouncementRefMessage, type ConversationId } from '@viavoip/internal-domain';
 import type { StaffUser } from '@viavoip/internal-domain';
 import { canUseCapabilityIn, canViewTeamIn, manageableIlhas } from '@viavoip/internal-domain';
 import { can } from '@viavoip/internal-domain';
 import { rejectionMessage, splitCaption, validateFiles, type ValidAttachment } from '@viavoip/internal-domain';
 import type { ChatMessage } from '@viavoip/internal-domain';
+import type { ShellContext, ShellSlots } from '../shell/slots';
 import type { ChatTransport, ConnectRequest, TransportStatus } from '../transport/ChatTransport';
 import { DEFAULT_SESSION } from '../transport/mock/seed';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
@@ -27,13 +28,13 @@ import {
 } from './conversations';
 import { liveActivity, liveActivityAnnouncement } from './liveActivity';
 import { MessageList } from './MessageList';
-import { Sidebar } from './Sidebar';
+import { Sidebar, type SidebarSlotMenuItem, type SidebarSlotView } from './Sidebar';
 import { threadView, useChatSession } from './useChatSession';
 import { useMediaQuery } from './useMediaQuery';
 
 type MobilePane = 'list' | 'chat';
 type PendingFocus = 'chat' | 'list';
-type View = 'chat' | 'admin' | 'team';
+type View = 'chat' | 'admin' | 'team' | `slot:${string}`;
 
 export function ChatPanel({
   transport,
@@ -41,6 +42,7 @@ export function ChatPanel({
   onSwitchUser,
   onSessionEnded,
   objectUrls,
+  slots,
 }: {
   transport: ChatTransport;
   /** Quem entrou. O ChatPanel de outro usuário é outro ChatPanel (`key`): a sessão anterior é parada ao desmontar. */
@@ -49,6 +51,7 @@ export function ChatPanel({
   /** O servidor encerrou a sessão (conta desativada, em qualquer aba): quem monta volta ao login com a mensagem. */
   onSessionEnded?: (message: string) => void;
   objectUrls?: ObjectUrlFactory;
+  slots?: ShellSlots;
 }) {
   const isMobile = useMediaQuery('(max-width: 900px)');
   const [mobilePane, setMobilePane] = useState<MobilePane>(() => historyPane(window.history.state));
@@ -75,8 +78,41 @@ export function ChatPanel({
   const adminAllowed = Boolean(me && directory && can(me, { type: 'admin.console' }, directory).ok);
   const teamAllowed = Boolean(me && directory && canViewTeamIn(directory, me.id).ok);
   const groupIlhas = me && directory && canUseCapabilityIn(directory, me.id, 'group.manage').ok ? manageableIlhas(directory, me.id) : undefined;
+  const openFromSlotRef = useRef<(id: ConversationId) => void>(() => {});
+  const openSlotConversation = useCallback((id: ConversationId) => {
+    openFromSlotRef.current(id);
+  }, []);
+  const shellContext = useMemo<ShellContext | null>(() => {
+    if (!me || !directory || !full.tenant) {
+      return null;
+    }
+    return {
+      session,
+      state: full,
+      me,
+      directory,
+      tenant: full.tenant,
+      transport,
+      openConversation: openSlotConversation,
+    };
+  }, [session, full, me, directory, transport, openSlotConversation]);
+  const visibleSlotViews = useMemo(
+    () => (shellContext && slots ? slots.views.filter((item) => item.visible(shellContext)) : []),
+    [shellContext, slots],
+  );
   const [requestedView, setRequestedView] = useState<View>('chat');
-  const view: View = requestedView === 'admin' && adminAllowed ? 'admin' : requestedView === 'team' && teamAllowed ? 'team' : 'chat';
+  const activeSlotView =
+    requestedView.startsWith('slot:') && shellContext
+      ? (visibleSlotViews.find((item) => `slot:${item.id}` === requestedView) ?? null)
+      : null;
+  const view: View =
+    requestedView === 'admin' && adminAllowed
+      ? 'admin'
+      : requestedView === 'team' && teamAllowed
+        ? 'team'
+        : activeSlotView
+          ? (`slot:${activeSlotView.id}` as View)
+          : 'chat';
   // Perdeu a permissão com a tela aberta: a view cai para o chat e o pedido é descartado, senão uma
   // concessão futura reabriria a tela sozinha por cima do chat.
   if (requestedView !== 'chat' && view === 'chat') {
@@ -229,14 +265,14 @@ export function ChatPanel({
     document.querySelector<HTMLElement>('.sidebar-search input')?.focus();
   }, [mobilePane, selectedId]);
 
-  // Voltar da Administração/Equipe (ou ela fechar por revogação): o foco volta à entrada que a abriu.
+  // Voltar da Administração/Equipe/Slot (ou ela fechar por revogação): o foco volta à entrada que a abriu.
   useEffect(() => {
     const before = previousView.current;
     previousView.current = view;
     if (view !== 'chat' || before === 'chat') {
       return;
     }
-    const entry = document.querySelector<HTMLElement>(`[data-open-view="${before}"]`);
+    const entry = document.querySelector<HTMLElement>(`[data-open-view="${CSS.escape(before)}"]`);
     (entry ?? document.querySelector<HTMLElement>('.sidebar-search input'))?.focus();
   }, [view]);
 
@@ -285,6 +321,11 @@ export function ChatPanel({
       selectConversation(id);
     }
   }
+
+  openFromSlotRef.current = (id: ConversationId) => {
+    setRequestedView('chat');
+    selectConversation(id);
+  };
 
   function setDraft(value: string) {
     if (selectedId) {
@@ -418,10 +459,39 @@ export function ChatPanel({
     </>
   );
 
-  // O console ocupa a tela, mas o chat continua montado (escondido): o anunciador aria-live segue ativo e a
-  // busca, o filtro e a conversa da Sidebar voltam como estavam.
-  const consoleState = view !== 'chat' && me && directory ? { me, directory, mode: view } : null;
-  const consoleOpen = consoleState !== null;
+  // O console (ou uma view de slot) ocupa a tela, mas o chat continua montado (escondido): o anunciador
+  // aria-live segue ativo e a busca, o filtro e a conversa da Sidebar voltam como estavam.
+  const consoleMode = view === 'admin' || view === 'team' ? view : null;
+  const consoleState = consoleMode && me && directory ? { me, directory, mode: consoleMode } : null;
+  const slotViewState = activeSlotView && shellContext ? { view: activeSlotView, ctx: shellContext } : null;
+  const overlayOpen = consoleState !== null || slotViewState !== null;
+  const sidebarSlotViews: SidebarSlotView[] = shellContext
+    ? visibleSlotViews.map((slotView) => ({
+        id: slotView.id,
+        label: slotView.label,
+        icon: slotView.icon,
+        ...(slotView.badge ? { badge: slotView.badge(shellContext) } : {}),
+        onOpen: () => {
+          setRequestedView(`slot:${slotView.id}`);
+        },
+      }))
+    : [];
+  const sidebarSlotMenuItems: SidebarSlotMenuItem[] =
+    shellContext && slots
+      ? slots.menuItems
+          .filter((item) => item.visible(shellContext))
+          .map((item) => ({
+            label: item.label,
+            onSelect: () => {
+              item.onSelect(shellContext);
+            },
+          }))
+      : [];
+  const announcementRenderer = slots?.messageRenderers.announcement;
+  const renderAnnouncement =
+    announcementRenderer && shellContext
+      ? (message: AnnouncementRefMessage) => announcementRenderer(message, shellContext)
+      : undefined;
 
   return (
     <>
@@ -440,8 +510,15 @@ export function ChatPanel({
           setRequestedView('chat');
         }}
       />
+    ) : slotViewState ? (
+      slotViewState.view.render({
+        ...slotViewState.ctx,
+        onClose: () => {
+          setRequestedView('chat');
+        },
+      })
     ) : null}
-    <section ref={shellRef} className="wa-shell" hidden={consoleOpen} data-mobile-pane={mobilePane} aria-label="Conversa">
+    <section ref={shellRef} className="wa-shell" hidden={overlayOpen} data-mobile-pane={mobilePane} aria-label="Conversa">
       <Sidebar
         me={me}
         tenantName={full.tenant?.name ?? ''}
@@ -472,6 +549,8 @@ export function ChatPanel({
           : {})}
         {...(groupIlhas ? { groupIlhas } : {})}
         {...(directory ? { directory } : {})}
+        {...(sidebarSlotViews.length > 0 ? { slotViews: sidebarSlotViews } : {})}
+        {...(sidebarSlotMenuItems.length > 0 ? { slotMenuItems: sidebarSlotMenuItems } : {})}
         groupIds={full.summaries.filter((item) => item.conversation.kind === 'group').map((item) => item.id)}
         onCreateGroup={async (draft) => {
           const result = await session.createGroup(draft);
@@ -511,6 +590,7 @@ export function ChatPanel({
                 viewerOpener.current = opener;
                 setViewer(image);
               }}
+              {...(renderAnnouncement ? { renderAnnouncement } : {})}
             />
           </>
         ) : (
@@ -563,6 +643,9 @@ export function ChatPanel({
         ) : null}
       </div>
     </section>
+    {shellContext && slots
+      ? slots.overlays.map((renderOverlay, index) => <Fragment key={index}>{renderOverlay(shellContext)}</Fragment>)
+      : null}
     </>
   );
 }

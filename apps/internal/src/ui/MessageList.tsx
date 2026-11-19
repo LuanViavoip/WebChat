@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { TypingState } from '../chat/ChatSession';
 import { formatDateSeparator, isSameCalendarDay } from '../chat/dates';
 import type { UploadView } from '../chat/uploads';
-import type { UserId } from '@viavoip/internal-domain';
-import type { ChatMessage } from '@viavoip/internal-domain';
+import type { AnnouncementRefMessage, ChatMessage, UserId } from '@viavoip/internal-domain';
 import type { OpenImage } from './attachments/MediaBody';
 import { MessageBubble } from './MessageBubble';
 
@@ -18,6 +17,7 @@ export function MessageList({
   onCancelUpload,
   onOpenImage,
   showAuthors = false,
+  renderAnnouncement,
 }: {
   messages: ChatMessage[];
   /** Quem está logado: as mensagens dele ficam à direita. */
@@ -30,6 +30,7 @@ export function MessageList({
   onCancelUpload?: (id: string) => void;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   showAuthors?: boolean;
+  renderAnnouncement?: (message: AnnouncementRefMessage) => ReactNode;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +67,7 @@ export function MessageList({
                 {...(upload ? { upload } : {})}
                 {...(onCancelUpload ? { onCancelUpload } : {})}
                 {...(onOpenImage ? { onOpenImage } : {})}
+                {...(renderAnnouncement ? { renderAnnouncement } : {})}
               />
             </div>
           );
