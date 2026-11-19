@@ -1,5 +1,5 @@
 import { type ValidAttachment } from '@viavoip/internal-domain';
-import type { Conversation, ConversationId, ConversationSummary } from '@viavoip/internal-domain';
+import type { Conversation, ConversationId, ConversationSummary, GroupConversation } from '@viavoip/internal-domain';
 import type { Capability } from '@viavoip/internal-domain';
 import { describeDenial, DENIAL_TEXT, type GrantLogEntry, type OpError } from '@viavoip/internal-domain';
 import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
@@ -12,6 +12,8 @@ import type {
   ChatEvent,
   ChatTransport,
   ConnectRequest,
+  CreateGroupRequest,
+  UpdateGroupRequest,
   OutboundPayload,
   SessionEndReason,
   TransportStatus,
@@ -37,6 +39,7 @@ export type TypingState = {
 
 /** O que a UI enxerga de uma conversa. Nada aqui é compartilhado entre conversas. */
 export type ThreadState = {
+  readOnly: boolean;
   conversation: Conversation;
   messages: ChatMessage[];
   typing: TypingState;
@@ -109,6 +112,7 @@ export type ChatSessionOptions = {
 const IDLE_TYPING: TypingState = { isTyping: false, actorName: '' };
 
 type Thread = {
+  readOnly: boolean;
   conversation: Conversation;
   messages: ChatMessage[];
   typing: TypingState;
@@ -340,6 +344,30 @@ export class ChatSession {
     }
   }
 
+  async createGroup(request: Omit<CreateGroupRequest, 'clientId'>): Promise<AdminActionResult<GroupConversation>> {
+    const result = await this.adminAction(() => this.transport.createGroup({ ...request, clientId: this.createId() }));
+    if (result.ok) {
+      if (!this.ensureThread(result.value)) return { ok: false, message: 'Não foi possível abrir o grupo.' };
+      this.selectConversation(result.value.id);
+    }
+    return result;
+  }
+
+  async updateGroup(request: UpdateGroupRequest): Promise<AdminActionResult<GroupConversation>> {
+    const result = await this.adminAction(() => this.transport.updateGroup(request));
+    if (result.ok) { this.ensureThread(result.value); this.emit(); }
+    return result;
+  }
+
+  async leaveGroup(conversationId: ConversationId): Promise<AdminActionResult<GroupConversation>> {
+    const result = await this.adminAction(() => this.transport.leaveGroup({ conversationId }));
+    if (result.ok) {
+      const thread = this.threads.get(conversationId);
+      if (thread) { thread.readOnly = true; this.emit(); }
+    }
+    return result;
+  }
+
   setTyping(conversationId: ConversationId, isTyping: boolean): void {
     if (!this.threads.has(conversationId)) {
       return;
@@ -349,7 +377,7 @@ export class ChatSession {
 
   async send(conversationId: ConversationId, input: string | OutboundPayload): Promise<void> {
     const thread = this.threads.get(conversationId);
-    if (!thread) {
+    if (!thread || thread.readOnly) {
       return;
     }
     const normalized = normalizePayload(typeof input === 'string' ? { type: 'text', text: input } : input);
@@ -370,7 +398,7 @@ export class ChatSession {
     caption?: string,
   ): Promise<void> {
     const thread = this.threads.get(conversationId);
-    if (!thread) {
+    if (!thread || thread.readOnly) {
       return;
     }
     const clientId = this.createId();
@@ -581,10 +609,11 @@ export class ChatSession {
     // Um bootstrap aceito é uma conexão viva: um `sessionEnded` de antes (reconexão após conta reativada) não vale mais.
     this.sessionEnded = null;
     for (const summary of bootstrap.conversations) {
-      const thread = this.ensureThread(summary.conversation, summary.lastActivityAt);
+      const thread = this.ensureThread(summary.conversation, summary.lastActivityAt, summary.readOnly === true);
       if (!thread) {
         continue;
       }
+      thread.readOnly = summary.readOnly === true;
       for (const message of bootstrap.recent[summary.id] ?? []) {
         this.upsertMessage(thread, message);
       }
@@ -647,16 +676,18 @@ export class ChatSession {
   }
 
   /** Só aceita conversa do meu tenant da qual eu participo; o resto é ignorado. */
-  private ensureThread(conversation: Conversation, lastActivityAt?: string): Thread | undefined {
-    if (conversation.tenantId !== this.identity.tenantId || !participates(conversation, this.identity.userId)) {
+  private ensureThread(conversation: Conversation, lastActivityAt?: string, readOnly = false): Thread | undefined {
+    if (conversation.tenantId !== this.identity.tenantId || (!participates(conversation, this.identity.userId) && !(readOnly && conversation.kind === 'group' && conversation.formerMemberIds.includes(this.identity.userId)))) {
       return undefined;
     }
     const existing = this.threads.get(conversation.id);
     if (existing) {
       existing.conversation = conversation;
+      existing.readOnly = !participates(conversation, this.identity.userId);
       return existing;
     }
     const thread: Thread = {
+      readOnly: !participates(conversation, this.identity.userId),
       conversation,
       messages: [],
       typing: IDLE_TYPING,
@@ -705,7 +736,7 @@ export class ChatSession {
     switch (event.type) {
       case 'message': {
         const thread = this.threads.get(event.message.conversationId);
-        if (!thread || event.message.tenantId !== this.identity.tenantId) {
+        if (!thread || thread.readOnly || event.message.tenantId !== this.identity.tenantId) {
           return;
         }
         const added = this.upsertMessage(thread, event.message);
@@ -757,6 +788,11 @@ export class ChatSession {
         if (!this.ensureThread(event.conversation)) {
           return;
         }
+        break;
+      }
+      case 'conversation-removed': {
+        const thread = this.threads.get(event.conversationId);
+        if (thread?.conversation.kind === 'group') thread.readOnly = true;
         break;
       }
       case 'grants': {
@@ -832,12 +868,9 @@ export class ChatSession {
     if (!current) {
       return false;
     }
-    const merged: ChatMessage = {
-      ...current,
-      ...next,
-      id: incoming.id,
-      status: mergeStatus(current.status, next.status),
-    };
+    const merged: ChatMessage = next.type === 'system' || current.type === 'system'
+      ? { ...next, id: incoming.id, status: mergeStatus(current.status, next.status) }
+      : { ...current, ...next, id: incoming.id, status: mergeStatus(current.status, next.status) };
     if (current.clientId) {
       merged.clientId = current.clientId;
     } else if (incoming.clientId) {
@@ -941,6 +974,7 @@ export class ChatSession {
         uploads[clientId] = entry.view;
       }
       conversations[id] = {
+        readOnly: thread.readOnly,
         conversation: thread.conversation,
         messages: thread.messages,
         typing: thread.typing,
@@ -951,6 +985,7 @@ export class ChatSession {
       };
       summaries.push({
         id,
+        ...(thread.readOnly ? { readOnly: true } : {}),
         conversation: thread.conversation,
         lastActivityAt: thread.lastActivityAt,
         ...(thread.preview ? { preview: thread.preview } : {}),

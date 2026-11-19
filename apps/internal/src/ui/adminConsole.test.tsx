@@ -468,7 +468,7 @@ describe('Novo grupo (só group.manage, ao vivo)', () => {
     r.close();
   });
 
-  it('o botão abre um diálogo que diz que a criação chega na próxima etapa, e devolve o foco', async () => {
+  it('o botão abre o diálogo de criação e devolve o foco ao fechar', async () => {
     const user = userEvent.setup();
     const r = rig();
     await r.open(ICS_USERS.carla);
@@ -476,7 +476,7 @@ describe('Novo grupo (só group.manage, ao vivo)', () => {
     await user.click(screen.getByRole('button', { name: 'Novo grupo' }));
     const dialog = await screen.findByRole('dialog', { name: 'Novo grupo' });
     expect(dialog).toHaveTextContent('Ilha escolhida: Sul.');
-    expect(dialog).toHaveTextContent('A criação de grupos chega na próxima etapa.');
+    expect(within(dialog).getByRole('button', { name: 'Próximo' })).toBeInTheDocument();
     await user.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Novo grupo' })).not.toBeInTheDocument();

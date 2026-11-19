@@ -1,5 +1,5 @@
 import { UploadCanceledError, UploadFailedError } from '../transport/abort';
-import { directConversation, type ConversationId, type ConversationSummary, type DirectConversation } from '@viavoip/internal-domain';
+import { directConversation, type ConversationId, type ConversationSummary, type DirectConversation, type GroupConversation } from '@viavoip/internal-domain';
 import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
 import type { GrantLogEntry } from '@viavoip/internal-domain';
 import type { Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
@@ -62,6 +62,9 @@ type HeldUpload = {
 export type AdminCall = { readonly method: string; readonly request: unknown };
 
 export class ScriptedTransport implements ChatTransport {
+  createGroup(): Promise<GroupConversation> { return Promise.reject(new Error('Grupo não configurado no transporte de teste')); }
+  updateGroup(): Promise<GroupConversation> { return Promise.reject(new Error('Grupo não configurado no transporte de teste')); }
+  leaveGroup(): Promise<GroupConversation> { return Promise.reject(new Error('Grupo não configurado no transporte de teste')); }
   /** Ações de administração chamadas pela sessão, em ordem. */
   readonly adminCalls: AdminCall[] = [];
   /** Se definido, toda ação de administração rejeita com este erro. */

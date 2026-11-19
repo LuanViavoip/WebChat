@@ -169,12 +169,20 @@ export class MockBackend {
       }
       let receivedMessage = false;
       for (const conversation of Object.values(tenant.conversations)) {
-        if (!participantsOf(conversation).includes(client.userId)) continue;
-        if (!own(before.conversations, conversation.id)) {
+        const previousConversation = own(before.conversations, conversation.id);
+        const wasMember = previousConversation && participantsOf(previousConversation).includes(client.userId);
+        if (!participantsOf(conversation).includes(client.userId)) {
+          if (wasMember && conversation.kind === 'group' && conversation.formerMemberIds.includes(client.userId)) {
+            deliveries.push({ to: client.userId, event: { type: 'conversation-removed', tenantId: client.tenantId, conversationId: conversation.id } });
+          }
+          continue;
+        }
+        if (!previousConversation || JSON.stringify(previousConversation) !== JSON.stringify(conversation)) {
           deliveries.push({ to: client.userId, event: { type: 'conversation', tenantId: client.tenantId, conversation } });
         }
         const oldMessages = own(before.messages, conversation.id) ?? [];
-        for (const message of own(tenant.messages, conversation.id) ?? []) {
+        for (const [index, message] of (own(tenant.messages, conversation.id) ?? []).entries()) {
+          if (conversation.kind === 'group' && (conversation.hiddenMessageRanges?.[client.userId] ?? []).some(([start, end]) => index >= start && index < end)) continue;
           const old = oldMessages.find((item) => item.id === message.id);
           if (!old) {
             deliveries.push({ to: client.userId, event: { type: 'message', tenantId: client.tenantId, message } });
@@ -214,16 +222,20 @@ export class MockBackend {
     }
     let conversationId: string | undefined;
     switch (event.type) {
-      case 'message':
+      case 'message': {
         if (!isRecord(event.message) || event.message.tenantId !== event.tenantId ||
             typeof event.message.conversationId !== 'string' || typeof event.message.id !== 'string') {
           return false;
         }
         conversationId = event.message.conversationId;
-        if (!(own(ts.messages, event.message.conversationId) ?? []).some((item) => item.id === event.message.id)) {
+        const messages = own(ts.messages, event.message.conversationId) ?? [];
+        const index = messages.findIndex((item) => item.id === event.message.id);
+        const messageConversation = own(ts.conversations, event.message.conversationId);
+        if (index < 0 || (messageConversation?.kind === 'group' && (messageConversation.hiddenMessageRanges?.[to] ?? []).some(([start, end]) => index >= start && index < end))) {
           return false;
         }
         break;
+      }
       case 'conversation':
         if (!isRecord(event.conversation) || event.conversation.tenantId !== event.tenantId || typeof event.conversation.id !== 'string') {
           return false;
@@ -263,6 +275,11 @@ export class MockBackend {
         }
         conversationId = event.conversationId;
         break;
+      }
+      case 'conversation-removed': {
+        if (typeof event.conversationId !== 'string') return false;
+        const current = own(ts.conversations, event.conversationId);
+        return !!current && current.kind === 'group' && !current.members.includes(to) && current.formerMemberIds.includes(to);
       }
       case 'grants': {
         if (typeof event.userId !== 'string' || !Array.isArray(event.grants) ||
@@ -321,6 +338,8 @@ export class MockBackend {
           const conversation = own(tenant.conversations, event.conversation.id);
           return conversation ? [{ to: delivery.to, event: { type: 'conversation', tenantId: tenant.tenant.id, conversation } }] : [];
         }
+        case 'conversation-removed':
+          return [delivery];
         case 'grants': {
           const user = own(tenant.directory.users, event.userId);
           return user ? [{ to: delivery.to, event: { type: 'grants', tenantId: tenant.tenant.id, userId: user.id, grants: [...user.grants] } }] : [];

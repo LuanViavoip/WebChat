@@ -9,11 +9,21 @@ export type ReleaseNote = {
 };
 
 export const APP_BASE_VERSION = '1.0';
-export const APP_BUILD_NUMBER = 1;
+export const APP_BUILD_NUMBER = 2;
 export const APP_VERSION = `${APP_BASE_VERSION}.${String(APP_BUILD_NUMBER)}`;
 
 /** Do mais novo para o mais antigo, todas as séries. */
 export const RELEASE_NOTES_HISTORY: readonly ReleaseNote[] = /* @bump-begin */ [
+  {
+    "version": "1.0.2",
+    "date": "19/11/2026",
+    "title": "Grupos de conversa no modelo de ilhas N:N",
+    "details": [
+      "Supervisor e admin criam e editam grupos; o agente vê os grupos no topo da lista (packages/internal-domain/src/group.ts, transport/mock)",
+      "Grupos de ilha atualizam os membros sozinhos quando alguém entra ou sai da ilha",
+      "Quem sai do grupo mantém o histórico só para leitura"
+    ]
+  },
   {
     "version": "1.0.1",
     "date": "18/11/2026",

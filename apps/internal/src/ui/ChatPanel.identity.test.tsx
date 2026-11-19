@@ -42,13 +42,13 @@ describe('seções da lista', () => {
       .map((heading) => heading.textContent);
     expect(headings).toEqual(['Grupos e supervisão', 'Colegas']);
     // Bruno e Camila são "agora" (sem mensagens); Ana tem conversa de 88 min atrás
-    expect(titlesIn('Grupos e supervisão')).toEqual(['Ana Souza', 'Bruno Costa', 'Camila Ribeiro']);
+    expect(titlesIn('Grupos e supervisão')).toEqual(['Ana Souza', 'Bruno Costa', 'Camila Ribeiro', 'Ilha Norte', 'Ilha Plantão', 'Ilha Sul', 'Plantão Geral']);
     expect(titlesIn('Colegas')).toEqual(['Marcos Dono']);
   });
 
   it('para o agente, a direta com o supervisor fica em Grupos e supervisão e a com o colega em Colegas', async () => {
     await renderAs(ICS_USERS.bruno);
-    expect(titlesIn('Grupos e supervisão')).toEqual(['Carla Mendes']);
+    expect(titlesIn('Grupos e supervisão')).toEqual(['Carla Mendes', 'Ilha Norte', 'Plantão Geral']);
     expect(titlesIn('Colegas')).toEqual(['Ana Souza']);
   });
 

@@ -34,6 +34,7 @@ const grupo: GroupConversation = {
   title: 'Plantão',
   origin: { kind: 'custom', createdBy: sup1.id },
   members: [sup1.id, ag1.id],
+  formerMemberIds: [],
   createdAt: '2026-11-10T12:00:00.000Z',
 };
 

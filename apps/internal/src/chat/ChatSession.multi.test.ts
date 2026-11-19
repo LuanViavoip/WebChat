@@ -346,6 +346,20 @@ describe('ChatSession multi-conversa: openDirect', () => {
 });
 
 describe('ChatSession multi-conversa: dois usuários no mesmo servidor', () => {
+  it('cria, edita e deixa grupo removido somente para leitura na outra sessão', async () => {
+    const backend = new MockBackend();
+    const carla = new ChatSession(new MockTransport({ backend, delays: instant }), { createId: sequentialIds('c') });
+    const ana = new ChatSession(new MockTransport({ backend, delays: instant }), { identity: { tenantId: ICS_TENANT_ID, userId: ICS_USERS.ana }, createId: sequentialIds('a') });
+    await carla.start();
+    await ana.start();
+    const result = await carla.createGroup({ title: 'Equipe', memberIds: [ICS_USERS.carla, ICS_USERS.ana], ilhaId: null });
+    if (!result.ok) throw new Error(result.message);
+    const id = result.value.id;
+    expect(thread(ana, id).readOnly).toBe(false);
+    expect((await carla.updateGroup({ conversationId: id, remove: [ICS_USERS.ana] })).ok).toBe(true);
+    expect(thread(ana, id).readOnly).toBe(true);
+    carla.stop(); ana.stop(); backend.close();
+  });
   it('a mensagem chega como não lida ao colega, e abrir a conversa a deixa lida para quem enviou', async () => {
     const backend = new MockBackend();
     const carla = new ChatSession(new MockTransport({ backend, delays: instant }), { createId: sequentialIds('c') });

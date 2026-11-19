@@ -373,7 +373,7 @@ describe('administração: persistência e login', () => {
     const transport = new MockTransport({ backend: migrated, delays: { connectMs: 0 } });
     await transport.connect(MARCOS);
     await transport.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false });
-    expect(migrated.server.toPersisted().version).toBe(5);
+    expect(migrated.server.toPersisted().version).toBe(6);
     expect(migrated.server.getState().get(ICS_TENANT_ID)?.grantLog).toHaveLength(1);
     transport.disconnect();
     migrated.close();

@@ -33,6 +33,9 @@ export type GroupConversation = {
   readonly title: string;
   readonly origin: GroupOrigin;
   readonly members: readonly [UserId, ...UserId[]];
+  readonly formerMemberIds: readonly UserId[];
+  readonly formerReadLimits?: Readonly<Partial<Record<UserId, number>>>;
+  readonly hiddenMessageRanges?: Readonly<Partial<Record<UserId, readonly (readonly [number, number])[]>>>;
   readonly createdAt: string;
 };
 
@@ -83,6 +86,7 @@ export type ConversationSummary = {
   readonly lastActivityAt: string;
   readonly preview?: string;
   readonly unread: number;
+  readonly readOnly?: boolean;
 };
 
 /** 'priority' = grupos + direta com quem supervisiona/é supervisionado. */

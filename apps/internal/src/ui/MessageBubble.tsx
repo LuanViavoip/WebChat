@@ -13,6 +13,7 @@ export function MessageBubble({
   upload,
   onOpenImage,
   onCancelUpload,
+  showAuthor = false,
 }: {
   message: ChatMessage;
   outgoing: boolean;
@@ -21,7 +22,11 @@ export function MessageBubble({
   upload?: UploadView;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   onCancelUpload?: (id: string) => void;
+  showAuthor?: boolean;
 }) {
+  if (message.type === 'system') {
+    return <p className="system-message" role="status">{message.text}</p>;
+  }
   const body = renderBody(message, { upload, onOpenImage, onCancelUpload, onRetry });
   const showGenericRetry = outgoing && message.status === 'error' && onRetry && !upload;
   return (
@@ -29,6 +34,7 @@ export function MessageBubble({
       className={`bubble ${outgoing ? 'outgoing' : 'incoming'}${showTail ? ' has-tail' : ''}`}
       aria-label={`${message.author.name}: ${previewOf(message)}`}
     >
+      {showAuthor ? <span className="group-author">{message.author.name}</span> : null}
       <div className="bubble-body">{body}</div>
       <p className="bubble-meta">
         <time dateTime={message.timestamp}>{formatTime(message.timestamp)}</time>
@@ -59,6 +65,7 @@ function renderBody(
     onRetry?: (id: string) => void;
   },
 ) {
+  if (message.type === 'system') return <p className="bubble-text">{message.text}</p>;
   if (isTextMessage(message)) {
     return <p className="bubble-text">{message.text}</p>;
   }

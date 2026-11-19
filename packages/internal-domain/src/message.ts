@@ -63,7 +63,17 @@ export type StickerMessage = MessageBase & {
   url: string;
 };
 
+export type SystemMessage = Omit<MessageBase, 'authorId' | 'author'> & {
+  type: 'system';
+  actorId: UserId;
+  authorId?: never;
+  author?: never;
+  action: 'created' | 'renamed' | 'added' | 'removed';
+  text: string;
+};
+
 export type ChatMessage =
+  | SystemMessage
   | TextMessage
   | ImageMessage
   | AudioMessage
@@ -78,6 +88,7 @@ export function isTextMessage(message: ChatMessage): message is TextMessage {
 export function previewOf(message: ChatMessage): string {
   switch (message.type) {
     case 'text':
+    case 'system':
       return message.text;
     case 'image':
       return message.caption || 'Foto';
