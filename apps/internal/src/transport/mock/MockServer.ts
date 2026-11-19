@@ -1,17 +1,21 @@
 import { messageFromPayload } from '../../chat/outbound';
 import {
-  directConversation,
   asConversationId,
+  asIsoInstant,
   asMessageId,
   createGroup as buildGroup,
+  directConversation,
   groupMessageRead,
+  isFirstLoginOfDay,
+  localDateIn,
   updateGroup as reviseGroup,
-  type GroupConversation,
-  type SystemMessage,
   type Conversation,
   type ConversationId,
   type ConversationSummary,
   type DirectConversation,
+  type GroupConversation,
+  type Presence,
+  type SystemMessage,
 } from '@viavoip/internal-domain';
 import {
   addAgentToIlha,
@@ -39,7 +43,7 @@ import { previewOf, type ChatMessage } from '@viavoip/internal-domain';
 import { can, type PermissionDenial } from '@viavoip/internal-domain';
 import { own } from '@viavoip/internal-domain';
 import { err, ok, type Result } from '@viavoip/internal-domain';
-import type { LocalDate, TenantId } from '@viavoip/internal-domain';
+import type { TenantId } from '@viavoip/internal-domain';
 import type {
   AssignIlhaSupervisorRequest,
   Bootstrap,
@@ -130,17 +134,14 @@ export function participantsOf(conversation: Conversation): readonly UserId[] {
   return conversation.kind === 'direct' ? conversation.participants : conversation.members;
 }
 
-function localDate(iso: string, timeZone: string): LocalDate {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(iso)) as LocalDate;
-}
-
 function validPayload(payload: SendRequest['payload']): boolean {
-  return payload.type === 'text' ? payload.text.trim() !== '' : payload.url !== '';
+  if (payload.type === 'text') {
+    return payload.text.trim() !== '';
+  }
+  if (payload.type === 'poll') {
+    return payload.question.trim() !== '' && payload.options.length >= 2;
+  }
+  return payload.url !== '';
 }
 
 /**
@@ -206,9 +207,12 @@ export class MockServer {
     const { ts, actor } = resolved.value;
     const key = presenceKey(ts.tenant.id, actor.id);
     this.online.set(key, (this.online.get(key) ?? 0) + 1);
-    ts.logins[actor.id] = { userId: actor.id, lastLoginDate: localDate(this.now(), ts.tenant.timeZone) };
+    const prevLogin = own(ts.logins, actor.id)?.lastLoginDate ?? null;
+    const today = localDateIn(this.now(), ts.tenant.timeZone);
+    const firstLoginOfDay = isFirstLoginOfDay(prevLogin, today);
+    ts.logins[actor.id] = { userId: actor.id, lastLoginDate: today };
     const deliveries = this.markPendingDelivered(ts, actor);
-    return succeed(this.buildBootstrap(ts, actor), deliveries);
+    return succeed(this.buildBootstrap(ts, actor, firstLoginOfDay), deliveries);
   }
 
   disconnect(session: Session): void {
@@ -764,7 +768,8 @@ export class MockServer {
     return deliveries;
   }
 
-  private buildBootstrap(ts: TenantState, actor: StaffUser): Bootstrap {
+  private buildBootstrap(ts: TenantState, actor: StaffUser, firstLoginOfDay = false): Bootstrap {
+    const serverNow = asIsoInstant(this.now());
     const conversations: ConversationSummary[] = [];
     const recent: Record<ConversationId, ChatMessage[]> = {};
     let unread = 0;
@@ -785,14 +790,41 @@ export class MockServer {
         id: conversation.id,
         conversation,
         ...(!active ? { readOnly: true } : {}),
-        lastActivityAt: last?.timestamp ?? ts.createdAt[conversation.id] ?? this.now(),
+        lastActivityAt: last?.timestamp ?? ts.createdAt[conversation.id] ?? serverNow,
         ...(preview ? { preview } : {}),
         unread: count,
       });
       recent[conversation.id] = list.slice(-RECENT_LIMIT);
     }
     conversations.sort((a, b) => Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt));
-    return structuredClone({ tenant: ts.tenant, me: actor, directory: ts.directory, conversations, recent, unread });
+    const presence: Record<UserId, Presence> = {};
+    for (const user of Object.values(ts.directory.users)) {
+      presence[user.id] = {
+        userId: user.id,
+        online: this.isOnline(ts.tenant.id, user.id),
+        lastSeenAt: null,
+        status: { kind: 'available' },
+      };
+    }
+    return structuredClone({
+      tenant: ts.tenant,
+      me: actor,
+      directory: ts.directory,
+      conversations,
+      recent,
+      unread,
+      serverNow,
+      firstLoginOfDay,
+      presence,
+      prefs: {},
+      starred: [],
+      pinnedMessages: {},
+      reactions: {},
+      polls: {},
+      quickReplies: [],
+      scheduled: [],
+      announcements: { board: [], authored: [] },
+    });
   }
 }
 

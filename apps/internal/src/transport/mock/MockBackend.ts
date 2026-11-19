@@ -367,6 +367,8 @@ export class MockBackend {
           return [delivery];
         case 'session-ended':
           return [];
+        default:
+          return [];
       }
     });
     this.dispatch(deliveries);

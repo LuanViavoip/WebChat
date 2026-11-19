@@ -831,6 +831,25 @@ export class ChatSession {
         this.clearError();
         break;
       }
+      case 'message-updated':
+      case 'message-hidden':
+      case 'reaction':
+      case 'receipt':
+      case 'presence':
+      case 'prefs':
+      case 'star':
+      case 'pinned-messages':
+      case 'poll':
+      case 'scheduled':
+      case 'reminder-due':
+      case 'quick-replies':
+      case 'announcement':
+      case 'announcement-authored':
+      case 'announcement-revoked':
+      case 'announcement-receipts':
+      case 'announcement-reminder':
+        // Redutores de eventos v1 entram na Onda 1a; avisos pertencem ao AnnouncementStore (spec B.13).
+        return;
       default: {
         const exhaustive: never = event;
         return exhaustive;
