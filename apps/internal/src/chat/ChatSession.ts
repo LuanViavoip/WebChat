@@ -870,14 +870,11 @@ export class ChatSession {
     if (!current) {
       return false;
     }
-    const merged: ChatMessage = next.type === 'system' || current.type === 'system'
+    const resolvedClientId = current.clientId ?? incoming.clientId;
+    const baseMerged: ChatMessage = next.type === 'system' || current.type === 'system'
       ? { ...next, id: incoming.id, status: mergeStatus(current.status, next.status) }
       : { ...current, ...next, id: incoming.id, status: mergeStatus(current.status, next.status) };
-    if (current.clientId) {
-      merged.clientId = current.clientId;
-    } else if (incoming.clientId) {
-      merged.clientId = incoming.clientId;
-    }
+    const merged: ChatMessage = resolvedClientId ? { ...baseMerged, clientId: resolvedClientId } : baseMerged;
     thread.messages = thread.messages.map((message, position) => (position === index ? merged : message));
     return false;
   }

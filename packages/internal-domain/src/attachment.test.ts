@@ -68,6 +68,13 @@ function fileOf(name: string, type: string, size = 32): File {
 }
 
 describe('validateFiles', () => {
+  it.each([
+    ['audio.webm', 'audio/webm', 'audio'],
+    ['audio.ogg', 'audio/ogg;codecs=opus', 'audio'],
+    ['video.webm', 'video/webm', 'video'],
+  ] as const)('aceita gravação %s com MIME %s', (name, mime, kind) => {
+    expect(validateFiles([fileOf(name, mime)])).toMatchObject({ ok: true, attachment: { kind } });
+  });
   it.each(TABLE)('aceita $ext com MIME canônico $mime', ({ ext, mime, kind }) => {
     const result = validateFiles([fileOf(`arquivo${ext}`, mime)]);
     expect(result?.ok).toBe(true);

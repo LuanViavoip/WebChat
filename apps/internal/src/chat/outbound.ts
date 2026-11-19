@@ -119,6 +119,10 @@ export function payloadFromMessage(message: ChatMessage): OutboundPayload {
     }
     case 'sticker':
       return { type: 'sticker', mimeType: message.mimeType, url: message.url };
+    case 'poll':
+    case 'announcement':
+    case 'deleted':
+      throw new Error('Este tipo de mensagem não pode ser reenviado.');
     default: {
       const exhaustive: never = message;
       return exhaustive;

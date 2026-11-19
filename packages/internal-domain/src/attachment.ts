@@ -58,6 +58,7 @@ export const MEDIA_RULES: Readonly<Record<MediaKind, MediaRule>> = {
     formats: [
       { ext: '.mp4', mime: 'video/mp4', aliases: [] },
       { ext: '.3gp', mime: 'video/3gpp', aliases: [] },
+      { ext: '.webm', mime: 'video/webm', aliases: [] },
     ],
   },
   audio: {
@@ -70,7 +71,8 @@ export const MEDIA_RULES: Readonly<Record<MediaKind, MediaRule>> = {
       { ext: '.m4a', mime: 'audio/mp4', aliases: ['audio/x-m4a'] },
       { ext: '.aac', mime: 'audio/aac', aliases: ['audio/x-aac'] },
       { ext: '.amr', mime: 'audio/amr', aliases: [] },
-      { ext: '.ogg', mime: 'audio/ogg', aliases: [] },
+      { ext: '.ogg', mime: 'audio/ogg', aliases: ['audio/ogg;codecs=opus'] },
+      { ext: '.webm', mime: 'audio/webm', aliases: [] },
     ],
   },
   document: {
@@ -103,11 +105,11 @@ export const MEDIA_RULES: Readonly<Record<MediaKind, MediaRule>> = {
   },
 };
 
-const FORMAT_BY_EXT: ReadonlyMap<string, { kind: MediaKind; format: MediaFormat; maxBytes: number }> = (() => {
-  const map = new Map<string, { kind: MediaKind; format: MediaFormat; maxBytes: number }>();
+const FORMAT_BY_EXT: ReadonlyMap<string, readonly { kind: MediaKind; format: MediaFormat; maxBytes: number }[]> = (() => {
+  const map = new Map<string, { kind: MediaKind; format: MediaFormat; maxBytes: number }[]>();
   for (const rule of Object.values(MEDIA_RULES)) {
     for (const format of rule.formats) {
-      map.set(format.ext, { kind: rule.kind, format, maxBytes: rule.maxBytes });
+      map.set(format.ext, [...(map.get(format.ext) ?? []), { kind: rule.kind, format, maxBytes: rule.maxBytes }]);
     }
   }
   return map;
@@ -180,12 +182,12 @@ export function validateFiles(files: readonly File[]): AttachmentCheck | null {
   }
   const fileName = file.name;
   const ext = extensionOf(fileName);
-  const match = ext ? FORMAT_BY_EXT.get(ext) : undefined;
-  if (!match) {
+  const matches = ext ? FORMAT_BY_EXT.get(ext) : undefined;
+  if (!matches) {
     return { ok: false, rejection: { code: 'unsupported', fileName } };
   }
-  const allowed = new Set([match.format.mime, ...match.format.aliases]);
-  if (file.type && !allowed.has(file.type)) {
+  const match = file.type ? matches.find((candidate) => candidate.format.mime === file.type || candidate.format.aliases.includes(file.type)) : matches[0];
+  if (!match) {
     return { ok: false, rejection: { code: 'mismatch', fileName } };
   }
   if (file.size === 0) {

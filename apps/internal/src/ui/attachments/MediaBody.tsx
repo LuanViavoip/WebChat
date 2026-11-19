@@ -1,10 +1,22 @@
 import type { UploadView } from '../../chat/uploads';
 import { extensionForMime } from '@viavoip/internal-domain';
-import type { ChatMessage, ImageMessage, TextMessage, SystemMessage } from '@viavoip/internal-domain';
+import type {
+  AnnouncementRefMessage,
+  ChatMessage,
+  DeletedMessage,
+  ImageMessage,
+  PollMessage,
+  SystemMessage,
+  TextMessage,
+} from '@viavoip/internal-domain';
 import { DocumentCard } from './DocumentCard';
 import { UploadStatus } from './UploadStatus';
 
 export type OpenImage = { url: string; alt: string; fileName: string; messageId: string };
+export type MediaChatMessage = Exclude<
+  ChatMessage,
+  TextMessage | SystemMessage | PollMessage | AnnouncementRefMessage | DeletedMessage
+>;
 
 export function MediaBody({
   message,
@@ -13,7 +25,7 @@ export function MediaBody({
   onCancelUpload,
   onRetry,
 }: {
-  message: Exclude<ChatMessage, TextMessage | SystemMessage>;
+  message: MediaChatMessage;
   upload?: UploadView;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   onCancelUpload?: (id: string) => void;
@@ -37,7 +49,7 @@ export function MediaBody({
 }
 
 function renderMedia(
-  message: Exclude<ChatMessage, TextMessage | SystemMessage>,
+  message: MediaChatMessage,
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void,
 ) {
   switch (message.type) {
@@ -101,7 +113,7 @@ function imageDownloadName(message: ImageMessage): string {
   return ext ? `foto${ext}` : 'foto';
 }
 
-function uploadFileName(message: Exclude<ChatMessage, TextMessage | SystemMessage>, upload?: UploadView): string {
+function uploadFileName(message: MediaChatMessage, upload?: UploadView): string {
   if (upload?.phase === 'uploading') {
     return upload.fileName;
   }

@@ -69,6 +69,15 @@ function renderBody(
   if (isTextMessage(message)) {
     return <p className="bubble-text">{message.text}</p>;
   }
+  if (message.type === 'deleted') {
+    return <p className="bubble-text">Mensagem apagada</p>;
+  }
+  if (message.type === 'announcement') {
+    return <p className="bubble-text">Aviso encaminhado</p>;
+  }
+  if (message.type === 'poll') {
+    return <p className="bubble-text">{`📊 ${message.question}`}</p>;
+  }
   return (
     <MediaBody
       message={message}
