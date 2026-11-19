@@ -5,6 +5,7 @@
 - Base original: `2e8961a`; rebase sobre a 0c em `02e4ead`. A versão gerada é `1.0.2`.
 - O porte usa `origin`: grupos personalizados têm dono; grupos de ilha recebem membros do diretório e recusam edição manual. A sincronização cobre agentes e supervisores.
 - A criação é idempotente por `clientId`; remoção e saída mantêm acesso somente de leitura às mensagens do período de participação. O mock armazena os intervalos ocultos e migra o estado de v5 para v6.
+- Uma ilha migrada sem grupo automático passa a tê-lo na primeira alteração de membros.
 - A interface permite criar, editar, sair e consultar membros, filtrar grupos e identificar autores. O seletor de ilha pré-seleciona integrantes, mas cria grupo personalizado.
 - Em relação à Etapa 6 original, o porte usa ilhas N:N, não atribui dono a grupos automáticos e inclui saída explícita, sincronização de supervisores e migração v5 para v6.
 - Baseline anterior à 0c: 914 testes de domínio e 550 do aplicativo; Playwright registrado: 161 aprovados e 99 pulados. Após o porte, Playwright: 165 aprovados e 103 pulados; o baseline de testes da 0c acrescenta testes de versão.

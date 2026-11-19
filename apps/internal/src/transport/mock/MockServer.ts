@@ -639,8 +639,12 @@ export class MockServer {
     const changes: Array<{ previous?: GroupConversation; group: GroupConversation }> = [];
     for (const ilha of Object.values(after.ilhas)) {
       const previous = Object.values(ts.conversations).find((c): c is GroupConversation => c.kind === 'group' && c.origin.kind === 'ilha' && c.origin.ilhaId === ilha.id);
-      if (!previous && own(before.ilhas, ilha.id)) continue;
       const ids = [...new Set([...ilha.supervisorIds, ...Object.values(after.users).filter((u) => u.role === 'agent' && u.ilhaIds.includes(ilha.id)).map((u) => u.id)])];
+      const oldIlha = own(before.ilhas, ilha.id);
+      if (!previous && oldIlha) {
+        const oldIds = [...new Set([...oldIlha.supervisorIds, ...Object.values(before.users).filter((u) => u.role === 'agent' && u.ilhaIds.includes(ilha.id)).map((u) => u.id)])];
+        if (ids.length === oldIds.length && ids.every((id) => oldIds.includes(id))) continue;
+      }
       if (ids.length === 0 || ids.length > 256) return err('too-many-members');
       if (!previous) {
         const members = ids.map((id) => own(after.users, id)).filter((u): u is StaffUser => u !== undefined);
