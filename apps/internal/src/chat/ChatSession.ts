@@ -1,5 +1,6 @@
 import {
   asClientId,
+  asIsoInstant,
   describeDenial,
   DENIAL_TEXT,
   previewOf,
@@ -616,7 +617,7 @@ export class ChatSession {
     const generation = this.generation;
     const clientId = this.createId();
     thread.aliases.link(clientId, clientId);
-    this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), normalized, this.now(), 'sending'));
+    this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), normalized, asIsoInstant(this.now()), 'sending'));
     this.emit();
     await this.dispatchSend(conversationId, thread, clientId, normalized, generation, options);
   }
@@ -635,7 +636,7 @@ export class ChatSession {
     const previewUrl = this.objectUrls.create(attachment.file);
     const payload = payloadForAttachment(attachment, previewUrl, caption);
     thread.aliases.link(clientId, clientId);
-    this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), payload, this.now(), 'sending'));
+    this.upsertMessage(thread, messageFromPayload(this.origin(conversationId, clientId), payload, asIsoInstant(this.now()), 'sending'));
     thread.uploads.set(clientId, beginUpload(attachment, caption, previewUrl));
     this.emit();
     await this.runUpload(conversationId, thread, clientId, options);
@@ -726,7 +727,6 @@ export class ChatSession {
     try {
       const { url } = await this.transport.upload({
         target: { kind: 'conversation', conversationId },
-        conversationId,
         clientId,
         file: attachment.file,
         fileName: attachment.fileName,
@@ -1121,7 +1121,7 @@ export class ChatSession {
   }
 
   /** Um colega leu até aquela mensagem: as minhas até ali passam a 'read'. */
-  private raiseOwnToRead(thread: Thread, upToMessageId: string): void {
+  private raiseOwnToRead(thread: Thread, upToMessageId: MessageId): void {
     const myId = this.identity.userId;
     const limit = thread.messages.findIndex((message) => this.matchesId(thread, message, upToMessageId));
     if (limit === -1) {

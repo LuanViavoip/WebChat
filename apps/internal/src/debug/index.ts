@@ -76,7 +76,10 @@ export function readDebugFlags(
 
 // Stub da Onda 0b (spec B.13 e C.1): devolve o mesmo objeto sem Proxy nem buffer.
 export function wrapTransportForDebug(transport: ChatTransport, flags: DebugFlags): ChatTransport {
-  return flags.enabled ? transport : transport;
+  if (flags.enabled) {
+    return transport;
+  }
+  return transport;
 }
 
 // Stub da Onda 0b (spec C.1 e C.2): no-op sem alocação enquanto o módulo de debug não entra.

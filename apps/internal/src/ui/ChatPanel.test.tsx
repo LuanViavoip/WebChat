@@ -1,4 +1,4 @@
-import { asMessageId } from '@viavoip/internal-domain';
+import { asIsoInstant, asMessageId } from '@viavoip/internal-domain';
 import { act, StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -58,7 +58,7 @@ function incomingText(conversationId: string, id: string, text: string): TextMes
     conversationId: asConversationId(conversationId),
     authorId: ICS_USERS.bruno,
     author: { id: 'agent-1', name: 'Colega' },
-    timestamp: new Date().toISOString(),
+    timestamp: asIsoInstant(new Date().toISOString()),
     status: 'delivered',
     type: 'text',
     text,

@@ -1,4 +1,4 @@
-import { asMessageId } from '@viavoip/internal-domain';
+import { asIsoInstant, asMessageId } from '@viavoip/internal-domain';
 import { render, screen } from '@testing-library/react';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import { MessageList } from './MessageList';
@@ -22,7 +22,7 @@ function text(
     conversationId: asConversationId('c'),
     authorId,
     author,
-    timestamp,
+    timestamp: asIsoInstant(timestamp),
     status: 'read',
     type: 'text',
     text: body,

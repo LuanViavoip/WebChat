@@ -103,7 +103,7 @@ export function conversationInitials(title: string): string {
 }
 
 /** Busca por título/prévia e filtro Não lidas. Conversa com erro fica à vista (o erro não pode sumir). */
-export function filterConversations(
+export function filterSidebarItems(
   items: readonly ConversationItem[],
   query: string,
   filter: 'all' | 'unread',

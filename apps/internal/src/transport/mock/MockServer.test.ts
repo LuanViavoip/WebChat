@@ -1,4 +1,4 @@
-import { asClientId } from '@viavoip/internal-domain';
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { directConversationId, type ConversationId } from '@viavoip/internal-domain';
 import type { UserId } from '@viavoip/internal-domain';
 import type { Result } from '@viavoip/internal-domain';
@@ -278,7 +278,7 @@ describe('MockServer', () => {
     it('recusa mensagem inexistente, conversa alheia e conversa de outro tenant', () => {
       const server = newServer();
       const sent = value(sendLive(server, CARLA, 'c-1').result);
-      expect(rejection(server.markRead(BRUNO, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'nao-existe' })).reason).toBe('forbidden');
+      expect(rejection(server.markRead(BRUNO, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: asMessageId('nao-existe') })).reason).toBe('forbidden');
       expect(rejection(server.markRead(ANA, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: sent.message.id })).reason).toBe('not-participant');
       const bvConversation = directConversationId(BV_TENANT_ID, BV_USERS.otavio, BV_USERS.paula);
       expect(rejection(server.markRead(CARLA, { conversationId: bvConversation, upToMessageId: sent.message.id })).reason).toBe('forbidden');
@@ -308,7 +308,7 @@ describe('MockServer', () => {
       const server = newServer();
       const bv = directConversationId(BV_TENANT_ID, BV_USERS.otavio, BV_USERS.paula);
       expect(rejection(server.setActivity(CARLA, { conversationId: bv, activity: 'typing' })).reason).toBe('forbidden');
-      expect(rejection(server.markRead(session(BV_USERS.paula, BV_TENANT_ID), { conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'msg:ics:1' })).reason).toBe('forbidden');
+      expect(rejection(server.markRead(session(BV_USERS.paula, BV_TENANT_ID), { conversationId: LIVE_CONVERSATION_ID, upToMessageId: asMessageId('msg:ics:1') })).reason).toBe('forbidden');
     });
   });
 

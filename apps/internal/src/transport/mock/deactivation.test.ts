@@ -1,4 +1,4 @@
-import { asClientId } from '@viavoip/internal-domain';
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { ChatSession, SESSION_DEACTIVATED_TEXT } from '../../chat/ChatSession';
 import { Lab, type Probe } from '../../test/adminProbe';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
@@ -110,7 +110,7 @@ describe('usuário desativado', () => {
     const t = bruno.transport;
     const calls: Array<Promise<unknown>> = [
       t.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }),
-      t.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'm' }),
+      t.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: asMessageId('m') }),
       t.openDirect({ with: ICS_USERS.ana }),
       t.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false }),
       t.registerAgent({ name: 'X', ilhaIds: [ICS_ILHAS.norte]}),

@@ -1,4 +1,4 @@
-import { asClientId } from '@viavoip/internal-domain';
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { createFakeObjectUrls } from '../../test/fakeObjectUrls';
 import { SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type { ChatEvent, ChatTransport, ConnectRequest, UploadProgress } from '../ChatTransport';
@@ -176,8 +176,7 @@ describe('MockTransport', () => {
 
     const file = new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' });
     const progress: UploadProgress[] = [];
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file,
       fileName: 'foto.png',
@@ -213,8 +212,7 @@ describe('MockTransport', () => {
     const file = new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' });
     const firstProgress: UploadProgress[] = [];
     const first = expect(
-      transport.upload({
-        conversationId: C1,
+      transport.upload({ target: { kind: 'conversation', conversationId: C1 },
         clientId: 'up-1',
         file,
         fileName: 'foto.png',
@@ -230,8 +228,7 @@ describe('MockTransport', () => {
     expect(firstProgress).toHaveLength(3);
 
     const secondProgress: UploadProgress[] = [];
-    const second = transport.upload({
-      conversationId: C1,
+    const second = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file,
       fileName: 'foto.png',
@@ -256,8 +253,7 @@ describe('MockTransport', () => {
     await transport.connect(ME);
     const file = new File([new Uint8Array(10)], 'foto.png', { type: 'image/png' });
     await expect(
-      transport.upload({
-        conversationId: C1,
+      transport.upload({ target: { kind: 'conversation', conversationId: C1 },
         clientId: 'up-1',
         file,
         fileName: 'foto.png',
@@ -277,8 +273,7 @@ describe('MockTransport', () => {
     await transport.connect(ME);
     const controller = new AbortController();
     const progress: UploadProgress[] = [];
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -304,8 +299,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     await transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -321,8 +315,7 @@ describe('MockTransport', () => {
   it('upload desconectado rejeita e em connecting espera o readyGate', async () => {
     const disconnected = new MockTransport({ delays: instant, objectUrls: createFakeObjectUrls() });
     await expect(
-      disconnected.upload({
-        conversationId: C1,
+      disconnected.upload({ target: { kind: 'conversation', conversationId: C1 },
         clientId: 'up-1',
         file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
         fileName: 'foto.png',
@@ -338,8 +331,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     const connecting = transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -405,8 +397,7 @@ describe('MockTransport', () => {
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({ delays: instant, objectUrls: urls });
     await transport.connect(ME);
-    await transport.upload({
-      conversationId: C1,
+    await transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -423,8 +414,7 @@ describe('MockTransport', () => {
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({ delays: instant, objectUrls: urls });
     await transport.connect(ME);
-    const uploaded = await transport.upload({
-      conversationId: C1,
+    const uploaded = await transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -447,8 +437,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     await transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -472,8 +461,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     await transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -510,8 +498,7 @@ describe('MockTransport', () => {
     await vi.runAllTimersAsync();
     await first;
     events.length = 0;
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-short',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -542,7 +529,7 @@ const file = () => new File([new Uint8Array(100)], 'foto.png', { type: 'image/pn
 
 function uploadRequest(conversationId: typeof C1, clientId: string, signal = new AbortController().signal) {
   return {
-    conversationId,
+    target: { kind: 'conversation' as const, conversationId },
     clientId,
     file: file(),
     fileName: 'foto.png',
@@ -646,7 +633,7 @@ describe('MockTransport por conversa', () => {
     await expect(
       transport.send({ conversationId: foreign, clientId: asClientId('x'), payload: { type: 'text', text: 'oi' } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(transport.markRead({ conversationId: foreign, upToMessageId: 'msg:bv:1' })).rejects.toBeInstanceOf(
+    await expect(transport.markRead({ conversationId: foreign, upToMessageId: asMessageId('msg:bv:1') })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
     await expect(transport.openDirect({ with: BV_USERS.paula })).rejects.toBeInstanceOf(ForbiddenError);
@@ -694,7 +681,7 @@ describe('MockTransport por conversa', () => {
   });
 });
 
-async function lastMessageId(transport: MockTransport): Promise<string> {
+async function lastMessageId(transport: MockTransport): Promise<ReturnType<typeof asMessageId>> {
   const bootstrap = await transport.connect(ME);
   const list = bootstrap.recent[C2] ?? [];
   const last = list.at(-1);

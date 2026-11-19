@@ -558,7 +558,11 @@ export function ChatPanel({
           return result.ok;
         }}
       />
-      <div className="wa-chat" ref={chatRef}>
+      <div
+        className="wa-chat"
+        ref={chatRef}
+        {...(shellContext && slots?.overlays.some((overlay) => overlay.blocking) ? { inert: true } : {})}
+      >
         {selectedId ? (
           <>
             <ChatHeader
@@ -644,7 +648,7 @@ export function ChatPanel({
       </div>
     </section>
     {shellContext && slots
-      ? slots.overlays.map((renderOverlay, index) => <Fragment key={index}>{renderOverlay(shellContext)}</Fragment>)
+      ? slots.overlays.map((overlay, index) => <Fragment key={index}>{overlay.render(shellContext)}</Fragment>)
       : null}
     </>
   );

@@ -32,7 +32,7 @@ import type {
   VotePollRequest,
 } from '@viavoip/internal-domain';
 import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
-import { ForbiddenError, NotImplementedError } from '../errors';
+import { NotImplementedError } from '../errors';
 import type {
   ActivityRequest,
   AgentIlhaRequest,
@@ -338,7 +338,7 @@ export class MockTransport implements ChatTransport {
   }
 
   private notImplemented(operation: string, request: object): Promise<never> {
-    return Promise.reject(new NotImplementedError(Object.keys(request).length >= 0 ? operation : operation));
+    return Promise.reject(Object.assign(new NotImplementedError(operation), { request }));
   }
 
   history(request: HistoryRequest): Promise<HistoryPage> {
@@ -488,13 +488,10 @@ export class MockTransport implements ChatTransport {
   }
 
   private async runUpload(request: UploadRequest): Promise<UploadedMedia> {
-    if (request.target?.kind === 'announcement-draft') {
+    if (request.target.kind === 'announcement-draft') {
       throw new NotImplementedError('upload:announcement-draft');
     }
-    const conversationId = request.target?.kind === 'conversation' ? request.target.conversationId : request.conversationId;
-    if (!conversationId) {
-      throw new ForbiddenError();
-    }
+    const conversationId = request.target.conversationId;
     if (this.status !== 'connected' || !this.identity) {
       throw new Error('Não conectado');
     }

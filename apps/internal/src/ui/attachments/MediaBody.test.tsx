@@ -1,4 +1,4 @@
-import { asMessageId } from '@viavoip/internal-domain';
+import { asIsoInstant, asMessageId } from '@viavoip/internal-domain';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '@viavoip/internal-domain';
@@ -12,7 +12,7 @@ const base = {
   conversationId: asConversationId('c'),
   authorId: ICS_USERS.carla,
   author: { id: 'client', name: 'Você' },
-  timestamp: '2026-11-10T12:00:00.000Z',
+  timestamp: asIsoInstant('2026-11-10T12:00:00.000Z'),
   status: 'sent' as const,
 };
 

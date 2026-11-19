@@ -53,8 +53,7 @@ export type UploadTarget =
   | { readonly kind: 'announcement-draft' };
 
 export type UploadRequest = {
-  readonly conversationId?: ConversationId;
-  readonly target?: UploadTarget;
+  readonly target: UploadTarget;
   readonly clientId: string;
   readonly file: Blob;
   readonly fileName: string;
@@ -65,7 +64,7 @@ export type UploadRequest = {
 
 export type UploadedMedia = { readonly url: string };
 
-export type MarkReadRequest = { readonly conversationId: ConversationId; readonly upToMessageId: string };
+export type MarkReadRequest = { readonly conversationId: ConversationId; readonly upToMessageId: MessageId };
 export type CreateGroupRequest = {
   readonly clientId: string;
   readonly title: string;

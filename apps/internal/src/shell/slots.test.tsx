@@ -5,6 +5,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   asAnnouncementId,
+  asIsoInstant,
   asMessageId,
   type AnnouncementRefMessage,
 } from '@viavoip/internal-domain';
@@ -22,7 +23,7 @@ function makeAnnouncementRef(): AnnouncementRefMessage {
     conversationId: LIVE_CONVERSATION_ID,
     authorId: ICS_USERS.carla,
     author: { id: ICS_USERS.carla, name: 'Carla Mendes' },
-    timestamp: '2026-11-19T12:00:00.000Z',
+    timestamp: asIsoInstant('2026-11-19T12:00:00.000Z'),
     status: 'sent',
     type: 'announcement',
     announcementId: asAnnouncementId('ann-1'),
@@ -49,11 +50,13 @@ function buildSlots(onMenuSelect: (ctx: ShellContext) => void): ShellSlots {
       },
     ],
     overlays: [
-      (ctx) => (
-        <aside role="status" data-testid="slot-overlay">
-          Overlay ativo: {ctx.tenant.name}
-        </aside>
-      ),
+      {
+        render: (ctx) => (
+          <aside role="status" data-testid="slot-overlay">
+            Overlay ativo: {ctx.tenant.name}
+          </aside>
+        ),
+      },
     ],
     menuItems: [
       {
@@ -146,5 +149,37 @@ describe('ShellSlots em ChatPanel e Sidebar', () => {
 
     const fallbacks = await screen.findAllByText('Aviso encaminhado');
     expect(fallbacks.some((node) => node.classList.contains('bubble-text'))).toBe(true);
+  });
+
+  it('aplica inert em .wa-chat quando um overlay bloqueante está ativo', async () => {
+    stubDesktopMatchMedia();
+    const transport = new ScriptedTransport();
+    const slots: ShellSlots = {
+      ...buildSlots(() => undefined),
+      overlays: [
+        {
+          blocking: true,
+          render: () => (
+            <aside role="dialog" data-testid="blocking-overlay">
+              Aviso obrigatório
+            </aside>
+          ),
+        },
+      ],
+    };
+
+    render(<ChatPanel transport={transport} identity={DEFAULT_SESSION} slots={slots} />);
+
+    await screen.findByTestId('blocking-overlay');
+    const chat = document.querySelector('.wa-chat');
+    expect(chat).toHaveAttribute('inert');
+  });
+
+  it('não aplica inert quando o overlay não é bloqueante', async () => {
+    stubDesktopMatchMedia();
+    const transport = new ScriptedTransport();
+    render(<ChatPanel transport={transport} identity={DEFAULT_SESSION} slots={buildSlots(() => undefined)} />);
+    await screen.findByTestId('slot-overlay');
+    expect(document.querySelector('.wa-chat')).not.toHaveAttribute('inert');
   });
 });

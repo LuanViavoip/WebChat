@@ -32,7 +32,7 @@ function textMessage(partial: Omit<Partial<TextMessage>, 'id' | 'clientId'> & { 
     conversationId: LIVE_CONVERSATION_ID,
     authorId: ICS_USERS.bruno,
     author: { id: 'agent', name: 'Colega' },
-    timestamp: '2026-11-10T12:00:00.000Z',
+    timestamp: asIsoInstant('2026-11-10T12:00:00.000Z'),
     status: 'delivered',
     type: 'text',
     ...rest,
@@ -64,11 +64,11 @@ describe('ChatSession', () => {
     });
     transport.emit({ type: 'message', message: first });
     transport.emit({ type: 'message', message: { ...first, status: 'sending' } });
-    transport.emit({ type: 'status', messageId: 'm1', status: 'delivered' });
-    transport.emit({ type: 'status', messageId: 'm1', status: 'sent' });
+    transport.emit({ type: 'status', messageId: asMessageId('m1'), status: 'delivered' });
+    transport.emit({ type: 'status', messageId: asMessageId('m1'), status: 'sent' });
     expect(live(session).messages).toHaveLength(1);
     expect(live(session).messages[0]?.status).toBe('delivered');
-    transport.emit({ type: 'status', messageId: 'm1', status: 'error' });
+    transport.emit({ type: 'status', messageId: asMessageId('m1'), status: 'error' });
     expect(live(session).messages[0]?.status).toBe('error');
   });
 
@@ -76,7 +76,7 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport);
     await session.start();
-    transport.emit({ type: 'status', messageId: 'late', clientId: 'late', status: 'delivered' });
+    transport.emit({ type: 'status', messageId: asMessageId('late'), clientId: asClientId('late'), status: 'delivered' });
     expect(live(session).messages).toHaveLength(0);
     transport.emit({
       type: 'message',
@@ -90,8 +90,8 @@ describe('ChatSession', () => {
     const transport = new ScriptedTransport();
     const session = new ChatSession(transport);
     await session.start();
-    transport.emit({ type: 'status', messageId: 'srv-1', status: 'read' });
-    transport.emit({ type: 'status', messageId: 'cid-1', clientId: 'cid-1', status: 'sent' });
+    transport.emit({ type: 'status', messageId: asMessageId('srv-1'), status: 'read' });
+    transport.emit({ type: 'status', messageId: asMessageId('cid-1'), clientId: asClientId('cid-1'), status: 'sent' });
     transport.emit({
       type: 'message',
       message: textMessage({
@@ -106,7 +106,7 @@ describe('ChatSession', () => {
     expect(live(session).messages[0]?.id).toBe('srv-1');
     expect(live(session).messages[0]?.status).toBe('read');
 
-    transport.emit({ type: 'status', messageId: 'srv-1', clientId: 'cid-1', status: 'delivered' });
+    transport.emit({ type: 'status', messageId: asMessageId('srv-1'), clientId: asClientId('cid-1'), status: 'delivered' });
     expect(live(session).messages[0]?.status).toBe('read');
   });
 

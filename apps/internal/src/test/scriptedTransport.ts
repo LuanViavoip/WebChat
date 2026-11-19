@@ -10,6 +10,7 @@ import {
   type AnnouncementBootstrap,
   type AnnouncementForAuthor,
   type ChatMessage,
+  type ClientId,
   type ConversationId,
   type ConversationPrefs,
   type ConversationPrefsRequest,
@@ -104,7 +105,7 @@ type OmitTenant<E> = E extends { tenantId: TenantId } ? Omit<E, 'tenantId'> : E;
 export type ScriptedEvent =
   | { type: 'connection'; status: TransportStatus }
   | { type: 'message'; message: ChatMessage }
-  | { type: 'status'; messageId: string; clientId?: string; status: MessageStatus; conversationId?: ConversationId }
+  | { type: 'status'; messageId: MessageId; clientId?: ClientId; status: MessageStatus; conversationId?: ConversationId }
   | { type: 'activity'; userId: UserId; activity: ComposeActivity; conversationId?: ConversationId }
   | OmitTenant<Exclude<ChatEvent, { type: 'connection' | 'message' | 'status' | 'activity' }>>;
 

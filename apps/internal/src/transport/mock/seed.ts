@@ -1,5 +1,5 @@
 import { ROLE_DEFAULT } from '@viavoip/internal-domain';
-import { asConversationId, asMessageId, directConversation, directConversationId, type ConversationId, type GroupConversation } from '@viavoip/internal-domain';
+import { asConversationId, asIsoInstant, asMessageId, directConversation, directConversationId, type ConversationId, type GroupConversation } from '@viavoip/internal-domain';
 import type { Agent, Directory, Ilha, IlhaId, IlhaIds, StaffUser, Supervisor, UserId } from '@viavoip/internal-domain';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import type { Tenant, TenantId } from '@viavoip/internal-domain';
@@ -157,7 +157,7 @@ function seedDirect(ts: TenantState, a: StaffUser, b: StaffUser, now: number, li
       conversationId: conversation.id,
       authorId: line.from.id,
       author: { id: line.from.id, name: line.from.name },
-      timestamp: new Date(now - line.minutesAgo * 60_000).toISOString(),
+      timestamp: asIsoInstant(new Date(now - line.minutesAgo * 60_000).toISOString()),
       status: 'delivered',
       type: 'text',
       text: line.text,

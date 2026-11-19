@@ -1,4 +1,4 @@
-import { asClientId } from '@viavoip/internal-domain';
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import fc from 'fast-check';
 import { CAPABILITIES, type Capability } from '@viavoip/internal-domain';
 import type { ConversationId } from '@viavoip/internal-domain';
@@ -396,7 +396,7 @@ function checkStaleSessions(world: World, stats: Stats): void {
       server.unassignIlhaSupervisor(session, { ilhaId, supervisorId: other }),
     ];
     if (conversationId) {
-      const firstMessage = ts.messages[conversationId]?.[0]?.id ?? 'nenhuma';
+      const firstMessage = ts.messages[conversationId]?.[0]?.id ?? asMessageId('nenhuma');
       outcomes.push(
         server.send(session, { conversationId, clientId: asClientId('stale'), payload: { type: 'text', text: 'fantasma' } }),
         server.markRead(session, { conversationId, upToMessageId: firstMessage }),
@@ -489,10 +489,11 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       const every = conversations.flatMap((item) => item.messages.map((id) => ({ id, tenantId: item.tenantId })));
       const own = conversation.messages;
       // Mensagem: da própria conversa (quando houver) ou de qualquer conversa dos dois tenants.
-      const messageId =
+      const messageId = asMessageId(
         op.mode === 'member' && own.length > 0
-          ? (own[op.message % own.length] as string)
-          : (every[op.message % Math.max(1, every.length)]?.id ?? 'sem-mensagem');
+          ? own[op.message % own.length] ?? 'sem-mensagem'
+          : every[op.message % Math.max(1, every.length)]?.id ?? 'sem-mensagem',
+      );
       const messageTenant = every.find((item) => item.id === messageId)?.tenantId ?? conversation.tenantId;
       const userId = world.actor(op.who, conversation.tenantId, op.mode);
       cross = world.tenant(userId) !== conversation.tenantId || messageTenant !== conversation.tenantId;

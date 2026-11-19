@@ -5,7 +5,7 @@ import type { Directory, Ilha, StaffUser } from '@viavoip/internal-domain';
 import {
   conversationInitials,
   emptyConversationCopy,
-  filterConversations,
+  filterSidebarItems,
   roleLabel,
   type ConversationItem,
 } from './conversations';
@@ -78,11 +78,11 @@ export function Sidebar({
   const [pickerOpen, setPickerOpen] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const priority = useMemo(
-    () => filterConversations(sections.priority, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
+    () => filterSidebarItems(sections.priority, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
     [sections.priority, query, filter, groupIds],
   );
   const colleagues = useMemo(
-    () => filterConversations(sections.colleagues, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
+    () => filterSidebarItems(sections.colleagues, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
     [sections.colleagues, query, filter, groupIds],
   );
   const total = sections.priority.length + sections.colleagues.length;

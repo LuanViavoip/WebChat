@@ -282,7 +282,7 @@ export class MockServer {
         authorName: actor.name,
       },
       request.payload,
-      this.now(),
+      asIsoInstant(this.now()),
       'sent',
     );
     list.push(message);
@@ -724,7 +724,7 @@ export class MockServer {
 
   private systemEvent(ts: TenantState, group: GroupConversation, actor: StaffUser, action: SystemMessage['action'], text: string): Delivery[] {
     ts.seq += 1;
-    const message: SystemMessage = { id: asMessageId(`msg:${ts.tenant.id}:${String(ts.seq)}`), tenantId: ts.tenant.id, conversationId: group.id, actorId: actor.id, timestamp: this.now(), status: 'sent', type: 'system', action, text };
+    const message: SystemMessage = { id: asMessageId(`msg:${ts.tenant.id}:${String(ts.seq)}`), tenantId: ts.tenant.id, conversationId: group.id, actorId: actor.id, timestamp: asIsoInstant(this.now()), status: 'sent', type: 'system', action, text };
     this.messagesOf(ts, group.id).push(message);
     return group.members.map((to) => ({ to, event: { type: 'message', tenantId: ts.tenant.id, message } }));
   }

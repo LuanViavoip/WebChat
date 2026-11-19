@@ -1,4 +1,4 @@
-import { asClientId } from '@viavoip/internal-domain';
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { Lab, type Probe } from '../../test/adminProbe';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
 import type { UserId } from '@viavoip/internal-domain';
@@ -82,8 +82,8 @@ describe('época de sessão: desativar encerra TODAS as sessões abertas, reativ
   it.each([
     ['send', (p: Probe) => p.transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } })],
     ['openDirect', (p: Probe) => p.transport.openDirect({ with: ICS_USERS.bruno })],
-    ['upload', (p: Probe) => p.transport.upload({ conversationId: LIVE_CONVERSATION_ID, clientId: 'upload-obsoleto', file: new Blob(['imagem'], { type: 'image/png' }), fileName: 'imagem.png', mimeType: 'image/png', signal: new AbortController().signal, onProgress: () => undefined })],
-    ['markRead', (p: Probe) => p.transport.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'x' })],
+    ['upload', (p: Probe) => p.transport.upload({ target: { kind: 'conversation', conversationId: LIVE_CONVERSATION_ID }, clientId: 'upload-obsoleto', file: new Blob(['imagem'], { type: 'image/png' }), fileName: 'imagem.png', mimeType: 'image/png', signal: new AbortController().signal, onProgress: () => undefined })],
+    ['markRead', (p: Probe) => p.transport.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: asMessageId('x') })],
     ['grantLog', (p: Probe) => p.transport.grantLog()],
     ['setGrant', (p: Probe) => p.transport.setGrant({ userId: ICS_USERS.bruno, capability: 'chat.use', granted: false })],
     ['registerAgent', (p: Probe) => p.transport.registerAgent({ name: 'X', ilhaIds: [ICS_ILHAS.norte]})],
@@ -106,7 +106,7 @@ describe('época de sessão: desativar encerra TODAS as sessões abertas, reativ
     const conversationId = (await victim.transport.openDirect({ with: ICS_USERS.bruno })).id;
     const progress = vi.fn();
     const uploading = victim.transport.upload({
-      conversationId,
+      target: { kind: 'conversation', conversationId },
       clientId: 'upload-em-andamento',
       file: new Blob(['imagem'], { type: 'image/png' }),
       fileName: 'imagem.png',

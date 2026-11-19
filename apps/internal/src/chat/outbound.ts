@@ -1,8 +1,17 @@
-import { acceptsCaption, asClientId, asMessageId, asPollOptionId, clampCaption, type ValidAttachment } from '@viavoip/internal-domain';
-import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
-import type { ConversationId } from '@viavoip/internal-domain';
-import type { UserId } from '@viavoip/internal-domain';
-import type { TenantId } from '@viavoip/internal-domain';
+import {
+  acceptsCaption,
+  asClientId,
+  asMessageId,
+  asPollOptionId,
+  clampCaption,
+  type ChatMessage,
+  type ConversationId,
+  type IsoInstant,
+  type MessageStatus,
+  type TenantId,
+  type UserId,
+  type ValidAttachment,
+} from '@viavoip/internal-domain';
 import type { OutboundPayload } from '../transport/ChatTransport';
 
 /** Quem e onde: tudo que a mensagem precisa além do conteúdo. */
@@ -19,7 +28,7 @@ export type MessageOrigin = {
 export function messageFromPayload(
   origin: MessageOrigin,
   payload: OutboundPayload,
-  timestamp: string,
+  timestamp: IsoInstant,
   status: MessageStatus,
 ): ChatMessage {
   const base = {

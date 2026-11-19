@@ -6,6 +6,7 @@ import type {
   AnnouncementRevisionRef,
   Capability,
   ChatMessage,
+  ClientId,
   Conversation,
   ConversationId,
   ConversationPrefs,
@@ -135,12 +136,12 @@ export type ChatEvent =
   | (Scoped & {
       type: 'status';
       conversationId: ConversationId;
-      messageId: string;
-      clientId?: string;
+      messageId: MessageId;
+      clientId?: ClientId;
       status: MessageStatus;
     })
   | (Scoped & { type: 'activity'; conversationId: ConversationId; userId: UserId; activity: ComposeActivity })
-  | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: string })
+  | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: MessageId })
   | (Scoped & { type: 'conversation'; conversation: Conversation })
   | (Scoped & { type: 'conversation-removed'; conversationId: ConversationId })
   | (Scoped & { type: 'grants'; userId: UserId; grants: readonly Capability[] })

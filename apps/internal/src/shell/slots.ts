@@ -44,7 +44,10 @@ export type ShellMenuItem = {
 
 export type ShellSlots = {
   readonly views: readonly ShellView[];
-  readonly overlays: readonly ((ctx: ShellContext) => ReactNode)[];
+  readonly overlays: readonly {
+    readonly blocking?: boolean;
+    readonly render: (ctx: ShellContext) => ReactNode;
+  }[];
   readonly menuItems: readonly ShellMenuItem[];
   readonly messageRenderers: {
     readonly announcement?: (message: AnnouncementRefMessage, ctx: ShellContext) => ReactNode;

@@ -12,7 +12,7 @@ const ME = DEFAULT_SESSION;
 const OTHER: ConnectRequest = { tenantId: DEFAULT_SESSION.tenantId, userId: ICS_USERS.ana };
 const file = () => new File(['x'], 'x.png', { type: 'image/png' });
 const request = () => ({
-  conversationId: LIVE_CONVERSATION_ID,
+  target: { kind: 'conversation' as const, conversationId: LIVE_CONVERSATION_ID },
   clientId: 'up',
   file: file(),
   fileName: 'x.png',
