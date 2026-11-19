@@ -43,8 +43,8 @@ export type ServerState = Map<TenantId, TenantState>;
  * `supervisorId`) ainda carregam e são MIGRADAS (um vínculo vira lista de um; grupo antigo vira `custom`).
  * v4: o tenant ganha `sessionEpochs`; a v3 (sem épocas) e a v2 (sem grantLog) carregam com época 0 e, na v2, log vazio.
  */
-export const PERSIST_VERSION = 5;
-const OLDER_VERSIONS: readonly unknown[] = [4, 3, 2];
+export const PERSIST_VERSION = 6;
+const OLDER_VERSIONS: readonly unknown[] = [5, 4, 3, 2];
 
 type PersistedUser = Omit<StaffUser, 'grants'> & { grants: string[] };
 type PersistedTenant = Omit<TenantState, 'directory'> & {
@@ -79,7 +79,7 @@ export function fromPersisted(raw: unknown): ServerState | undefined {
   }
   const state: ServerState = new Map();
   for (const item of tenants as unknown[]) {
-    const parsed = parseTenant(item, version === 2, version !== PERSIST_VERSION);
+    const parsed = parseTenant(item, version === 2, version === 2 || version === 3 || version === 4, version !== PERSIST_VERSION);
     if (!parsed) {
       return undefined;
     }
@@ -138,8 +138,12 @@ function upgradeCardinality(raw: Record<string, unknown>): Record<string, unknow
   };
 }
 
-function parseTenant(input: unknown, legacy: boolean, upgrade: boolean): TenantState | undefined {
-  const raw = upgrade && isRecord(input) ? upgradeCardinality(input) : input;
+function parseTenant(input: unknown, legacy: boolean, upgrade: boolean, upgradeGroups: boolean): TenantState | undefined {
+  const cardinality = upgrade && isRecord(input) ? upgradeCardinality(input) : input;
+  const raw = upgradeGroups && isRecord(cardinality) && isRecord(cardinality.conversations)
+    ? { ...cardinality, conversations: Object.fromEntries(Object.entries(cardinality.conversations).map(([id, c]) =>
+      [id, isRecord(c) && c.kind === 'group' && !('formerMemberIds' in c) ? { ...c, formerMemberIds: [] } : c])) }
+    : cardinality;
   if (!isRecord(raw) || !isRecord(raw.tenant) || !isRecord(raw.directory)) {
     return undefined;
   }
@@ -267,13 +271,15 @@ function coherent(ts: TenantState): boolean {
       if (!originOk) {
         return false;
       }
+      if (conversation.formerMemberIds !== undefined && (!Array.isArray(conversation.formerMemberIds) || !conversation.formerMemberIds.every(hasUser))) return false;
     } else {
       return false;
     }
     if (!(people as unknown[]).every(hasUser) || !str(ts.createdAt[key as ConversationId])) {
       return false;
     }
-    participants.set(key, people as string[]);
+    participants.set(key, conversation.kind === 'group' && Array.isArray(conversation.formerMemberIds)
+      ? [...people as string[], ...conversation.formerMemberIds as string[]] : people as string[]);
   }
   for (const key of [...Object.keys(ts.messages), ...Object.keys(ts.reads), ...Object.keys(ts.createdAt)]) {
     if (!participants.has(key)) {
@@ -292,8 +298,9 @@ function coherent(ts: TenantState): boolean {
         seen.has(message.id) ||
         message.tenantId !== tenantId ||
         message.conversationId !== key ||
-        !hasUser(message.authorId) ||
-        !participants.get(key)?.includes(message.authorId as string)
+        (message.type === 'system'
+          ? !hasUser(message.actorId)
+          : !hasUser(message.authorId) || !participants.get(key)?.includes(message.authorId as string))
       ) {
         return false;
       }

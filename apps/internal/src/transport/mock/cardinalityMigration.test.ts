@@ -29,8 +29,8 @@ function asV4(): Json {
 const rawStore = (raw: unknown): MockStore => ({ load: () => JSON.parse(JSON.stringify(raw)) as PersistedState, save: () => true, clear: () => undefined });
 
 describe('migração 1:1 -> N:N do localStorage do mock', () => {
-  it('versão atual é a 5', () => {
-    expect(PERSIST_VERSION).toBe(5);
+  it('versão atual é a 6', () => {
+    expect(PERSIST_VERSION).toBe(6);
   });
 
   it('v4 (ilhaId/supervisorId) carrega migrada, válida, sem perder mensagens', () => {
@@ -43,9 +43,9 @@ describe('migração 1:1 -> N:N do localStorage do mock', () => {
     expect(Object.values(state?.get(ICS_TENANT_ID)?.messages ?? {}).flat().length).toBeGreaterThan(0);
   });
 
-  it('v4 pelo backend: carrega e a próxima gravação sai na v5', () => {
+  it('v4 pelo backend: carrega e a próxima gravação sai na v6', () => {
     const backend = new MockBackend({ store: rawStore(asV4()), now: () => '2026-11-16T12:00:00.000Z' });
-    expect(backend.server.toPersisted().version).toBe(5);
+    expect(backend.server.toPersisted().version).toBe(6);
     expect(Object.keys(backend.server.getState().get(ICS_TENANT_ID)?.directory.users ?? {})).toHaveLength(9);
     backend.close();
   });
