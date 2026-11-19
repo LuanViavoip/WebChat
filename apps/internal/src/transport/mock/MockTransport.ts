@@ -1,4 +1,4 @@
-import type { Conversation, ConversationId, DirectConversation } from '@viavoip/internal-domain';
+import type { Conversation, ConversationId, DirectConversation, GroupConversation } from '@viavoip/internal-domain';
 import type { GrantLogEntry } from '@viavoip/internal-domain';
 import type { Ilha, StaffUser, UserId } from '@viavoip/internal-domain';
 import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
@@ -12,6 +12,9 @@ import type {
   ChatTransport,
   ConnectRequest,
   CreateIlhaRequest,
+  CreateGroupRequest,
+  UpdateGroupRequest,
+  LeaveGroupRequest,
   LoginGroup,
   MarkReadRequest,
   AgentIlhaRequest,
@@ -224,6 +227,18 @@ export class MockTransport implements ChatTransport {
 
   loginGroups(): readonly LoginGroup[] {
     return this.backend.query((server) => server.loginGroups());
+  }
+
+  createGroup(request: CreateGroupRequest): Promise<GroupConversation> {
+    return this.admin((server, session) => server.createGroup(session, request));
+  }
+
+  updateGroup(request: UpdateGroupRequest): Promise<GroupConversation> {
+    return this.admin((server, session) => server.updateGroup(session, request));
+  }
+
+  leaveGroup(request: LeaveGroupRequest): Promise<GroupConversation> {
+    return this.admin((server, session) => server.leaveGroup(session, request));
   }
 
   registerSupervisor(request: RegisterSupervisorRequest): Promise<StaffUser> {

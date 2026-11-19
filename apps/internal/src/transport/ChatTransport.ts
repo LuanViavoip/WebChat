@@ -3,6 +3,7 @@ import type {
   ConversationId,
   ConversationSummary,
   DirectConversation,
+  GroupConversation,
 } from '@viavoip/internal-domain';
 import type { Capability } from '@viavoip/internal-domain';
 import type { GrantLogEntry } from '@viavoip/internal-domain';
@@ -41,6 +42,9 @@ export type UploadRequest = {
 export type UploadedMedia = { url: string };
 
 export type MarkReadRequest = { conversationId: ConversationId; upToMessageId: string };
+export type CreateGroupRequest = { readonly clientId: string; readonly title: string; readonly memberIds: readonly UserId[]; readonly ilhaId: IlhaId | null };
+export type UpdateGroupRequest = { readonly conversationId: ConversationId; readonly title?: string; readonly add?: readonly UserId[]; readonly remove?: readonly UserId[] };
+export type LeaveGroupRequest = { readonly conversationId: ConversationId };
 export type OpenDirectRequest = { with: UserId };
 export type TypingRequest = { conversationId: ConversationId; isTyping: boolean };
 
@@ -95,6 +99,7 @@ export type ChatEvent =
   | (Scoped & { type: 'typing'; conversationId: ConversationId; userId: UserId; isTyping: boolean })
   | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: string })
   | (Scoped & { type: 'conversation'; conversation: Conversation })
+  | (Scoped & { type: 'conversation-removed'; conversationId: ConversationId })
   | (Scoped & { type: 'grants'; userId: UserId; grants: readonly Capability[] })
   /** Diretório do tenant depois de uma operação aceita (usuários e ilhas). Só vai a usuários ativos do mesmo tenant. */
   | (Scoped & { type: 'directory'; directory: Directory })
@@ -112,6 +117,9 @@ export interface ChatTransport {
   upload(request: UploadRequest): Promise<UploadedMedia>;
   markRead(request: MarkReadRequest): Promise<void>;
   openDirect(request: OpenDirectRequest): Promise<DirectConversation>;
+  createGroup(request: CreateGroupRequest): Promise<GroupConversation>;
+  updateGroup(request: UpdateGroupRequest): Promise<GroupConversation>;
+  leaveGroup(request: LeaveGroupRequest): Promise<GroupConversation>;
   setTyping(request: TypingRequest): void;
   subscribe(handler: ChatEventHandler): () => void;
   getStatus(): TransportStatus;

@@ -22,7 +22,7 @@ test.describe('lista e conversa no desktop', () => {
     await expect(sidebar.getByRole('heading', { level: 2 })).toHaveText(['Grupos e supervisão', 'Colegas']);
     const priority = sidebar.getByRole('region', { name: 'Grupos e supervisão' });
     const colleagues = sidebar.getByRole('region', { name: 'Colegas' });
-    await expect(priority.locator('.conversation-title')).toHaveText(['Ana Souza', 'Bruno Costa', 'Camila Ribeiro']);
+    await expect(priority.locator('.conversation-title')).toHaveText(['Ana Souza', 'Bruno Costa', 'Camila Ribeiro', 'Ilha Norte', 'Ilha Plantão', 'Ilha Sul', 'Plantão Geral']);
     await expect(colleagues.locator('.conversation-title')).toHaveText(['Marcos Dono']);
     // A Ana está aberta (lida); a lista abre nela por ter mensagens.
     await expect(priority.getByRole('button', { name: /Ana Souza/ }).locator('.unread-badge')).toHaveCount(0);

@@ -4,7 +4,23 @@ import type { ConversationId } from '@viavoip/internal-domain';
 import { validateDirectory, type IlhaId, type UserId } from '@viavoip/internal-domain';
 import type { TenantId } from '@viavoip/internal-domain';
 import { MockServer, type Delivery, type Outcome, type Session } from './MockServer';
-import { BV_TENANT_ID, createSeedState, ICS_TENANT_ID } from './seed';
+import { BV_TENANT_ID, BV_USERS, createSeedState, ICS_TENANT_ID, ICS_USERS } from './seed';
+
+it('grupos rejeitam membros de outra empresa e não emitem eventos entre tenants', () => {
+  fc.assert(fc.property(fc.string({ minLength: 1, maxLength: 32 }), (clientId) => {
+    const server = new MockServer(createSeedState(NOW), { now: () => NOW });
+    const carla = { tenantId: ICS_TENANT_ID, userId: ICS_USERS.carla };
+    const denied = server.createGroup(carla, { clientId, title: 'Grupo', memberIds: [ICS_USERS.carla, BV_USERS.paula], ilhaId: null });
+    expect(denied.result.ok).toBe(false);
+    expect(denied.deliveries).toEqual([]);
+    const created = server.createGroup(carla, { clientId, title: 'Grupo', memberIds: [ICS_USERS.carla, ICS_USERS.ana], ilhaId: null });
+    if (!created.result.ok) throw created.result.error;
+    expect(created.deliveries.every((d) => d.event.tenantId === ICS_TENANT_ID && d.to !== BV_USERS.paula)).toBe(true);
+    const updated = server.updateGroup(carla, { conversationId: created.result.value.id, add: [BV_USERS.paula] });
+    expect(updated.result.ok).toBe(false);
+    expect(updated.deliveries).toEqual([]);
+  }), { numRuns: 50 });
+});
 
 /**
  * §2.11: sequências aleatórias sobre 2 tenants, com ids do outro tenant misturados.

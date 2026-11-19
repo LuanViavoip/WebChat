@@ -62,7 +62,7 @@ describe('MockServer', () => {
       expect(bootstrap.conversations.length).toBeGreaterThan(0);
       for (const summary of bootstrap.conversations) {
         const { conversation } = summary;
-        expect(conversation.kind === 'direct' && conversation.participants.includes(ICS_USERS.carla)).toBe(true);
+        expect(conversation.kind === 'direct' ? conversation.participants.includes(ICS_USERS.carla) : conversation.members.includes(ICS_USERS.carla)).toBe(true);
       }
       // Ana↔Bruno existe na empresa, mas a Carla não participa: não aparece para ela.
       const anaBruno = directConversationId(ICS_TENANT_ID, ICS_USERS.ana, ICS_USERS.bruno);

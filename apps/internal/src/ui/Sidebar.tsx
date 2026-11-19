@@ -1,7 +1,7 @@
 import { CircleDashed, LogOut, MessageSquarePlus, Search, Settings, Users, UsersRound } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ConversationId } from '@viavoip/internal-domain';
-import type { Ilha, StaffUser } from '@viavoip/internal-domain';
+import type { Directory, Ilha, StaffUser } from '@viavoip/internal-domain';
 import {
   conversationInitials,
   emptyConversationCopy,
@@ -11,7 +11,7 @@ import {
 } from './conversations';
 import { liveActivityLabel } from './liveActivity';
 import { NewConversationDialog } from './NewConversationDialog';
-import { NewGroupControls } from './admin/NewGroupControls';
+import { NewGroupControls, type GroupDraft } from './admin/NewGroupControls';
 
 export type ConversationSections = {
   priority: readonly ConversationItem[];
@@ -31,6 +31,9 @@ export function Sidebar({
   onOpenAdmin,
   onOpenTeam,
   groupIlhas,
+  directory,
+  onCreateGroup,
+  groupIds = [],
 }: {
   me: StaffUser | null;
   tenantName: string;
@@ -49,18 +52,21 @@ export function Sidebar({
   onOpenTeam?: () => void;
   /** Presente só quando `me` tem `group.manage`: as ilhas que ele pode escolher para o grupo. */
   groupIlhas?: readonly Ilha[];
+  directory?: Directory;
+  onCreateGroup?: (draft: GroupDraft) => Promise<boolean>;
+  groupIds?: readonly ConversationId[];
 }) {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all');
   const [pickerOpen, setPickerOpen] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const priority = useMemo(
-    () => filterConversations(sections.priority, query, filter),
-    [sections.priority, query, filter],
+    () => filterConversations(sections.priority, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
+    [sections.priority, query, filter, groupIds],
   );
   const colleagues = useMemo(
-    () => filterConversations(sections.colleagues, query, filter),
-    [sections.colleagues, query, filter],
+    () => filterConversations(sections.colleagues, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
+    [sections.colleagues, query, filter, groupIds],
   );
   const total = sections.priority.length + sections.colleagues.length;
   const visible = priority.length + colleagues.length;
@@ -129,7 +135,7 @@ export function Sidebar({
           ) : null}
         </div>
       ) : null}
-      {groupIlhas ? <NewGroupControls ilhas={groupIlhas} /> : null}
+      {groupIlhas && me && directory && onCreateGroup ? <NewGroupControls ilhas={groupIlhas} me={me} directory={directory} onCreate={onCreateGroup} /> : null}
       <div className="sidebar-search">
         <Search size={16} strokeWidth={1.8} aria-hidden="true" />
         <label className="sidebar-search-field">
@@ -158,6 +164,12 @@ export function Sidebar({
         </button>
         <button
           type="button"
+          aria-pressed={filter === 'groups'}
+          className={filter === 'groups' ? 'chip chip-on' : 'chip'}
+          onClick={() => { setFilter('groups'); }}
+        >Grupos</button>
+        <button
+          type="button"
           aria-pressed={filter === 'unread'}
           className={filter === 'unread' ? 'chip chip-on' : 'chip'}
           onClick={() => {
@@ -170,7 +182,7 @@ export function Sidebar({
       <div className="conversation-scroll">
         {total === 0 && note ? <p className="conversation-empty">{note}</p> : null}
         {total > 0 && visible === 0 ? (
-          <p className="conversation-empty">{emptyConversationCopy(filter, query)}</p>
+          <p className="conversation-empty">{filter === 'groups' ? 'Nenhum grupo encontrado' : emptyConversationCopy(filter, query)}</p>
         ) : null}
         {total === 0 && !note ? <p className="conversation-empty">Nenhuma conversa</p> : null}
         <ConversationSection

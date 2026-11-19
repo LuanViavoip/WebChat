@@ -17,6 +17,7 @@ export function MessageList({
   uploads,
   onCancelUpload,
   onOpenImage,
+  showAuthors = false,
 }: {
   messages: ChatMessage[];
   /** Quem está logado: as mensagens dele ficam à direita. */
@@ -28,6 +29,7 @@ export function MessageList({
   uploads?: Readonly<Record<string, UploadView>>;
   onCancelUpload?: (id: string) => void;
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
+  showAuthors?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +61,7 @@ export function MessageList({
                 message={message}
                 outgoing={message.authorId === selfId}
                 showTail={showTail}
+                showAuthor={showAuthors && message.authorId !== selfId}
                 {...(onRetry ? { onRetry } : {})}
                 {...(upload ? { upload } : {})}
                 {...(onCancelUpload ? { onCancelUpload } : {})}

@@ -1,6 +1,12 @@
 import { messageFromPayload } from '../../chat/outbound';
 import {
   directConversation,
+  asConversationId,
+  createGroup as buildGroup,
+  groupMessageRead,
+  updateGroup as reviseGroup,
+  type GroupConversation,
+  type SystemMessage,
   type Conversation,
   type ConversationId,
   type ConversationSummary,
@@ -39,6 +45,9 @@ import type {
   ChatEvent,
   ConnectRequest,
   CreateIlhaRequest,
+  CreateGroupRequest,
+  LeaveGroupRequest,
+  UpdateGroupRequest,
   LoginGroup,
   MarkReadRequest,
   AgentIlhaRequest,
@@ -324,6 +333,7 @@ export class MockServer {
       if (!item || item.type === 'system' || item.authorId === actor.id || item.status === 'read') {
         continue;
       }
+      if (conversation.kind === 'group' && !groupMessageRead(conversation.members, item.authorId, item.id, list, reads)) continue;
       this.setStatus(list, item.id, 'read');
       deliveries.push(statusDelivery(ts.tenant.id, item.authorId, item, 'read'));
     }
@@ -340,6 +350,82 @@ export class MockServer {
       });
     }
     return succeed(undefined, deliveries);
+  }
+
+  createGroup(session: Session, request: CreateGroupRequest): Outcome<GroupConversation> {
+    const resolved = this.resolve(session);
+    if (!resolved.ok) return fail();
+    const { ts, actor } = resolved.value;
+    const permission = can(actor, { type: 'group.manage' }, ts.directory);
+    if (!permission.ok) return fail(reasonOf(permission.error));
+    const members = request.memberIds.map((id) => own(ts.directory.users, id));
+    if (members.some((member) => !member)) return fail();
+    const id = asConversationId(`group:${ts.tenant.id}:${actor.id}:${request.clientId}`);
+    const existing = own(ts.conversations, id);
+    if (existing) return existing.kind === 'group' && existing.origin.kind === 'custom' && existing.origin.createdBy === actor.id ? succeed(existing) : fail();
+    const result = buildGroup({ id, title: request.title, creator: actor, members: members as StaffUser[], directory: ts.directory, origin: { kind: 'custom', createdBy: actor.id }, createdAt: this.now() });
+    if (!result.ok) return fail(result.error);
+    const group = result.value;
+    ts.conversations[id] = group;
+    ts.createdAt[id] = group.createdAt;
+    ts.messages[id] = [];
+    const deliveries: Delivery[] = group.members.map((to) => ({ to, event: { type: 'conversation', tenantId: ts.tenant.id, conversation: group } }));
+    deliveries.push(...this.systemEvent(ts, group, actor, 'created', `${actor.name} criou o grupo.`));
+    return succeed(group, deliveries);
+  }
+
+  updateGroup(session: Session, request: UpdateGroupRequest): Outcome<GroupConversation> {
+    const resolved = this.resolve(session);
+    if (!resolved.ok) return fail();
+    const { ts, actor } = resolved.value;
+    const group = own(ts.conversations, request.conversationId);
+    if (!group || group.kind !== 'group') return fail();
+    const permission = can(actor, { type: 'group.manage', group }, ts.directory);
+    if (!permission.ok) return fail(reasonOf(permission.error));
+    return this.changeGroup(ts, actor, group, request);
+  }
+
+  leaveGroup(session: Session, request: LeaveGroupRequest): Outcome<GroupConversation> {
+    const resolved = this.resolve(session);
+    if (!resolved.ok) return fail();
+    const { ts, actor } = resolved.value;
+    const group = own(ts.conversations, request.conversationId);
+    if (!group || group.kind !== 'group' || !group.members.includes(actor.id)) return fail();
+    return this.changeGroup(ts, actor, group, { conversationId: group.id, remove: [actor.id] });
+  }
+
+  private changeGroup(ts: TenantState, actor: StaffUser, group: GroupConversation, request: UpdateGroupRequest): Outcome<GroupConversation> {
+    const add = (request.add ?? []).map((id) => own(ts.directory.users, id));
+    if (add.some((member) => !member) || (request.remove ?? []).some((id) => !own(ts.directory.users, id))) return fail();
+    const result = reviseGroup(group, { ...(request.title !== undefined ? { title: request.title } : {}), add: add as StaffUser[], ...(request.remove ? { remove: request.remove } : {}) }, ts.directory);
+    if (!result.ok) return fail(result.error);
+    const removed = group.members.filter((id) => !result.value.members.includes(id));
+    const formerReadLimits: Partial<Record<UserId, number>> = Object.fromEntries(
+      Object.entries(group.formerReadLimits ?? {}).filter(([id]) => !result.value.members.includes(id as UserId)),
+    );
+    const hiddenMessageRanges = { ...group.hiddenMessageRanges };
+    const messageCount = this.messagesOf(ts, group.id).length;
+    for (const id of result.value.members) {
+      const absenceStarted = group.formerReadLimits?.[id];
+      if (absenceStarted !== undefined) {
+        hiddenMessageRanges[id] = [...(hiddenMessageRanges[id] ?? []), [absenceStarted, messageCount]];
+      } else if (!group.members.includes(id) && messageCount > 0) {
+        hiddenMessageRanges[id] = [...(hiddenMessageRanges[id] ?? []), [0, messageCount]];
+      }
+    }
+    for (const id of removed) formerReadLimits[id] = messageCount;
+    const updated = { ...result.value, formerReadLimits, hiddenMessageRanges };
+    ts.conversations[group.id] = updated;
+    const deliveries: Delivery[] = [
+      ...updated.members.map((to): Delivery => ({ to, event: { type: 'conversation', tenantId: ts.tenant.id, conversation: updated } })),
+      ...removed.map((to): Delivery => ({ to, event: { type: 'conversation-removed', tenantId: ts.tenant.id, conversationId: group.id } })),
+    ];
+    if (updated.title !== group.title) deliveries.push(...this.systemEvent(ts, updated, actor, 'renamed', `${actor.name} renomeou o grupo para ${updated.title}.`));
+    for (const id of updated.members.filter((id) => !group.members.includes(id))) {
+      deliveries.push(...this.systemEvent(ts, updated, actor, 'added', `${actor.name} adicionou ${own(ts.directory.users, id)?.name ?? 'uma pessoa'}.`));
+    }
+    for (const id of removed) deliveries.push(...this.systemEvent(ts, updated, actor, 'removed', `${actor.name} removeu ${own(ts.directory.users, id)?.name ?? 'uma pessoa'}.`));
+    return succeed(updated, deliveries);
   }
 
   openDirect(session: Session, request: OpenDirectRequest): Outcome<DirectConversation> {
@@ -520,6 +606,8 @@ export class MockServer {
     if (!next.ok) {
       return succeed(structuredClone(value));
     }
+    const islandGroups = this.prepareIslandGroups(ts, before.directory, after.directory, actor);
+    if (!islandGroups.ok) return fail(islandGroups.error);
     // Desativação aceita encerra, para sempre, as sessões abertas do usuário: sobe a época dele.
     for (const user of Object.values(after.directory.users)) {
       if (!user.active && own(before.directory.users, user.id)?.active) {
@@ -528,7 +616,56 @@ export class MockServer {
     }
     ts.directory = after.directory;
     ts.grantLog = [...after.grantLog];
-    return succeed(structuredClone(value), this.adminDeliveries(ts, kind, before, after));
+    const deliveries = this.adminDeliveries(ts, kind, before, after);
+    for (const { previous, group } of islandGroups.value) {
+      ts.conversations[group.id] = group;
+      if (!previous) {
+        ts.createdAt[group.id] = group.createdAt;
+        ts.messages[group.id] = [];
+      }
+      deliveries.push(...group.members.map((to): Delivery => ({ to, event: { type: 'conversation', tenantId: ts.tenant.id, conversation: group } })));
+      const removed = previous?.members.filter((id) => !group.members.includes(id)) ?? [];
+      deliveries.push(...removed.map((to): Delivery => ({ to, event: { type: 'conversation-removed', tenantId: ts.tenant.id, conversationId: group.id } })));
+      if (!previous) deliveries.push(...this.systemEvent(ts, group, actor, 'created', `${actor.name} criou o grupo da ilha.`));
+      else {
+        for (const id of group.members.filter((member) => !previous.members.includes(member))) deliveries.push(...this.systemEvent(ts, group, actor, 'added', `${actor.name} adicionou ${own(ts.directory.users, id)?.name ?? 'uma pessoa'}.`));
+        for (const id of removed) deliveries.push(...this.systemEvent(ts, group, actor, 'removed', `${actor.name} removeu ${own(ts.directory.users, id)?.name ?? 'uma pessoa'}.`));
+      }
+    }
+    return succeed(structuredClone(value), deliveries);
+  }
+
+  private prepareIslandGroups(ts: TenantState, before: Directory, after: Directory, actor: StaffUser): Result<Array<{ previous?: GroupConversation; group: GroupConversation }>, string> {
+    const changes: Array<{ previous?: GroupConversation; group: GroupConversation }> = [];
+    for (const ilha of Object.values(after.ilhas)) {
+      const previous = Object.values(ts.conversations).find((c): c is GroupConversation => c.kind === 'group' && c.origin.kind === 'ilha' && c.origin.ilhaId === ilha.id);
+      if (!previous && own(before.ilhas, ilha.id)) continue;
+      const ids = [...new Set([...ilha.supervisorIds, ...Object.values(after.users).filter((u) => u.role === 'agent' && u.ilhaIds.includes(ilha.id)).map((u) => u.id)])];
+      if (ids.length === 0 || ids.length > 256) return err('too-many-members');
+      if (!previous) {
+        const members = ids.map((id) => own(after.users, id)).filter((u): u is StaffUser => u !== undefined);
+        const built = buildGroup({ id: asConversationId(`group:${ts.tenant.id}:ilha:${ilha.id}`), title: ilha.name, creator: actor, members, directory: after, origin: { kind: 'ilha', ilhaId: ilha.id }, createdAt: this.now() });
+        if (!built.ok) return err(built.error);
+        changes.push({ group: built.value });
+        continue;
+      }
+      if (ids.length === previous.members.length && ids.every((id) => previous.members.includes(id))) continue;
+      const [first, ...rest] = ids;
+      if (!first) return err('empty-members');
+      const count = this.messagesOf(ts, previous.id).length;
+      const removed = previous.members.filter((id) => !ids.includes(id));
+      const formerReadLimits: Partial<Record<UserId, number>> = Object.fromEntries(Object.entries(previous.formerReadLimits ?? {}).filter(([id]) => !ids.includes(id as UserId)));
+      const hiddenMessageRanges = { ...previous.hiddenMessageRanges };
+      for (const id of ids) {
+        const start = previous.formerReadLimits?.[id];
+        if (start !== undefined) hiddenMessageRanges[id] = [...(hiddenMessageRanges[id] ?? []), [start, count]];
+        else if (!previous.members.includes(id) && count > 0) hiddenMessageRanges[id] = [...(hiddenMessageRanges[id] ?? []), [0, count]];
+      }
+      for (const id of removed) formerReadLimits[id] = count;
+      const formerMemberIds = [...new Set([...previous.formerMemberIds, ...removed])].filter((id) => !ids.includes(id));
+      changes.push({ previous, group: { ...previous, members: [first, ...rest], formerMemberIds, formerReadLimits, hiddenMessageRanges } });
+    }
+    return ok(changes);
   }
 
   private adminDeliveries(ts: TenantState, kind: 'directory' | 'grants', before: AdminState, after: AdminState): Delivery[] {
@@ -575,6 +712,13 @@ export class MockServer {
     return ok({ ts, actor });
   }
 
+  private systemEvent(ts: TenantState, group: GroupConversation, actor: StaffUser, action: SystemMessage['action'], text: string): Delivery[] {
+    ts.seq += 1;
+    const message: SystemMessage = { id: `msg:${ts.tenant.id}:${String(ts.seq)}`, tenantId: ts.tenant.id, conversationId: group.id, actorId: actor.id, timestamp: this.now(), status: 'sent', type: 'system', action, text };
+    this.messagesOf(ts, group.id).push(message);
+    return group.members.map((to) => ({ to, event: { type: 'message', tenantId: ts.tenant.id, message } }));
+  }
+
   private messagesOf(ts: TenantState, id: ConversationId): ChatMessage[] {
     if (!Object.hasOwn(ts.messages, id)) {
       ts.messages[id] = [];
@@ -619,19 +763,22 @@ export class MockServer {
     const recent: Record<ConversationId, ChatMessage[]> = {};
     let unread = 0;
     for (const conversation of Object.values(ts.conversations)) {
-      if (!participantsOf(conversation).includes(actor.id)) {
-        continue;
-      }
-      const list = this.messagesOf(ts, conversation.id);
+      const active = participantsOf(conversation).includes(actor.id);
+      const limit = conversation.kind === 'group' && conversation.formerMemberIds.includes(actor.id) ? conversation.formerReadLimits?.[actor.id] : undefined;
+      if (!active && limit === undefined) continue;
+      const all = this.messagesOf(ts, conversation.id);
+      const ranges = conversation.kind === 'group' ? conversation.hiddenMessageRanges?.[actor.id] ?? [] : [];
+      const list = (active ? all : all.slice(0, limit)).filter((_message, index) => !ranges.some(([start, end]) => index >= start && index < end));
       const last = list.at(-1);
       const cursor = ts.reads[conversation.id]?.[actor.id];
       const afterCursor = cursor ? list.slice(list.findIndex((item) => item.id === cursor) + 1) : list;
-      const count = afterCursor.filter((item) => item.authorId !== actor.id).length;
+      const count = active ? afterCursor.filter((item) => (item.type === 'system' ? item.actorId : item.authorId) !== actor.id).length : 0;
       unread += count;
       const preview = last ? previewOf(last).split('\n')[0]?.trim() : undefined;
       conversations.push({
         id: conversation.id,
         conversation,
+        ...(!active ? { readOnly: true } : {}),
         lastActivityAt: last?.timestamp ?? ts.createdAt[conversation.id] ?? this.now(),
         ...(preview ? { preview } : {}),
         unread: count,

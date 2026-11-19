@@ -1,5 +1,5 @@
 import { ROLE_DEFAULT } from '@viavoip/internal-domain';
-import { directConversation, directConversationId, type ConversationId } from '@viavoip/internal-domain';
+import { asConversationId, directConversation, directConversationId, type ConversationId, type GroupConversation } from '@viavoip/internal-domain';
 import type { Agent, Directory, Ilha, IlhaId, IlhaIds, StaffUser, Supervisor, UserId } from '@viavoip/internal-domain';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import type { Tenant, TenantId } from '@viavoip/internal-domain';
@@ -175,6 +175,21 @@ function must(directory: Directory, id: UserId): StaffUser {
   return found;
 }
 
+function seedGroups(ts: TenantState, nowIso: string): void {
+  const save = (group: GroupConversation) => {
+    ts.conversations[group.id] = group;
+    ts.createdAt[group.id] = group.createdAt;
+    ts.messages[group.id] = [];
+  };
+  for (const ilha of Object.values(ts.directory.ilhas)) {
+    const ids = [...new Set([...ilha.supervisorIds, ...Object.values(ts.directory.users).filter((u) => u.role === 'agent' && u.ilhaIds.includes(ilha.id)).map((u) => u.id)])];
+    const [first, ...rest] = ids;
+    if (!first) throw new Error(`ilha sem membros: ${ilha.id}`);
+    save({ kind: 'group', id: asConversationId(`group:${ts.tenant.id}:ilha:${ilha.id}`), tenantId: ts.tenant.id, title: `Ilha ${ilha.name}`, origin: { kind: 'ilha', ilhaId: ilha.id }, members: [first, ...rest], formerMemberIds: [], createdAt: nowIso });
+  }
+  if (ts.tenant.id === ICS_TENANT_ID) save({ kind: 'group', id: asConversationId('group:ics:plantao-geral'), tenantId: ts.tenant.id, title: 'Plantão Geral', origin: { kind: 'custom', createdBy: ICS_USERS.carla }, members: [ICS_USERS.carla, ICS_USERS.ana, ICS_USERS.bruno, ICS_USERS.rafael], formerMemberIds: [], createdAt: nowIso });
+}
+
 /** Estado inicial das duas empresas. Sem aviso/PDF (Etapa 8). */
 export function createSeedState(nowIso: string): ServerState {
   const now = Date.parse(nowIso);
@@ -215,6 +230,9 @@ export function createSeedState(nowIso: string): ServerState {
     { from: paula, text: 'Confirmada.', minutesAgo: 66 },
   ]);
   seedDirect(bv, paula, rui, now, [{ from: rui, text: 'Posso ficar com o retorno das 15h.', minutesAgo: 30 }]);
+
+  seedGroups(ics, nowIso);
+  seedGroups(bv, nowIso);
 
   return new Map([
     [ics.tenant.id, ics],

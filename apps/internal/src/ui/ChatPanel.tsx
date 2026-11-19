@@ -9,6 +9,7 @@ import type { ChatTransport, ConnectRequest, TransportStatus } from '../transpor
 import { DEFAULT_SESSION } from '../transport/mock/seed';
 import type { ObjectUrlFactory } from '../transport/objectUrls';
 import { AdminConsole } from './admin/AdminConsole';
+import { GroupDialog } from './admin/NewGroupControls';
 import { AttachmentPreview } from './attachments/AttachmentPreview';
 import { ImageViewer } from './attachments/ImageViewer';
 import type { OpenImage } from './attachments/MediaBody';
@@ -59,6 +60,7 @@ export function ChatPanel({
   const [pendingAttachment, setPendingAttachment] = useState<ValidAttachment | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<OpenImage | null>(null);
+  const [editingGroup, setEditingGroup] = useState(false);
   const viewerOpener = useRef<HTMLElement | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLElement>(null);
@@ -100,7 +102,7 @@ export function ChatPanel({
   const messages = state.messages;
   const typing = state.typing;
   const canSend = Boolean(me && directory && selectedThread && can(me, { type: 'conversation.send', conversation: selectedThread.conversation }, directory).ok);
-  const disabled = state.connection !== 'connected' || !canSend;
+  const disabled = state.connection !== 'connected' || !canSend || Boolean(selectedThread?.readOnly);
   const draft = selectedId ? (drafts[selectedId] ?? '') : '';
   const showBack = isMobile && mobilePane === 'chat';
   const hadConnected = useRef(false);
@@ -469,6 +471,13 @@ export function ChatPanel({
             }
           : {})}
         {...(groupIlhas ? { groupIlhas } : {})}
+        {...(directory ? { directory } : {})}
+        groupIds={full.summaries.filter((item) => item.conversation.kind === 'group').map((item) => item.id)}
+        onCreateGroup={async (draft) => {
+          const result = await session.createGroup(draft);
+          if (result.ok) selectConversation(result.value.id);
+          return result.ok;
+        }}
       />
       <div className="wa-chat" ref={chatRef}>
         {selectedId ? (
@@ -481,8 +490,16 @@ export function ChatPanel({
               unseenLive={unreadElsewhere}
               {...(showBack ? { onBack: backToList } : {})}
             />
+            {selectedThread?.conversation.kind === 'group' && me && directory ? (
+              <div className="group-actions">
+                <button type="button" onClick={() => { setEditingGroup(true); }}>{can(me, { type: 'group.manage', group: selectedThread.conversation }, directory).ok && !selectedThread.readOnly ? 'Editar grupo' : 'Ver membros'}</button>
+                {selectedThread.conversation.origin.kind === 'custom' && !selectedThread.readOnly
+                  ? <button type="button" onClick={() => { void session.leaveGroup(selectedThread.conversation.id); }}>Sair do grupo</button> : null}
+              </div>
+            ) : null}
             <MessageList
               messages={messages}
+              showAuthors={selectedThread?.conversation.kind === 'group'}
               selfId={identity.userId}
               typing={typing}
               onRetry={retry}
@@ -507,6 +524,7 @@ export function ChatPanel({
           </div>
         ) : null}
         {banners}
+        {selectedThread?.readOnly ? <p role="status">Você não participa mais deste grupo. O histórico está disponível somente para leitura.</p> : null}
         {selectedId && pendingAttachment ? (
           <AttachmentPreview
             attachment={pendingAttachment}
@@ -534,6 +552,15 @@ export function ChatPanel({
           />
         ) : null}
         <ImageViewer image={openImage} onClose={closeViewer} />
+        {editingGroup && selectedThread?.conversation.kind === 'group' && me && directory ? (
+          <GroupDialog me={me} directory={directory} group={selectedThread.conversation} readOnly={selectedThread.readOnly || !can(me, { type: 'group.manage', group: selectedThread.conversation }, directory).ok} onClose={() => { setEditingGroup(false); }} onSave={async (draft) => {
+            const group = selectedThread.conversation;
+            if (group.kind !== 'group') return false;
+            const result = await session.updateGroup({ conversationId: group.id, title: draft.title,
+              ...(group.origin.kind === 'custom' ? { add: draft.memberIds.filter((id) => !group.members.includes(id)), remove: group.members.filter((id) => !draft.memberIds.includes(id)) } : {}) });
+            return result.ok;
+          }} />
+        ) : null}
       </div>
     </section>
     </>
