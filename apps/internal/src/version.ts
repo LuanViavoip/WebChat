@@ -9,11 +9,21 @@ export type ReleaseNote = {
 };
 
 export const APP_BASE_VERSION = '1.0';
-export const APP_BUILD_NUMBER = 2;
+export const APP_BUILD_NUMBER = 3;
 export const APP_VERSION = `${APP_BASE_VERSION}.${String(APP_BUILD_NUMBER)}`;
 
 /** Do mais novo para o mais antigo, todas as séries. */
 export const RELEASE_NOTES_HISTORY: readonly ReleaseNote[] = /* @bump-begin */ [
+  {
+    "version": "1.0.3",
+    "date": "19/11/2026",
+    "title": "Contratos da v1 do Chat Interno e pontos de encaixe das frentes",
+    "details": [
+      "Sem mudança visível (interno)",
+      "Tipos e contrato de reações, respostas, encaminhar, editar e apagar, recibos, presença, enquete, agendada, respostas rápidas e avisos (packages/internal-domain, transport/contract)",
+      "Digitando passa a ser atividade (digitando ou gravando áudio); slots de tela, debug e gravador prontos para as frentes"
+    ]
+  },
   {
     "version": "1.0.2",
     "date": "19/11/2026",

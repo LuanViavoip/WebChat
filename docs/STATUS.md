@@ -1,5 +1,7 @@
 # Status de implementação — Fase 5.5 (main em `ed89e11`)
 
+**Onda 0b (branch `feat/v1-0b-contratos`):** contratos da v1 no domínio e no transporte, migração `MessageId`/`ClientId` e `typing → activity`, `contract.suite.ts`, `ChatSession` v1, seams de `shell/slots`, `debug`, `recorder`, `ConversationPicker`, configuração congelada, regra anti-`dangerouslySetInnerHTML`, tokens §5.1, cópia da spec e build `1.0.3`; domínio 1023 testes (23 arquivos), app Vitest 663 aprovados / 32 `it.todo` (57 arquivos) e Playwright 165 aprovados / 103 pulados nos 4 projects (servidor não rodado, sem Docker).
+
 **Onda 0a (branch `feat/v1-0a-grupos-nn`):** grupos N:N, sincronização de ilhas e histórico de ex-membros; domínio 923 testes, aplicativo 579 testes e Playwright 165 aprovados/103 pulados.
 
 **F4 (branch `feat/f4-modelo-nn`, sobre a `main` em `683d419`, sem merge):** o domínio do chat interno passou a N:N (`Agent.ilhaIds`, `Ilha.supervisorIds`, `GroupConversation.origin`); o mock, o `ChatTransport` e a Equipe/Administração acompanham. `pnpm test` passou com **1664 testes** em 17/11/2026: pacote de domínio 914 (11 arquivos), app interno 550 (44 arquivos), mais protocol 11, adaptador SM 2, widget 19, console 61 e servidor 107. Playwright do app: 161 passam e 99 são pulados (eram 159 e 97: dois testes novos de axe/N:N, que rodam só em 1366 e 390). O servidor ainda não importa o pacote e `sector_members`/`sector_supervisors` não foram tocadas (F5).
