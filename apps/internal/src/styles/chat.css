@@ -39,6 +39,37 @@
   --success: var(--vv-lime-ink);
   --focus: var(--vv-blue-700);
   --focus-on-dark: var(--vv-lime);
+
+  /* Tokens da v1 (valores claros; tema escuro na Frente A) */
+  --alert: #fef3c7;
+  --alert-fg: #78350f;
+  --scrim: rgba(15, 27, 61, 0.56);
+  --overlay-surface: var(--vv-bg);
+  --quote-bar: var(--vv-blue-700);
+  --quote-bg: var(--vv-blue-50);
+  --reaction-bg: var(--vv-bg-soft);
+  --reaction-border: #6b7495;
+  --mention-fg: var(--vv-blue-700);
+  --link-fg: #1d4ed8;
+  --poll-bar: var(--vv-blue-700);
+  --poll-bar-track: var(--vv-blue-50);
+  --presence-available: #15803d;
+  --presence-pause: #b45309;
+  --presence-away: #64748b;
+  --presence-offline: #475569;
+  --pinned-bg: var(--vv-bg-soft);
+  --recording: var(--danger);
+  --waveform: var(--vv-muted);
+  --waveform-played: var(--vv-blue-700);
+  --debug-bg: var(--vv-bg-soft);
+  --debug-fg: var(--vv-ink);
+  --debug-api: var(--vv-blue-700);
+  --debug-ws: #15803d;
+  --debug-state: #6d28d9;
+  --debug-error: var(--danger);
+  --debug-action: #9a3412;
+  --badge-new: var(--vv-blue-700);
+
   --radius-lg: 20px;
   --radius: 12px;
   --radius-pill: 999px;

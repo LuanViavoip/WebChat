@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createShellSlots } from './shell/registry';
+import type { ShellSlots } from './shell/slots';
 import type { ChatTransport, ConnectRequest } from './transport/ChatTransport';
 import { mergeHistoryState } from './ui/chatHistory';
 import { ChatPanel } from './ui/ChatPanel';
@@ -11,7 +13,8 @@ import {
   stripAsParam,
 } from './ui/sessionIdentity';
 
-export function App({ transport }: { transport: ChatTransport }) {
+export function App({ transport, slots }: { transport: ChatTransport; slots?: ShellSlots }) {
+  const resolvedSlots = useMemo(() => slots ?? createShellSlots(), [slots]);
   const [identity, setIdentity] = useState<ConnectRequest | undefined>(() =>
     initialIdentity(transport.loginGroups(), window.location.search),
   );
@@ -82,6 +85,7 @@ export function App({ transport }: { transport: ChatTransport }) {
         key={identity.userId}
         transport={transport}
         identity={identity}
+        slots={resolvedSlots}
         onSwitchUser={() => {
           switchUser();
         }}

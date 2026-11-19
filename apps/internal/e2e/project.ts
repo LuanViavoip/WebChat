@@ -43,6 +43,21 @@ export async function enterAs(
   await expect(page.getByLabel('Lista de conversas')).toBeVisible();
 }
 
+export async function setClock(page: Page, iso: string): Promise<void> {
+  const currentUrl = page.url();
+  if (!currentUrl || currentUrl === 'about:blank') {
+    await page.goto(`./?agora=${encodeURIComponent(iso)}`);
+    return;
+  }
+  const url = new URL(currentUrl);
+  url.searchParams.delete('reset');
+  url.searchParams.set('agora', iso);
+  await page.goto(url.toString());
+  if (url.searchParams.has('como')) {
+    await expect(page.getByLabel('Lista de conversas')).toBeVisible();
+  }
+}
+
 /** Abre a conversa com `name` (no mobile é o item que leva ao chat) e espera o composer ligado. */
 export async function openConversation(page: Page, name: string | RegExp): Promise<void> {
   const item = page.getByLabel('Lista de conversas').getByRole('button', { name });
