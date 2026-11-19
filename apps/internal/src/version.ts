@@ -21,7 +21,8 @@ export const RELEASE_NOTES_HISTORY: readonly ReleaseNote[] = /* @bump-begin */ [
     "details": [
       "Sem mudança visível (interno)",
       "Tipos e contrato de reações, respostas, encaminhar, editar e apagar, recibos, presença, enquete, agendada, respostas rápidas e avisos (packages/internal-domain, transport/contract)",
-      "Digitando passa a ser atividade (digitando ou gravando áudio); slots de tela, debug e gravador prontos para as frentes"
+      "Digitando passa a ser atividade (digitando ou gravando áudio); slots de tela, debug e gravador prontos para as frentes",
+      "Funções puras que faltavam no domínio (editar, encaminhar, menções, reações agrupadas, recibos, voto, presença e filtro da lista) e overlay bloqueante deixa o chat inerte (packages/internal-domain, shell/slots, ChatPanel)"
     ]
   },
   {

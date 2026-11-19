@@ -281,6 +281,7 @@ export interface ChatTransport {
   // Etapa 6 (Onda 0a)
   createGroup(r: CreateGroupRequest): Promise<GroupConversation>;
   updateGroup(r: UpdateGroupRequest): Promise<GroupConversation>;
+  // Decisão D-V1-16: o retorno executável permanece Promise<GroupConversation> (Onda 0a).
   leaveGroup(r: { readonly conversationId: ConversationId }): Promise<void>;
   // Mensagens
   history(r: HistoryRequest): Promise<HistoryPage>;
@@ -1048,3 +1049,4 @@ O Luan aceitou, via Maestro, os 13 padrões propostos na v0 desta spec. Também 
 | D-V1-13 | Se o design base da Arena não chegar antes da frente A do Cursor, ela segue o layout atual (100dvh, tokens), e o visual da Arena entra depois só como tokens e CSS, sem mexer no contrato |
 | D-V1-14 | Tudo nasce no mock. A `contract.suite.ts` é obrigatória já na v1, e o servidor (F5 em diante) implementa contra ela (A.5, item 1) |
 | D-V1-15 | O aviso tem dois modos de entrega: `board` (v2.2) e `interrupt` (obrigatório, com 👍 e, quando pedido, reprodução completa) (A.5, item 2, e B.9) |
+| D-V1-16 | `leaveGroup` permanece `Promise<GroupConversation>` no transporte e `Promise<ActionResult<GroupConversation>>` na sessão, em vez de `Promise<void>` do bloco B.4: o contrato da Onda 0a devolve o grupo somente leitura ao ex-membro, e alinhar ao `void` quebraria essa entrega. |

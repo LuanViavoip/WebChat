@@ -36,11 +36,12 @@
 - Bloco de tokens da v1 em `:root` de `apps/internal/src/styles/chat.css`
 
 ### Desvios da spec e motivos
-1. `leaveGroup` mantém retorno `Promise<GroupConversation>` (em `ChatTransport.ts`, e `Promise<ActionResult<GroupConversation>>` em `ChatSession.ts`) em vez de `Promise<void>` indicado em B.4 da `spec.md`, preservando o contrato consolidado na Onda 0a para ex-membro somente leitura.
-2. `MessageBase.timestamp` e `MarkReadRequest.upToMessageId` foram mantidos como `string` (e `UploadRequest` aceita `target?: UploadTarget` além de `conversationId?: ConversationId`) para manter compatibilidade com os testes da Onda 0a e preservar a migração de IDs dentro do limite de ~40 arquivos (`25` arquivos em `69cca2a`).
+1. `leaveGroup` mantém retorno `Promise<GroupConversation>` (em `ChatTransport.ts`, e `Promise<ActionResult<GroupConversation>>` em `ChatSession.ts`) em vez de `Promise<void>` indicado em B.4 da `spec.md`, preservando o contrato consolidado na Onda 0a para ex-membro somente leitura. Decisão oficial: **D-V1-16** na Parte F da spec.
+2. `MessageBase.timestamp`, `MarkReadRequest.upToMessageId` e os ids de evento (`status.messageId`/`clientId`, `read.upToMessageId`) passaram a `IsoInstant`/`MessageId`/`ClientId`; `UploadRequest` ficou só com `target` (sem `conversationId` duplicado).
 3. Não houve alteração de `PERSIST_VERSION = 6` nem criação de migrations nesta onda; novos campos persistidos entram nas Ondas 1a (`v7`) e 1b (`v8`).
 4. `apps/server` não foi alterado nem executado nesta máquina (sem Docker).
 
 ### Contagens finais verificadas
 - **Antes (após 0a + 0c, base `7a0ed91`):** domínio `923` testes (`14` arquivos); app Vitest `579` testes (`48` arquivos); Playwright `165` aprovados / `103` pulados (`268` no total).
 - **Depois (Onda 0b):** domínio `1023` testes (`23` arquivos); app Vitest `663` aprovados e `32` `it.todo` (`57` arquivos, incluindo `32` `it.todo` em `contract.suite.ts`); Playwright `165` aprovados / `103` pulados (`268` nos 4 projects).
+- **Correção pré-congelamento:** domínio `1070` testes (`25` arquivos); app Vitest `665` aprovados e `32` `it.todo` (`57` arquivos); Playwright `165` aprovados / `103` pulados (`268` nos 4 projects).

@@ -1,6 +1,6 @@
 # Status de implementação — Fase 5.5 (main em `ed89e11`)
 
-**Onda 0b (branch `feat/v1-0b-contratos`):** contratos da v1 no domínio e no transporte, migração `MessageId`/`ClientId` e `typing → activity`, `contract.suite.ts`, `ChatSession` v1, seams de `shell/slots`, `debug`, `recorder`, `ConversationPicker`, configuração congelada, regra anti-`dangerouslySetInnerHTML`, tokens §5.1, cópia da spec e build `1.0.3`; domínio 1023 testes (23 arquivos), app Vitest 663 aprovados / 32 `it.todo` (57 arquivos) e Playwright 165 aprovados / 103 pulados nos 4 projects (servidor não rodado, sem Docker).
+**Onda 0b (branch `feat/v1-0b-contratos`):** contratos da v1 no domínio e no transporte, migração `MessageId`/`ClientId`/`IsoInstant` e `typing → activity`, `contract.suite.ts`, `ChatSession` v1, seams de `shell/slots` (overlay `blocking` + `inert`), `debug`, `recorder`, `ConversationPicker`, configuração congelada, regra anti-`dangerouslySetInnerHTML`, tokens §5.1, cópia da spec e build `1.0.3`; correção pré-congelamento: funções puras que faltavam, `UploadRequest.target` único, `message.pin`, limites D-V1-5 e D-V1-16 (`leaveGroup` permanece `GroupConversation`). Verificação: domínio **1070** testes (25 arquivos), app Vitest **665** aprovados / **32** `it.todo` (57 arquivos), Playwright **165** aprovados / **103** pulados nos 4 projects (servidor não rodado, sem Docker).
 
 **Onda 0a (branch `feat/v1-0a-grupos-nn`):** grupos N:N, sincronização de ilhas e histórico de ex-membros; domínio 923 testes, aplicativo 579 testes e Playwright 165 aprovados/103 pulados.
 
