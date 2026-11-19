@@ -6,6 +6,7 @@ export * from './grantLog';
 export * from './group';
 export * from './groupStatus';
 export * from './identity';
+export * from './ids';
 export * from './message';
 export * from './permissions';
 export * from './records';
