@@ -1,5 +1,37 @@
 import '@testing-library/jest-dom/vitest';
 
+function createMemoryStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    get length() {
+      return data.size;
+    },
+    clear() {
+      data.clear();
+    },
+    getItem(key: string) {
+      return data.get(key) ?? null;
+    },
+    key(index: number) {
+      return [...data.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      data.delete(key);
+    },
+    setItem(key: string, value: string) {
+      data.set(key, value);
+    },
+  };
+}
+
+for (const name of ['localStorage', 'sessionStorage'] as const) {
+  if (typeof window[name] === 'undefined') {
+    const storage = createMemoryStorage();
+    Object.defineProperty(window, name, { configurable: true, enumerable: true, value: storage });
+    Object.defineProperty(globalThis, name, { configurable: true, enumerable: true, value: storage });
+  }
+}
+
 beforeEach(() => {
   window.history.replaceState(null, '');
 });

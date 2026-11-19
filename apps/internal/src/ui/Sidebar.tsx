@@ -1,11 +1,11 @@
-import { CircleDashed, LogOut, MessageSquarePlus, Search, Settings, Users, UsersRound } from 'lucide-react';
+import { CircleDashed, LogOut, MessageSquarePlus, Search, Settings, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ConversationId } from '@viavoip/internal-domain';
 import type { Directory, Ilha, StaffUser } from '@viavoip/internal-domain';
 import {
   conversationInitials,
   emptyConversationCopy,
-  filterConversations,
+  filterSidebarItems,
   roleLabel,
   type ConversationItem,
 } from './conversations';
@@ -16,6 +16,19 @@ import { NewGroupControls, type GroupDraft } from './admin/NewGroupControls';
 export type ConversationSections = {
   priority: readonly ConversationItem[];
   colleagues: readonly ConversationItem[];
+};
+
+export type SidebarSlotView = {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: LucideIcon;
+  readonly badge?: number;
+  readonly onOpen: () => void;
+};
+
+export type SidebarSlotMenuItem = {
+  readonly label: string;
+  readonly onSelect: () => void;
 };
 
 export function Sidebar({
@@ -34,6 +47,8 @@ export function Sidebar({
   directory,
   onCreateGroup,
   groupIds = [],
+  slotViews,
+  slotMenuItems,
 }: {
   me: StaffUser | null;
   tenantName: string;
@@ -55,17 +70,19 @@ export function Sidebar({
   directory?: Directory;
   onCreateGroup?: (draft: GroupDraft) => Promise<boolean>;
   groupIds?: readonly ConversationId[];
+  slotViews?: readonly SidebarSlotView[];
+  slotMenuItems?: readonly SidebarSlotMenuItem[];
 }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread' | 'groups'>('all');
   const [pickerOpen, setPickerOpen] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const priority = useMemo(
-    () => filterConversations(sections.priority, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
+    () => filterSidebarItems(sections.priority, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
     [sections.priority, query, filter, groupIds],
   );
   const colleagues = useMemo(
-    () => filterConversations(sections.colleagues, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
+    () => filterSidebarItems(sections.colleagues, query, filter === 'groups' ? 'all' : filter).filter((item) => filter !== 'groups' || groupIds.includes(item.id)),
     [sections.colleagues, query, filter, groupIds],
   );
   const total = sections.priority.length + sections.colleagues.length;
@@ -133,6 +150,35 @@ export function Sidebar({
               Equipe
             </button>
           ) : null}
+          {slotViews?.map((view) => {
+            const Icon = view.icon;
+            return (
+              <button
+                key={view.id}
+                type="button"
+                className="sidebar-admin-link"
+                data-open-view={`slot:${view.id}`}
+                onClick={view.onOpen}
+              >
+                <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+                <span>{view.label}</span>
+                {view.badge !== undefined && view.badge > 0 ? (
+                  <span className="sidebar-slot-badge">{view.badge}</span>
+                ) : null}
+              </button>
+            );
+          })}
+          {slotMenuItems?.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className="sidebar-admin-link"
+              data-slot-menu-item=""
+              onClick={item.onSelect}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       ) : null}
       {groupIlhas && me && directory && onCreateGroup ? <NewGroupControls ilhas={groupIlhas} me={me} directory={directory} onCreate={onCreateGroup} /> : null}

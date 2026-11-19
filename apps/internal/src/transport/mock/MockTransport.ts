@@ -1,34 +1,78 @@
-import type { Conversation, ConversationId, DirectConversation, GroupConversation } from '@viavoip/internal-domain';
-import type { GrantLogEntry } from '@viavoip/internal-domain';
-import type { Ilha, StaffUser, UserId } from '@viavoip/internal-domain';
-import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
-import type { TenantId } from '@viavoip/internal-domain';
-import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type {
+  AnnouncementForAuthor,
+  AnnouncementRevisionRef,
+  ChatMessage,
+  Conversation,
+  ConversationId,
+  ConversationPrefs,
+  ConversationPrefsRequest,
+  DirectConversation,
+  EditAnnouncementRequest,
+  ForwardAnnouncementRequest,
+  GrantLogEntry,
+  GroupConversation,
+  Ilha,
+  MessageReceipts,
+  MessageRef,
+  MessageStatus,
+  PlaybackReport,
+  PollTally,
+  Presence,
+  PublishAnnouncementRequest,
+  QuickReply,
+  ReceiptState,
+  ReceiptsPanel,
+  SaveQuickReplyRequest,
+  ScheduleRequest,
+  ScheduledItem,
+  SetPresenceRequest,
+  StaffUser,
+  TenantId,
+  UserId,
+  VotePollRequest,
+} from '@viavoip/internal-domain';
+import { isSessionAborted, SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
+import { NotImplementedError } from '../errors';
+import type {
+  ActivityRequest,
+  AgentIlhaRequest,
+  AnnouncementIdRequest,
   AssignIlhaSupervisorRequest,
   Bootstrap,
+  CancelScheduledRequest,
   ChatEvent,
   ChatEventHandler,
   ChatTransport,
   ConnectRequest,
-  CreateIlhaRequest,
   CreateGroupRequest,
-  UpdateGroupRequest,
+  CreateIlhaRequest,
+  DeleteQuickReplyRequest,
+  DeleteRequest,
+  EditRequest,
+  ForwardRequest,
+  ForwardResult,
+  HistoryPage,
+  HistoryRequest,
   LeaveGroupRequest,
   LoginGroup,
   MarkReadRequest,
-  AgentIlhaRequest,
-  UnassignIlhaSupervisorRequest,
   OpenDirectRequest,
+  PinMessageRequest,
+  ReactRequest,
   RegisterAgentRequest,
   RegisterSupervisorRequest,
+  RemindAnnouncementResult,
   RenameIlhaRequest,
+  SearchHit,
+  SearchRequest,
   SendRequest,
   SetGrantRequest,
+  StarRequest,
   TransportStatus,
-  TypingRequest,
-  UploadedMedia,
+  UnassignIlhaSupervisorRequest,
+  UpdateGroupRequest,
   UploadRequest,
+  UploadedMedia,
   UserRequest,
 } from '../ChatTransport';
 import { browserObjectUrls, type ObjectUrlFactory } from '../objectUrls';
@@ -293,6 +337,110 @@ export class MockTransport implements ChatTransport {
     });
   }
 
+  private notImplemented(operation: string, request: object): Promise<never> {
+    return Promise.reject(Object.assign(new NotImplementedError(operation), { request }));
+  }
+
+  history(request: HistoryRequest): Promise<HistoryPage> {
+    return this.notImplemented('history', request);
+  }
+
+  react(request: ReactRequest): Promise<void> {
+    return this.notImplemented('react', request);
+  }
+
+  editMessage(request: EditRequest): Promise<ChatMessage> {
+    return this.notImplemented('editMessage', request);
+  }
+
+  deleteMessage(request: DeleteRequest): Promise<void> {
+    return this.notImplemented('deleteMessage', request);
+  }
+
+  forward(request: ForwardRequest): Promise<ForwardResult> {
+    return this.notImplemented('forward', request);
+  }
+
+  setStar(request: StarRequest): Promise<void> {
+    return this.notImplemented('setStar', request);
+  }
+
+  pinMessage(request: PinMessageRequest): Promise<void> {
+    return this.notImplemented('pinMessage', request);
+  }
+
+  messageInfo(request: MessageRef): Promise<MessageReceipts> {
+    return this.notImplemented('messageInfo', request);
+  }
+
+  searchMessages(request: SearchRequest): Promise<readonly SearchHit[]> {
+    return this.notImplemented('searchMessages', request);
+  }
+
+  setPresence(request: SetPresenceRequest): Promise<Presence> {
+    return this.notImplemented('setPresence', request);
+  }
+
+  setConversationPrefs(request: ConversationPrefsRequest): Promise<ConversationPrefs> {
+    return this.notImplemented('setConversationPrefs', request);
+  }
+
+  votePoll(request: VotePollRequest): Promise<PollTally> {
+    return this.notImplemented('votePoll', request);
+  }
+
+  closePoll(request: MessageRef): Promise<void> {
+    return this.notImplemented('closePoll', request);
+  }
+
+  schedule(request: ScheduleRequest): Promise<ScheduledItem> {
+    return this.notImplemented('schedule', request);
+  }
+
+  cancelScheduled(request: CancelScheduledRequest): Promise<ScheduledItem> {
+    return this.notImplemented('cancelScheduled', request);
+  }
+
+  saveQuickReply(request: SaveQuickReplyRequest): Promise<QuickReply> {
+    return this.notImplemented('saveQuickReply', request);
+  }
+
+  deleteQuickReply(request: DeleteQuickReplyRequest): Promise<void> {
+    return this.notImplemented('deleteQuickReply', request);
+  }
+
+  publishAnnouncement(request: PublishAnnouncementRequest): Promise<AnnouncementForAuthor> {
+    return this.notImplemented('publishAnnouncement', request);
+  }
+
+  editAnnouncement(request: EditAnnouncementRequest): Promise<AnnouncementForAuthor> {
+    return this.notImplemented('editAnnouncement', request);
+  }
+
+  markAnnouncementViewed(request: AnnouncementRevisionRef): Promise<ReceiptState> {
+    return this.notImplemented('markAnnouncementViewed', request);
+  }
+
+  reportPlayback(request: PlaybackReport): Promise<ReceiptState> {
+    return this.notImplemented('reportPlayback', request);
+  }
+
+  acknowledgeAnnouncement(request: AnnouncementRevisionRef): Promise<ReceiptState> {
+    return this.notImplemented('acknowledgeAnnouncement', request);
+  }
+
+  announcementReceipts(request: AnnouncementIdRequest): Promise<ReceiptsPanel> {
+    return this.notImplemented('announcementReceipts', request);
+  }
+
+  remindAnnouncement(request: AnnouncementIdRequest): Promise<RemindAnnouncementResult> {
+    return this.notImplemented('remindAnnouncement', request);
+  }
+
+  forwardAnnouncement(request: ForwardAnnouncementRequest): Promise<ForwardResult> {
+    return this.notImplemented('forwardAnnouncement', request);
+  }
+
   /** O ator é SEMPRE `this.identity` (a sessão autenticada no `connect`): nenhum request carrega ator ou tenant. */
   private admin<T>(operation: (server: MockServer, session: Session) => Outcome<T>): Promise<T> {
     return this.gate(() => {
@@ -302,12 +450,12 @@ export class MockTransport implements ChatTransport {
     });
   }
 
-  setTyping(request: TypingRequest): void {
+  setActivity(request: ActivityRequest): void {
     if (this.status !== 'connected' || !this.identity) {
       return;
     }
     const session = this.requireSession();
-    this.backend.run((server) => server.setTyping(session, request));
+    this.backend.run((server) => server.setActivity(session, request));
   }
 
   /** Mesma regra de antes: desconectado rejeita; em connecting espera o readyGate da conexão corrente. */
@@ -340,11 +488,15 @@ export class MockTransport implements ChatTransport {
   }
 
   private async runUpload(request: UploadRequest): Promise<UploadedMedia> {
+    if (request.target.kind === 'announcement-draft') {
+      throw new NotImplementedError('upload:announcement-draft');
+    }
+    const conversationId = request.target.conversationId;
     if (this.status !== 'connected' || !this.identity) {
       throw new Error('Não conectado');
     }
     const session = this.requireSession();
-    const allowed = this.backend.query((server) => server.authorize(session, request.conversationId));
+    const allowed = this.backend.query((server) => server.authorize(session, conversationId));
     if (!allowed.ok) {
       throw allowed.error;
     }
@@ -368,9 +520,9 @@ export class MockTransport implements ChatTransport {
       }
     }
     const url = this.objectUrls.create(request.file);
-    const urls = this.remoteUrlsByConversation.get(request.conversationId) ?? [];
+    const urls = this.remoteUrlsByConversation.get(conversationId) ?? [];
     urls.push(url);
-    this.remoteUrlsByConversation.set(request.conversationId, urls);
+    this.remoteUrlsByConversation.set(conversationId, urls);
     return { url };
   }
 

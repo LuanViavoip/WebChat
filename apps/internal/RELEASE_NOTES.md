@@ -1,6 +1,6 @@
 # Chat Interno ViaVoip — Release Notes & Controle de Versão de Compilação
 
-> **Versão Atual de Compilação:** `1.0.2`  
+> **Versão Atual de Compilação:** `1.0.3`  
 > **Série Base Atual:** `1.0`  
 > **Última Atualização:** `19/11/2026`
 
@@ -12,7 +12,14 @@ Formato `<MAJOR>.<MINOR>.<BUILD>` sem zeros à esquerda. A cada pedido, BUILD +1
 
 ---
 
-## 📦 Histórico de Alterações — Série `1.0` (`1.0.1` a `1.0.2`)
+## 📦 Histórico de Alterações — Série `1.0` (`1.0.1` a `1.0.3`)
+
+### Build `1.0.3` — *19/11/2026*
+**Contratos da v1 do Chat Interno e pontos de encaixe das frentes**
+- Sem mudança visível (interno)
+- Tipos e contrato de reações, respostas, encaminhar, editar e apagar, recibos, presença, enquete, agendada, respostas rápidas e avisos (packages/internal-domain, transport/contract)
+- Digitando passa a ser atividade (digitando ou gravando áudio); slots de tela, debug e gravador prontos para as frentes
+- Funções puras que faltavam no domínio (editar, encaminhar, menções, reações agrupadas, recibos, voto, presença e filtro da lista) e overlay bloqueante deixa o chat inerte (packages/internal-domain, shell/slots, ChatPanel)
 
 ### Build `1.0.2` — *19/11/2026*
 **Grupos de conversa no modelo de ilhas N:N**

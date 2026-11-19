@@ -1,8 +1,17 @@
-import { acceptsCaption, clampCaption, type ValidAttachment } from '@viavoip/internal-domain';
-import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
-import type { ConversationId } from '@viavoip/internal-domain';
-import type { UserId } from '@viavoip/internal-domain';
-import type { TenantId } from '@viavoip/internal-domain';
+import {
+  acceptsCaption,
+  asClientId,
+  asMessageId,
+  asPollOptionId,
+  clampCaption,
+  type ChatMessage,
+  type ConversationId,
+  type IsoInstant,
+  type MessageStatus,
+  type TenantId,
+  type UserId,
+  type ValidAttachment,
+} from '@viavoip/internal-domain';
 import type { OutboundPayload } from '../transport/ChatTransport';
 
 /** Quem e onde: tudo que a mensagem precisa além do conteúdo. */
@@ -19,14 +28,14 @@ export type MessageOrigin = {
 export function messageFromPayload(
   origin: MessageOrigin,
   payload: OutboundPayload,
-  timestamp: string,
+  timestamp: IsoInstant,
   status: MessageStatus,
 ): ChatMessage {
   const base = {
-    id: origin.id,
+    id: asMessageId(origin.id),
     tenantId: origin.tenantId,
     conversationId: origin.conversationId,
-    clientId: origin.clientId,
+    clientId: asClientId(origin.clientId),
     authorId: origin.authorId,
     author: { id: origin.authorId, name: origin.authorName },
     timestamp,
@@ -43,11 +52,14 @@ export function messageFromPayload(
       return message;
     }
     case 'audio': {
-      const message: ChatMessage = { ...base, type: 'audio', mimeType: payload.mimeType, url: payload.url };
-      if (payload.durationMs !== undefined) {
-        return { ...message, durationMs: payload.durationMs };
-      }
-      return message;
+      return {
+        ...base,
+        type: 'audio',
+        mimeType: payload.mimeType,
+        url: payload.url,
+        ...(payload.durationMs !== undefined ? { durationMs: payload.durationMs } : {}),
+        ...(payload.waveform !== undefined ? { waveform: payload.waveform } : {}),
+      };
     }
     case 'video': {
       const message: ChatMessage = { ...base, type: 'video', mimeType: payload.mimeType, url: payload.url };
@@ -71,6 +83,23 @@ export function messageFromPayload(
     }
     case 'sticker':
       return { ...base, type: 'sticker', mimeType: payload.mimeType, url: payload.url };
+    case 'poll': {
+      const [first, second, ...rest] = payload.options.map((text, index) => ({
+        id: asPollOptionId(`opt-${String(index + 1)}`),
+        text,
+      }));
+      if (!first || !second) {
+        throw new Error('Enquete exige ao menos duas opções.');
+      }
+      return {
+        ...base,
+        type: 'poll',
+        question: payload.question,
+        options: [first, second, ...rest],
+        multiple: payload.multiple,
+        closedAt: null,
+      };
+    }
     default: {
       const exhaustive: never = payload;
       return exhaustive;
@@ -92,11 +121,13 @@ export function payloadFromMessage(message: ChatMessage): OutboundPayload {
       return payload;
     }
     case 'audio': {
-      const payload: OutboundPayload = { type: 'audio', mimeType: message.mimeType, url: message.url };
-      if (message.durationMs !== undefined) {
-        return { ...payload, durationMs: message.durationMs };
-      }
-      return payload;
+      return {
+        type: 'audio',
+        mimeType: message.mimeType,
+        url: message.url,
+        ...(message.durationMs !== undefined ? { durationMs: message.durationMs } : {}),
+        ...(message.waveform !== undefined ? { waveform: message.waveform } : {}),
+      };
     }
     case 'video': {
       const payload: OutboundPayload = { type: 'video', mimeType: message.mimeType, url: message.url };
@@ -119,6 +150,16 @@ export function payloadFromMessage(message: ChatMessage): OutboundPayload {
     }
     case 'sticker':
       return { type: 'sticker', mimeType: message.mimeType, url: message.url };
+    case 'poll':
+      return {
+        type: 'poll',
+        question: message.question,
+        options: message.options.map((option) => option.text),
+        multiple: message.multiple,
+      };
+    case 'announcement':
+    case 'deleted':
+      throw new Error('Este tipo de mensagem não pode ser reenviado.');
     default: {
       const exhaustive: never = message;
       return exhaustive;

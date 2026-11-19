@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { contrastRatio, contrastRatioFromCss, cssColorToHex, readRootVars, resolveCssColor, USED_CONTRAST_PAIRS } from './contrast';
 
 const sourceModules: Record<string, string> = import.meta.glob(['../**/*.ts', '../**/*.tsx', '../**/*.css'], {
@@ -45,6 +47,61 @@ describe('contraste WCAG dos pares usados', () => {
     expect(
       contrastRatio(resolveCssColor('var(--focus)', vars), resolveCssColor('var(--surface)', vars)),
     ).toBeGreaterThanOrEqual(3);
+  });
+
+  it('chat.css real define os tokens novos da v1 com contraste resolvível', () => {
+    const cssText = readFileSync(path.resolve(import.meta.dirname, 'chat.css'), 'utf8');
+    const vars = readRootVars(cssText);
+
+    const requiredV1Tokens = [
+      '--alert',
+      '--alert-fg',
+      '--scrim',
+      '--overlay-surface',
+      '--quote-bar',
+      '--quote-bg',
+      '--reaction-bg',
+      '--reaction-border',
+      '--mention-fg',
+      '--link-fg',
+      '--poll-bar',
+      '--poll-bar-track',
+      '--presence-available',
+      '--presence-pause',
+      '--presence-away',
+      '--presence-offline',
+      '--pinned-bg',
+      '--recording',
+      '--waveform',
+      '--waveform-played',
+      '--debug-bg',
+      '--debug-fg',
+      '--debug-api',
+      '--debug-ws',
+      '--debug-state',
+      '--debug-error',
+      '--debug-action',
+      '--badge-new',
+    ];
+    for (const token of requiredV1Tokens) {
+      expect(vars[token]).toBeTruthy();
+    }
+
+    expect(
+      contrastRatio(resolveCssColor('var(--alert-fg)', vars), resolveCssColor('var(--alert)', vars)),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(resolveCssColor('var(--debug-fg)', vars), resolveCssColor('var(--debug-bg)', vars)),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(resolveCssColor('var(--debug-error)', vars), resolveCssColor('var(--debug-bg)', vars)),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(resolveCssColor('var(--presence-available)', vars), resolveCssColor('var(--vv-bg)', vars)),
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      contrastRatio(resolveCssColor('var(--badge-new)', vars), resolveCssColor('var(--vv-bg)', vars)),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
 

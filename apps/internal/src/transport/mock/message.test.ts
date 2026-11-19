@@ -1,14 +1,15 @@
+import { asIsoInstant, asMessageId } from '@viavoip/internal-domain';
 import { ICS_TENANT_ID, ICS_USERS } from './seed';
 import { asConversationId } from '@viavoip/internal-domain';
 import { previewOf, type ChatMessage, type TextMessage } from '@viavoip/internal-domain';
 
 const base = {
-  id: '1',
+  id: asMessageId('1'),
   tenantId: ICS_TENANT_ID,
   conversationId: asConversationId('c'),
   authorId: ICS_USERS.bruno,
   author: { id: 'a', name: 'Colega' },
-  timestamp: '2026-11-10T12:00:00.000Z',
+  timestamp: asIsoInstant('2026-11-10T12:00:00.000Z'),
   status: 'delivered' as const,
 };
 

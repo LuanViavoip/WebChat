@@ -1,4 +1,4 @@
-import { canReadGrantLog, visibleGrantLog } from '@viavoip/internal-domain';
+import { asMessageId, canReadGrantLog, visibleGrantLog } from '@viavoip/internal-domain';
 import type { UserId } from '@viavoip/internal-domain';
 import type { Result } from '@viavoip/internal-domain';
 import type { TenantId } from '@viavoip/internal-domain';
@@ -196,7 +196,7 @@ export class MockBackend {
         const oldReads = own(before.reads, conversation.id);
         for (const [userId, cursor] of Object.entries(own(tenant.reads, conversation.id) ?? {})) {
           if (own(oldReads ?? {}, userId) !== cursor) {
-            deliveries.push({ to: client.userId, event: { type: 'read', tenantId: client.tenantId, conversationId: conversation.id, userId: userId as UserId, upToMessageId: cursor } });
+            deliveries.push({ to: client.userId, event: { type: 'read', tenantId: client.tenantId, conversationId: conversation.id, userId: userId as UserId, upToMessageId: asMessageId(cursor) } });
           }
         }
       }
@@ -266,11 +266,11 @@ export class MockBackend {
         conversationId = event.conversationId;
         break;
       }
-      case 'typing': {
+      case 'activity': {
         if (typeof event.conversationId !== 'string' || typeof event.userId !== 'string') return false;
         const conversation = own(ts.conversations, event.conversationId);
         if (!conversation || !participantsOf(conversation).includes(event.userId) ||
-            event.userId === to || typeof event.isTyping !== 'boolean' || !own(ts.directory.users, event.userId)?.active) {
+            event.userId === to || !['idle', 'typing', 'recording-audio'].includes(event.activity) || !own(ts.directory.users, event.userId)?.active) {
           return false;
         }
         conversationId = event.conversationId;
@@ -352,7 +352,7 @@ export class MockBackend {
         case 'read': {
           const cursor = own(tenant.reads, event.conversationId);
           const upToMessageId = cursor && own(cursor, event.userId);
-          return upToMessageId ? [{ to: delivery.to, event: { type: 'read', tenantId: tenant.tenant.id, conversationId: event.conversationId, userId: event.userId, upToMessageId } }] : [];
+          return upToMessageId ? [{ to: delivery.to, event: { type: 'read', tenantId: tenant.tenant.id, conversationId: event.conversationId, userId: event.userId, upToMessageId: asMessageId(upToMessageId) } }] : [];
         }
         case 'directory':
           return [{ to: delivery.to, event: { type: 'directory', tenantId: tenant.tenant.id, directory: tenant.directory } }];
@@ -363,9 +363,11 @@ export class MockBackend {
             ? [{ to: delivery.to, event: { type: 'grantLog', tenantId: tenant.tenant.id, entries: visibleGrantLog(tenant.directory, reader, tenant.grantLog) } }]
             : [];
         }
-        case 'typing':
+        case 'activity':
           return [delivery];
         case 'session-ended':
+          return [];
+        default:
           return [];
       }
     });

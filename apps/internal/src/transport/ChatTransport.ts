@@ -1,52 +1,85 @@
 import type {
+  AnnouncementBootstrap,
+  AnnouncementForAuthor,
+  AnnouncementForReader,
+  AnnouncementId,
+  AnnouncementRevisionRef,
+  Capability,
+  ChatMessage,
+  ClientId,
   Conversation,
   ConversationId,
+  ConversationPrefs,
+  ConversationPrefsRequest,
   ConversationSummary,
   DirectConversation,
+  Directory,
+  EditAnnouncementRequest,
+  Emoji,
+  ForwardAnnouncementRequest,
+  GrantLogEntry,
   GroupConversation,
+  Ilha,
+  IlhaId,
+  IsoInstant,
+  MessageId,
+  MessageReceipts,
+  MessageRef,
+  MessageStatus,
+  PlaybackReport,
+  PollTally,
+  Presence,
+  PublishAnnouncementRequest,
+  QuickReply,
+  ReactionGroup,
+  ReceiptState,
+  ReceiptTally,
+  ReceiptsPanel,
+  SaveQuickReplyRequest,
+  ScheduleRequest,
+  ScheduledItem,
+  SetPresenceRequest,
+  StaffUser,
+  Tenant,
+  TenantId,
+  UserId,
+  VotePollRequest,
 } from '@viavoip/internal-domain';
-import type { Capability } from '@viavoip/internal-domain';
-import type { GrantLogEntry } from '@viavoip/internal-domain';
-import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
-import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
-import type { Tenant, TenantId } from '@viavoip/internal-domain';
+import type {
+  ActivityRequest,
+  ComposeActivity,
+  CreateGroupRequest,
+  DeleteRequest,
+  EditRequest,
+  ForwardRequest,
+  ForwardResult,
+  HistoryPage,
+  HistoryRequest,
+  LeaveGroupRequest,
+  MarkReadRequest,
+  OpenDirectRequest,
+  PinMessageRequest,
+  ReactRequest,
+  SearchHit,
+  SearchRequest,
+  SendRequest,
+  StarRequest,
+  TransportStatus,
+  UpdateGroupRequest,
+  UploadRequest,
+  UploadedMedia,
+} from './contract/messaging';
+import type { AnnouncementIdRequest, RemindAnnouncementResult } from './contract/announcements';
+import type { DeleteQuickReplyRequest } from './contract/quickReplies';
+import type { CancelScheduledRequest } from './contract/scheduling';
 
-export type TransportStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
-
-export type OutboundPayload =
-  | { type: 'text'; text: string }
-  | { type: 'image'; caption?: string; mimeType: string; url: string }
-  | { type: 'audio'; mimeType: string; url: string; durationMs?: number }
-  | { type: 'video'; caption?: string; mimeType: string; url: string }
-  | { type: 'document'; fileName: string; mimeType: string; url: string; sizeBytes?: number }
-  | { type: 'sticker'; mimeType: string; url: string };
-
-export type SendRequest = {
-  conversationId: ConversationId;
-  clientId: string;
-  payload: OutboundPayload;
-};
-
-export type UploadProgress = { loaded: number; total: number };
-
-export type UploadRequest = {
-  conversationId: ConversationId;
-  clientId: string;
-  file: Blob;
-  fileName: string;
-  mimeType: string;
-  signal: AbortSignal;
-  onProgress: (progress: UploadProgress) => void;
-};
-
-export type UploadedMedia = { url: string };
-
-export type MarkReadRequest = { conversationId: ConversationId; upToMessageId: string };
-export type CreateGroupRequest = { readonly clientId: string; readonly title: string; readonly memberIds: readonly UserId[]; readonly ilhaId: IlhaId | null };
-export type UpdateGroupRequest = { readonly conversationId: ConversationId; readonly title?: string; readonly add?: readonly UserId[]; readonly remove?: readonly UserId[] };
-export type LeaveGroupRequest = { readonly conversationId: ConversationId };
-export type OpenDirectRequest = { with: UserId };
-export type TypingRequest = { conversationId: ConversationId; isTyping: boolean };
+export * from './contract/announcements';
+export * from './contract/messaging';
+export * from './contract/polls';
+export * from './contract/prefs';
+export * from './contract/presence';
+export * from './contract/quickReplies';
+export * from './contract/scheduling';
 
 /** O tenant e o usuário que pedem a sessão. O servidor valida ambos contra a partição do tenant. */
 export type ConnectRequest = { readonly tenantId: TenantId; readonly userId: UserId };
@@ -62,6 +95,17 @@ export type Bootstrap = {
   readonly recent: Readonly<Record<ConversationId, readonly ChatMessage[]>>;
   /** Total de mensagens não lidas, somando as conversas. */
   readonly unread: number;
+  readonly serverNow: IsoInstant;
+  readonly firstLoginOfDay: boolean;
+  readonly presence: Readonly<Record<UserId, Presence>>;
+  readonly prefs: Readonly<Record<ConversationId, ConversationPrefs>>;
+  readonly starred: readonly MessageRef[];
+  readonly pinnedMessages: Readonly<Record<ConversationId, readonly MessageId[]>>;
+  readonly reactions: Readonly<Record<MessageId, readonly ReactionGroup[]>>;
+  readonly polls: Readonly<Record<MessageId, PollTally>>;
+  readonly quickReplies: readonly QuickReply[];
+  readonly scheduled: readonly ScheduledItem[];
+  readonly announcements: AnnouncementBootstrap;
 };
 
 /** Quem aparece na tela "Entrar como" (mock/dev: o SM real autentica por credencial). Só de um tenant por grupo. */
@@ -92,12 +136,12 @@ export type ChatEvent =
   | (Scoped & {
       type: 'status';
       conversationId: ConversationId;
-      messageId: string;
-      clientId?: string;
+      messageId: MessageId;
+      clientId?: ClientId;
       status: MessageStatus;
     })
-  | (Scoped & { type: 'typing'; conversationId: ConversationId; userId: UserId; isTyping: boolean })
-  | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: string })
+  | (Scoped & { type: 'activity'; conversationId: ConversationId; userId: UserId; activity: ComposeActivity })
+  | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: MessageId })
   | (Scoped & { type: 'conversation'; conversation: Conversation })
   | (Scoped & { type: 'conversation-removed'; conversationId: ConversationId })
   | (Scoped & { type: 'grants'; userId: UserId; grants: readonly Capability[] })
@@ -106,7 +150,24 @@ export type ChatEvent =
   /** O grantLog que ESTE usuário pode ler, completo; só vai a quem lê e só se o que ele enxerga mudou. */
   | (Scoped & { type: 'grantLog'; entries: readonly GrantLogEntry[] })
   /** O servidor encerrou a sessão deste usuário (em todas as abas). Depois disso nenhum método responde. */
-  | (Scoped & { type: 'session-ended'; reason: SessionEndReason });
+  | (Scoped & { type: 'session-ended'; reason: SessionEndReason })
+  | (Scoped & { type: 'message-updated'; message: ChatMessage })
+  | (Scoped & MessageRef & { type: 'message-hidden' })
+  | (Scoped & MessageRef & { type: 'reaction'; userId: UserId; emoji: Emoji | null })
+  | (Scoped & MessageRef & { type: 'receipt'; userId: UserId; kind: 'delivered' | 'read'; at: IsoInstant })
+  | (Scoped & { type: 'presence'; presence: Presence })
+  | (Scoped & { type: 'prefs'; conversationId: ConversationId; prefs: ConversationPrefs })
+  | (Scoped & MessageRef & { type: 'star'; starred: boolean })
+  | (Scoped & { type: 'pinned-messages'; conversationId: ConversationId; messageIds: readonly MessageId[] })
+  | (Scoped & MessageRef & { type: 'poll'; tally: PollTally })
+  | (Scoped & { type: 'scheduled'; item: ScheduledItem })
+  | (Scoped & { type: 'reminder-due'; item: Extract<ScheduledItem, { kind: 'reminder' }> })
+  | (Scoped & { type: 'quick-replies'; items: readonly QuickReply[] })
+  | (Scoped & { type: 'announcement'; announcement: AnnouncementForReader; receipt: ReceiptState })
+  | (Scoped & { type: 'announcement-authored'; announcement: AnnouncementForAuthor })
+  | (Scoped & { type: 'announcement-revoked'; id: AnnouncementId; reason: 'expired' | 'audience' })
+  | (Scoped & { type: 'announcement-receipts'; id: AnnouncementId; tally: ReceiptTally })
+  | (Scoped & { type: 'announcement-reminder'; id: AnnouncementId });
 
 export type ChatEventHandler = (event: ChatEvent) => void;
 
@@ -120,7 +181,7 @@ export interface ChatTransport {
   createGroup(request: CreateGroupRequest): Promise<GroupConversation>;
   updateGroup(request: UpdateGroupRequest): Promise<GroupConversation>;
   leaveGroup(request: LeaveGroupRequest): Promise<GroupConversation>;
-  setTyping(request: TypingRequest): void;
+  setActivity(request: ActivityRequest): void;
   subscribe(handler: ChatEventHandler): () => void;
   getStatus(): TransportStatus;
   /**
@@ -144,4 +205,41 @@ export interface ChatTransport {
   setGrant(request: SetGrantRequest): Promise<StaffUser>;
   /** O grantLog que o usuário da sessão pode ler (admin: tudo; supervisor: o das ilhas dele; agente: rejeita). */
   grantLog(): Promise<readonly GrantLogEntry[]>;
+
+  // Mensagens (v1)
+  history(request: HistoryRequest): Promise<HistoryPage>;
+  react(request: ReactRequest): Promise<void>;
+  editMessage(request: EditRequest): Promise<ChatMessage>;
+  deleteMessage(request: DeleteRequest): Promise<void>;
+  forward(request: ForwardRequest): Promise<ForwardResult>;
+  setStar(request: StarRequest): Promise<void>;
+  pinMessage(request: PinMessageRequest): Promise<void>;
+  messageInfo(request: MessageRef): Promise<MessageReceipts>;
+  searchMessages(request: SearchRequest): Promise<readonly SearchHit[]>;
+
+  // Presença e preferências (v1)
+  setPresence(request: SetPresenceRequest): Promise<Presence>;
+  setConversationPrefs(request: ConversationPrefsRequest): Promise<ConversationPrefs>;
+
+  // Enquete (v1)
+  votePoll(request: VotePollRequest): Promise<PollTally>;
+  closePoll(request: MessageRef): Promise<void>;
+
+  // Agendada e lembrete (v1)
+  schedule(request: ScheduleRequest): Promise<ScheduledItem>;
+  cancelScheduled(request: CancelScheduledRequest): Promise<ScheduledItem>;
+
+  // Respostas rápidas (v1)
+  saveQuickReply(request: SaveQuickReplyRequest): Promise<QuickReply>;
+  deleteQuickReply(request: DeleteQuickReplyRequest): Promise<void>;
+
+  // Avisos (v1)
+  publishAnnouncement(request: PublishAnnouncementRequest): Promise<AnnouncementForAuthor>;
+  editAnnouncement(request: EditAnnouncementRequest): Promise<AnnouncementForAuthor>;
+  markAnnouncementViewed(request: AnnouncementRevisionRef): Promise<ReceiptState>;
+  reportPlayback(request: PlaybackReport): Promise<ReceiptState>;
+  acknowledgeAnnouncement(request: AnnouncementRevisionRef): Promise<ReceiptState>;
+  announcementReceipts(request: AnnouncementIdRequest): Promise<ReceiptsPanel>;
+  remindAnnouncement(request: AnnouncementIdRequest): Promise<RemindAnnouncementResult>;
+  forwardAnnouncement(request: ForwardAnnouncementRequest): Promise<ForwardResult>;
 }

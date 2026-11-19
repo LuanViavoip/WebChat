@@ -1,3 +1,4 @@
+import { asIsoInstant, asMessageId } from '@viavoip/internal-domain';
 import { render, screen } from '@testing-library/react';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import { MessageList } from './MessageList';
@@ -16,12 +17,12 @@ function text(
   body: string,
 ): TextMessage {
   return {
-    id,
+    id: asMessageId(id),
     tenantId: ICS_TENANT_ID,
     conversationId: asConversationId('c'),
     authorId,
     author,
-    timestamp,
+    timestamp: asIsoInstant(timestamp),
     status: 'read',
     type: 'text',
     text: body,
@@ -45,7 +46,7 @@ describe('MessageList caudas', () => {
       text('d', ICS_USERS.bruno, AGENT, '2026-11-11T10:00:00.000Z', 'outro dia'),
     ];
     render(
-      <MessageList messages={messages} selfId={ICS_USERS.carla} typing={{ isTyping: false, actorName: '' }} />,
+      <MessageList messages={messages} selfId={ICS_USERS.carla} typing={{ activity: 'idle', actorName: '' }} />,
     );
 
     expect(bubble(/primeiro colega/)).toHaveClass('has-tail');

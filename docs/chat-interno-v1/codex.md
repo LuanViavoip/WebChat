@@ -13,3 +13,35 @@
 - A inclusão de `scripts/bump-version.test.ts` no `tsconfig.json` do aplicativo foi autorizada para corrigir o lint preexistente da 0c.
 - A suíte do servidor não foi executada: servidor e Docker estão fora do escopo desta onda.
 - Para a 0b: não há implementação de atividade, identificadores de mensagem da v1 ou novos contratos nesta onda. A 0b depende da integração da 0a à `main`.
+
+## Onda 0b (`feat/v1-0b-contratos`, base `7a0ed91`)
+
+### Entregues nesta onda
+- **Domínio (`packages/internal-domain/src`):** identificadores da v1 (`ids.ts`), tipos v1 (`message.ts`, `receipts.ts`, `presence.ts`, `prefs.ts`, `poll.ts`, `schedule.ts`, `quickReply.ts`, `announcement.ts`, `audience.ts`, `announcementReceipt.ts`, `day.ts`, `messageOps.ts`, `reaction.ts`), `MEDIA_RULES` com `audio/webm`, `audio/ogg;codecs=opus` e `video/webm`, novas ações `announcement.*` em `permissions.ts`, e funções puras pequenas testadas em tabela (`parseEmoji`, `toggleReaction`, `canEdit`, `canDeleteForEveryone`, `tombstone`, `validatePoll`, `validateSchedule`, `nextReceipt`, `becameAvailable`, `announcementPrompt`, `canForwardAnnouncementTo`, além de `localDateIn` e `isFirstLoginOfDay`).
+- **Migração mecânica:** `MessageBase.id: MessageId` e `clientId?: ClientId` (`69cca2a`, 25 arquivos), e `setTyping`/`typing` → `setActivity`/`activity` (`ComposeActivity`, `d4c435a`, 21 arquivos). Zero ocorrências residuais em `apps/internal/src` e `packages/internal-domain/src`.
+- **Transporte, sessão e suíte de contrato (`apps/internal/src`):** contratos em `transport/contract/*.ts` reexportados por `ChatTransport.ts`, `NotImplementedError` em `transport/errors.ts` e `MockTransport` para operações da Onda 1a/1b, `Bootstrap` v1 no `MockServer` (`serverNow`, `firstLoginOfDay`, `presence` inicial), `contract.suite.ts` com 32 `it.todo` das novas invariantes/operações, `ChatSession` com assinaturas `ActionResult` e estado da v1, e `ScriptedTransport` programável.
+- **Seams e configuração congelada:** `shell/slots.ts`, `shell/registry.ts`, integração de slots no `ChatPanel`, `Sidebar`, `MessageList` e `MessageBubble` (fallback `"Aviso encaminhado"`), `debug/index.ts` (stub identidade/no-op), `media/recorder.ts` (`RecorderPort` e `FakeRecorder`), `ui/pickers/ConversationPicker.tsx`, `devParams.ts` (`?agora=`), `main.tsx`, `App.tsx`, `playwright.config.ts` (flags de mídia falsa), `e2e/project.ts` (`setClock`), regra ESLint anti-`dangerouslySetInnerHTML`, 28 tokens claros da v1 em `styles/chat.css` com `contrast.ts`/`contrast.test.ts` e cópia fiel da spec em `docs/chat-interno-v1/spec.md`.
+- **Versão gerada:** `1.0.3` (`apps/internal/src/version.ts` e `apps/internal/RELEASE_NOTES.md`).
+
+### Arquivos congelados para a Onda 1 (Maestro)
+- `packages/internal-domain/src/index.ts`
+- `apps/internal/src/transport/ChatTransport.ts` e `apps/internal/src/transport/contract/*.ts`
+- `apps/internal/src/shell/slots.ts`
+- Assinatura pública de `apps/internal/src/debug/index.ts` (`readDebugFlags`, `wrapTransportForDebug`, `debugAction`) e stubs de assinatura de `apps/internal/src/media/recorder.ts`
+- `apps/internal/src/ui/pickers/ConversationPicker.tsx`
+- `apps/internal/src/devParams.ts`, `apps/internal/src/main.tsx`, `apps/internal/src/App.tsx`
+- `apps/internal/playwright.config.ts` e `apps/internal/e2e/project.ts`
+- `apps/internal/eslint.config.js`
+- `packages/internal-domain/package.json`, `apps/internal/package.json`, `pnpm-lock.yaml`, `apps/internal/vite.config.ts`
+- Bloco de tokens da v1 em `:root` de `apps/internal/src/styles/chat.css`
+
+### Desvios da spec e motivos
+1. `leaveGroup` mantém retorno `Promise<GroupConversation>` (em `ChatTransport.ts`, e `Promise<ActionResult<GroupConversation>>` em `ChatSession.ts`) em vez de `Promise<void>` indicado em B.4 da `spec.md`, preservando o contrato consolidado na Onda 0a para ex-membro somente leitura. Decisão oficial: **D-V1-16** na Parte F da spec.
+2. `MessageBase.timestamp`, `MarkReadRequest.upToMessageId` e os ids de evento (`status.messageId`/`clientId`, `read.upToMessageId`) passaram a `IsoInstant`/`MessageId`/`ClientId`; `UploadRequest` ficou só com `target` (sem `conversationId` duplicado).
+3. Não houve alteração de `PERSIST_VERSION = 6` nem criação de migrations nesta onda; novos campos persistidos entram nas Ondas 1a (`v7`) e 1b (`v8`).
+4. `apps/server` não foi alterado nem executado nesta máquina (sem Docker).
+
+### Contagens finais verificadas
+- **Antes (após 0a + 0c, base `7a0ed91`):** domínio `923` testes (`14` arquivos); app Vitest `579` testes (`48` arquivos); Playwright `165` aprovados / `103` pulados (`268` no total).
+- **Depois (Onda 0b):** domínio `1023` testes (`23` arquivos); app Vitest `663` aprovados e `32` `it.todo` (`57` arquivos, incluindo `32` `it.todo` em `contract.suite.ts`); Playwright `165` aprovados / `103` pulados (`268` nos 4 projects).
+- **Correção pré-congelamento:** domínio `1070` testes (`25` arquivos); app Vitest `665` aprovados e `32` `it.todo` (`57` arquivos); Playwright `165` aprovados / `103` pulados (`268` nos 4 projects).

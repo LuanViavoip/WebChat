@@ -1,3 +1,4 @@
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { directConversationId, type ConversationId } from '@viavoip/internal-domain';
 import type { UserId } from '@viavoip/internal-domain';
 import type { Result } from '@viavoip/internal-domain';
@@ -43,7 +44,7 @@ function rejection<T>(outcome: Outcome<T>): ForbiddenError {
 }
 
 function sendLive(server: MockServer, from: Session, clientId: string, body = 'oi') {
-  return server.send(from, { conversationId: LIVE_CONVERSATION_ID, clientId, payload: text(body) });
+  return server.send(from, { conversationId: LIVE_CONVERSATION_ID, clientId: asClientId(clientId), payload: text(body) });
 }
 
 function recipients(deliveries: readonly Delivery[]): UserId[] {
@@ -160,7 +161,7 @@ describe('MockServer', () => {
       const server = newServer();
       const outcome = server.send(CARLA, {
         conversationId: LIVE_CONVERSATION_ID,
-        clientId: 'img-1',
+        clientId: asClientId('img-1'),
         payload: { type: 'image', mimeType: 'image/png', url: 'blob:remote/1', caption: 'rx' },
       });
       expect(value(outcome.result).message).toMatchObject({ type: 'image', url: 'blob:remote/1', caption: 'rx' });
@@ -173,7 +174,7 @@ describe('MockServer', () => {
       expect(rejection(sendLive(server, CARLA, 'c-1', '   ')).reason).toBe('invalid');
       const media = server.send(CARLA, {
         conversationId: LIVE_CONVERSATION_ID,
-        clientId: 'c-2',
+        clientId: asClientId('c-2'),
         payload: { type: 'image', mimeType: 'image/png', url: '' },
       });
       expect(rejection(media).reason).toBe('invalid');
@@ -187,10 +188,10 @@ describe('MockServer', () => {
     it('conversa inexistente ou de outro tenant: ForbiddenError sem dizer se existe', () => {
       const server = newServer();
       const bvConversation = directConversationId(BV_TENANT_ID, BV_USERS.otavio, BV_USERS.paula);
-      const foreign = server.send(CARLA, { conversationId: bvConversation, clientId: 'x', payload: text('oi') });
+      const foreign = server.send(CARLA, { conversationId: bvConversation, clientId: asClientId('x'), payload: text('oi') });
       const missing = server.send(CARLA, {
         conversationId: 'dm:ics:nao:existe' as ConversationId,
-        clientId: 'x',
+        clientId: asClientId('x'),
         payload: text('oi'),
       });
       expect(rejection(foreign).reason).toBe('forbidden');
@@ -277,21 +278,21 @@ describe('MockServer', () => {
     it('recusa mensagem inexistente, conversa alheia e conversa de outro tenant', () => {
       const server = newServer();
       const sent = value(sendLive(server, CARLA, 'c-1').result);
-      expect(rejection(server.markRead(BRUNO, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'nao-existe' })).reason).toBe('forbidden');
+      expect(rejection(server.markRead(BRUNO, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: asMessageId('nao-existe') })).reason).toBe('forbidden');
       expect(rejection(server.markRead(ANA, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: sent.message.id })).reason).toBe('not-participant');
       const bvConversation = directConversationId(BV_TENANT_ID, BV_USERS.otavio, BV_USERS.paula);
       expect(rejection(server.markRead(CARLA, { conversationId: bvConversation, upToMessageId: sent.message.id })).reason).toBe('forbidden');
     });
   });
 
-  describe('markRead e setTyping exigem chat.use e participação', () => {
+  describe('markRead e setActivity exigem chat.use e participação', () => {
     it('sem chat.use: não lê nem digita (mas ainda conecta)', () => {
       const server = newServer();
       const sent = value(sendLive(server, CARLA, 'c-1').result);
       server.setGrant(CARLA, { userId: ICS_USERS.bruno, capability: 'chat.use', granted: false });
       const read = server.markRead(BRUNO, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: sent.message.id });
       expect(rejection(read).reason).toBe('no-chat-use');
-      expect(rejection(server.setTyping(BRUNO, { conversationId: LIVE_CONVERSATION_ID, isTyping: true })).reason).toBe('no-chat-use');
+      expect(rejection(server.setActivity(BRUNO, { conversationId: LIVE_CONVERSATION_ID, activity: 'typing' })).reason).toBe('no-chat-use');
       expect(server.connect(BRUNO).result.ok).toBe(true);
       expect(server.getState().get(ICS_TENANT_ID)?.reads[LIVE_CONVERSATION_ID]).toBeUndefined();
     });
@@ -300,14 +301,14 @@ describe('MockServer', () => {
       const server = newServer();
       const sent = value(sendLive(server, CARLA, 'c-1').result);
       expect(rejection(server.markRead(ANA, { conversationId: LIVE_CONVERSATION_ID, upToMessageId: sent.message.id })).reason).toBe('not-participant');
-      expect(rejection(server.setTyping(ANA, { conversationId: LIVE_CONVERSATION_ID, isTyping: false })).reason).toBe('not-participant');
+      expect(rejection(server.setActivity(ANA, { conversationId: LIVE_CONVERSATION_ID, activity: 'idle' })).reason).toBe('not-participant');
     });
 
     it('sessão de outro tenant e conversa de outro tenant: forbidden', () => {
       const server = newServer();
       const bv = directConversationId(BV_TENANT_ID, BV_USERS.otavio, BV_USERS.paula);
-      expect(rejection(server.setTyping(CARLA, { conversationId: bv, isTyping: true })).reason).toBe('forbidden');
-      expect(rejection(server.markRead(session(BV_USERS.paula, BV_TENANT_ID), { conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'msg:ics:1' })).reason).toBe('forbidden');
+      expect(rejection(server.setActivity(CARLA, { conversationId: bv, activity: 'typing' })).reason).toBe('forbidden');
+      expect(rejection(server.markRead(session(BV_USERS.paula, BV_TENANT_ID), { conversationId: LIVE_CONVERSATION_ID, upToMessageId: asMessageId('msg:ics:1') })).reason).toBe('forbidden');
     });
   });
 
@@ -359,20 +360,20 @@ describe('MockServer', () => {
   describe('typing e grants', () => {
     it('typing vai só aos outros participantes', () => {
       const server = newServer();
-      const outcome = server.setTyping(CARLA, { conversationId: LIVE_CONVERSATION_ID, isTyping: true });
+      const outcome = server.setActivity(CARLA, { conversationId: LIVE_CONVERSATION_ID, activity: 'typing' });
       expect(outcome.deliveries).toEqual([
         {
           to: ICS_USERS.bruno,
           event: {
-            type: 'typing',
+            type: 'activity',
             tenantId: ICS_TENANT_ID,
             conversationId: LIVE_CONVERSATION_ID,
             userId: ICS_USERS.carla,
-            isTyping: true,
+            activity: 'typing',
           },
         },
       ]);
-      expect(rejection(server.setTyping(ANA, { conversationId: LIVE_CONVERSATION_ID, isTyping: true })).reason).toBe('not-participant');
+      expect(rejection(server.setActivity(ANA, { conversationId: LIVE_CONVERSATION_ID, activity: 'typing' })).reason).toBe('not-participant');
     });
 
     it('setGrant usa canGrant: agente não concede, supervisor não concede a si, outro tenant não existe', () => {

@@ -1,3 +1,4 @@
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { createFakeObjectUrls } from '../../test/fakeObjectUrls';
 import { SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type { ChatEvent, ChatTransport, ConnectRequest, UploadProgress } from '../ChatTransport';
@@ -28,7 +29,7 @@ function collect(transport: MockTransport): ChatEvent[] {
 }
 
 function sendText(transport: ChatTransport, text: string, clientId: string) {
-  return transport.send({ conversationId: C1, clientId, payload: { type: 'text', text } });
+  return transport.send({ conversationId: C1, clientId: asClientId(clientId), payload: { type: 'text', text } });
 }
 
 const instant = {
@@ -175,8 +176,7 @@ describe('MockTransport', () => {
 
     const file = new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' });
     const progress: UploadProgress[] = [];
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file,
       fileName: 'foto.png',
@@ -212,8 +212,7 @@ describe('MockTransport', () => {
     const file = new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' });
     const firstProgress: UploadProgress[] = [];
     const first = expect(
-      transport.upload({
-        conversationId: C1,
+      transport.upload({ target: { kind: 'conversation', conversationId: C1 },
         clientId: 'up-1',
         file,
         fileName: 'foto.png',
@@ -229,8 +228,7 @@ describe('MockTransport', () => {
     expect(firstProgress).toHaveLength(3);
 
     const secondProgress: UploadProgress[] = [];
-    const second = transport.upload({
-      conversationId: C1,
+    const second = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file,
       fileName: 'foto.png',
@@ -255,8 +253,7 @@ describe('MockTransport', () => {
     await transport.connect(ME);
     const file = new File([new Uint8Array(10)], 'foto.png', { type: 'image/png' });
     await expect(
-      transport.upload({
-        conversationId: C1,
+      transport.upload({ target: { kind: 'conversation', conversationId: C1 },
         clientId: 'up-1',
         file,
         fileName: 'foto.png',
@@ -276,8 +273,7 @@ describe('MockTransport', () => {
     await transport.connect(ME);
     const controller = new AbortController();
     const progress: UploadProgress[] = [];
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -303,8 +299,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     await transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -320,8 +315,7 @@ describe('MockTransport', () => {
   it('upload desconectado rejeita e em connecting espera o readyGate', async () => {
     const disconnected = new MockTransport({ delays: instant, objectUrls: createFakeObjectUrls() });
     await expect(
-      disconnected.upload({
-        conversationId: C1,
+      disconnected.upload({ target: { kind: 'conversation', conversationId: C1 },
         clientId: 'up-1',
         file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
         fileName: 'foto.png',
@@ -337,8 +331,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     const connecting = transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -360,7 +353,7 @@ describe('MockTransport', () => {
     events.length = 0;
     await transport.send({
       conversationId: C1,
-      clientId: 'img-1',
+      clientId: asClientId('img-1'),
       payload: { type: 'image', mimeType: 'image/png', url: 'blob:remote/1', caption: 'rx' },
     });
     await vi.waitFor(() => {
@@ -382,7 +375,7 @@ describe('MockTransport', () => {
     await transport.connect(ME);
     await transport.send({
       conversationId: C1,
-      clientId: 'doc-1',
+      clientId: asClientId('doc-1'),
       payload: {
         type: 'document',
         fileName: 'guia.pdf',
@@ -404,8 +397,7 @@ describe('MockTransport', () => {
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({ delays: instant, objectUrls: urls });
     await transport.connect(ME);
-    await transport.upload({
-      conversationId: C1,
+    await transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -422,8 +414,7 @@ describe('MockTransport', () => {
     const urls = createFakeObjectUrls();
     const transport = new MockTransport({ delays: instant, objectUrls: urls });
     await transport.connect(ME);
-    const uploaded = await transport.upload({
-      conversationId: C1,
+    const uploaded = await transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -446,8 +437,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     await transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -471,8 +461,7 @@ describe('MockTransport', () => {
       objectUrls: createFakeObjectUrls(),
     });
     await transport.connect(ME);
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-1',
       file: new File([new Uint8Array(100)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -509,8 +498,7 @@ describe('MockTransport', () => {
     await vi.runAllTimersAsync();
     await first;
     events.length = 0;
-    const uploading = transport.upload({
-      conversationId: C1,
+    const uploading = transport.upload({ target: { kind: 'conversation', conversationId: C1 },
       clientId: 'up-short',
       file: new File([new Uint8Array(4)], 'foto.png', { type: 'image/png' }),
       fileName: 'foto.png',
@@ -541,7 +529,7 @@ const file = () => new File([new Uint8Array(100)], 'foto.png', { type: 'image/pn
 
 function uploadRequest(conversationId: typeof C1, clientId: string, signal = new AbortController().signal) {
   return {
-    conversationId,
+    target: { kind: 'conversation' as const, conversationId },
     clientId,
     file: file(),
     fileName: 'foto.png',
@@ -563,9 +551,9 @@ describe('MockTransport por conversa', () => {
     await transport.connect(ME);
     const uploading = transport.upload(uploadRequest(C1, 'up-c1'));
     await vi.advanceTimersByTimeAsync(20);
-    await transport.send({ conversationId: C2, clientId: 'msg-c2', payload: { type: 'text', text: 'outra' } });
+    await transport.send({ conversationId: C2, clientId: asClientId('msg-c2'), payload: { type: 'text', text: 'outra' } });
     await transport.openDirect({ with: ICS_USERS.diego });
-    transport.setTyping({ conversationId: C2, isTyping: true });
+    transport.setActivity({ conversationId: C2, activity: 'typing' });
     await vi.advanceTimersByTimeAsync(20);
     await transport.markRead({ conversationId: C2, upToMessageId: await lastMessageId(transport) });
     await vi.runAllTimersAsync();
@@ -643,9 +631,9 @@ describe('MockTransport por conversa', () => {
     const foreign = 'dm:bv:bv-otavio:bv-paula' as typeof C1;
     await expect(transport.upload(uploadRequest(foreign, 'up-x'))).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
-      transport.send({ conversationId: foreign, clientId: 'x', payload: { type: 'text', text: 'oi' } }),
+      transport.send({ conversationId: foreign, clientId: asClientId('x'), payload: { type: 'text', text: 'oi' } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(transport.markRead({ conversationId: foreign, upToMessageId: 'msg:bv:1' })).rejects.toBeInstanceOf(
+    await expect(transport.markRead({ conversationId: foreign, upToMessageId: asMessageId('msg:bv:1') })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
     await expect(transport.openDirect({ with: BV_USERS.paula })).rejects.toBeInstanceOf(ForbiddenError);
@@ -678,9 +666,9 @@ describe('MockTransport por conversa', () => {
     await transport.connect(ME);
     events.length = 0;
     const deliver = (transport as unknown as { receive(event: ChatEvent): void }).receive.bind(transport);
-    deliver({ type: 'typing', tenantId: BV_TENANT_ID, conversationId: C1, userId: BV_USERS.paula, isTyping: true });
+    deliver({ type: 'activity', tenantId: BV_TENANT_ID, conversationId: C1, userId: BV_USERS.paula, activity: 'typing' });
     expect(events).toEqual([]);
-    deliver({ type: 'typing', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, isTyping: true });
+    deliver({ type: 'activity', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, activity: 'typing' });
     expect(events).toHaveLength(1);
   });
 
@@ -693,7 +681,7 @@ describe('MockTransport por conversa', () => {
   });
 });
 
-async function lastMessageId(transport: MockTransport): Promise<string> {
+async function lastMessageId(transport: MockTransport): Promise<ReturnType<typeof asMessageId>> {
   const bootstrap = await transport.connect(ME);
   const list = bootstrap.recent[C2] ?? [];
   const last = list.at(-1);
@@ -778,9 +766,9 @@ describe('MockTransport entre dois usuários (backend compartilhado)', () => {
     await bruno.connect(brunoSession);
     carlaEvents.length = 0;
     brunoEvents.length = 0;
-    bruno.setTyping({ conversationId: C1, isTyping: true });
+    bruno.setActivity({ conversationId: C1, activity: 'typing' });
     expect(carlaEvents).toEqual([
-      { type: 'typing', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, isTyping: true },
+      { type: 'activity', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, activity: 'typing' },
     ]);
     expect(brunoEvents).toEqual([]);
   });

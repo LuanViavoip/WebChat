@@ -31,6 +31,17 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]',
+          message: 'Uso de dangerouslySetInnerHTML é proibido por segurança (spec B.10).',
+        },
+        {
+          selector: 'Property[key.name="dangerouslySetInnerHTML"]',
+          message: 'Uso de dangerouslySetInnerHTML é proibido por segurança (spec B.10).',
+        },
+      ],
     },
   },
   {

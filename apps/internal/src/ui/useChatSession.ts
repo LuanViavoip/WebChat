@@ -10,6 +10,7 @@ const EMPTY: ChatSessionState = {
   connection: 'disconnected',
   error: null,
   errorConversationId: null,
+  bootstrap: null,
   tenant: null,
   me: null,
   directory: null,
@@ -18,10 +19,18 @@ const EMPTY: ChatSessionState = {
   conversations: {},
   summaries: [],
   activeConversationId: null,
+  presence: {},
+  prefs: {},
+  starred: [],
+  pinnedMessages: {},
+  reactions: {},
+  polls: {},
+  quickReplies: [],
+  scheduled: [],
 };
 
 const NO_MESSAGES: ChatMessage[] = [];
-const IDLE: TypingState = { isTyping: false, actorName: '' };
+const IDLE: TypingState = { activity: 'idle', actorName: '' };
 const NO_UPLOADS: Readonly<Record<string, UploadView>> = {};
 
 /** A visão de UMA conversa: é o que o painel de chat consome. */

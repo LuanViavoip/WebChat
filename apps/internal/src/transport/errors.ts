@@ -19,3 +19,18 @@ export function isForbidden(error: unknown): error is ForbiddenError {
 
 /** `reason` do `connect` recusado quando a conta existe no tenant mas está desativada. */
 export const ACCOUNT_DEACTIVATED = 'account-deactivated';
+
+/** Operação prevista no contrato v1, ainda não implementada nesta onda. */
+export class NotImplementedError extends Error {
+  readonly operation: string;
+
+  constructor(operation: string) {
+    super(`Operação ainda não implementada nesta etapa: ${operation}`);
+    this.name = 'NotImplementedError';
+    this.operation = operation;
+  }
+}
+
+export function isNotImplemented(error: unknown): error is NotImplementedError {
+  return error instanceof NotImplementedError;
+}

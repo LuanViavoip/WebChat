@@ -1,3 +1,5 @@
+import { asClientId } from '@viavoip/internal-domain';
+import { asIsoInstant, asMessageId } from '@viavoip/internal-domain';
 import { validateFiles } from '@viavoip/internal-domain';
 import { asConversationId, directConversation, directConversationId, type ConversationId } from '@viavoip/internal-domain';
 import type { TextMessage } from '@viavoip/internal-domain';
@@ -25,12 +27,12 @@ const instant = { connectMs: 0, sentMs: 0, deliveredMs: 0, readMs: 0, uploadChun
 
 function incoming(id: string, conversationId: ConversationId, authorId = ICS_USERS.bruno, text = 'oi'): TextMessage {
   return {
-    id,
+    id: asMessageId(id),
     tenantId: ICS_TENANT_ID,
     conversationId,
     authorId,
     author: { id: authorId, name: 'Colega' },
-    timestamp: '2026-11-12T12:00:00.000Z',
+    timestamp: asIsoInstant('2026-11-12T12:00:00.000Z'),
     status: 'delivered',
     type: 'text',
     text,
@@ -81,6 +83,14 @@ describe('ChatSession multi-conversa: Bootstrap e seleção', () => {
     expect(state.activeConversationId).toBeNull();
   });
 
+  it('preserva atividade de gravação e a encerra com idle', async () => {
+    const { transport, session } = await scripted();
+    transport.emit({ type: 'activity', userId: ICS_USERS.camila, activity: 'recording-audio', conversationId: C2 });
+    expect(thread(session, C2).typing).toEqual({ activity: 'recording-audio', actorName: 'Camila Ribeiro' });
+    transport.emit({ type: 'activity', userId: ICS_USERS.camila, activity: 'idle', conversationId: C2 });
+    expect(thread(session, C2).typing.activity).toBe('idle');
+  });
+
   it('selectConversation antes do Bootstrap fica pendente e vale depois dele', async () => {
     const transport = new ScriptedTransport();
     transport.holdConnect = true;
@@ -127,7 +137,11 @@ describe('ChatSession multi-conversa: isolamento entre conversas', () => {
     transport.holdUpload = true;
     const first = session.sendAttachment(C1, attach('a.png', 100));
     const second = session.sendAttachment(C2, attach('b.png', 200));
-    expect(transport.uploads.map((upload) => upload.conversationId)).toEqual([C1, C2]);
+    expect(
+      transport.uploads.map((upload) =>
+        upload.target.kind === 'conversation' ? upload.target.conversationId : undefined,
+      ),
+    ).toEqual([C1, C2]);
 
     transport.progressUpload(0, 50);
     transport.progressUpload(1, 20);
@@ -194,7 +208,10 @@ describe('ChatSession multi-conversa: isolamento entre conversas', () => {
     transport.failUpload = false;
     await session.retry(C2, clientId ?? '');
     expect(transport.uploads).toHaveLength(2);
-    expect(transport.uploads[1]).toMatchObject({ conversationId: C2, clientId });
+    expect(transport.uploads[1]).toMatchObject({
+      target: { kind: 'conversation', conversationId: C2 },
+      clientId,
+    });
     expect(transport.sent[0]).toMatchObject({ conversationId: C2, clientId });
   });
 
@@ -210,11 +227,11 @@ describe('ChatSession multi-conversa: isolamento entre conversas', () => {
 
   it('eventos de status e digitação ficam na conversa certa', async () => {
     const { transport, session } = await scripted();
-    transport.emit({ type: 'typing', userId: ICS_USERS.camila, isTyping: true, conversationId: C2 });
-    expect(thread(session, C2).typing).toEqual({ isTyping: true, actorName: 'Camila Ribeiro' });
-    expect(thread(session, C1).typing.isTyping).toBe(false);
-    session.setTyping(C1, true);
-    expect(transport.typing).toEqual([{ conversationId: C1, isTyping: true }]);
+    transport.emit({ type: 'activity', userId: ICS_USERS.camila, activity: 'typing', conversationId: C2 });
+    expect(thread(session, C2).typing).toEqual({ activity: 'typing', actorName: 'Camila Ribeiro' });
+    expect(thread(session, C1).typing.activity).toBe('idle');
+    session.setActivity(C1, 'typing');
+    expect(transport.typing).toEqual([{ conversationId: C1, activity: 'typing' }]);
   });
 });
 
@@ -223,10 +240,10 @@ describe('ChatSession multi-conversa: eventos', () => {
     const { transport, session } = await scripted();
     transport.emit({ type: 'message', tenantId: BV_TENANT_ID, message: { ...incoming('x', C1), tenantId: BV_TENANT_ID } });
     transport.emit({ type: 'message', tenantId: BV_TENANT_ID, message: incoming('y', C1) });
-    transport.emit({ type: 'typing', tenantId: BV_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, isTyping: true });
-    transport.emit({ type: 'status', tenantId: BV_TENANT_ID, conversationId: C1, messageId: 'x', status: 'read' });
+    transport.emit({ type: 'activity', tenantId: BV_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, activity: 'typing' });
+    transport.emit({ type: 'status', tenantId: BV_TENANT_ID, conversationId: C1, messageId: asMessageId('x'), status: 'read' });
     expect(thread(session, C1).messages).toHaveLength(0);
-    expect(thread(session, C1).typing.isTyping).toBe(false);
+    expect(thread(session, C1).typing.activity).toBe('idle');
     expect(thread(session, C1).unread).toBe(0);
   });
 
@@ -302,17 +319,17 @@ describe('ChatSession multi-conversa: eventos', () => {
     transport.emit({ type: 'message', message: incoming('s1', C1, ICS_USERS.carla, 'um') });
     transport.emit({ type: 'message', message: { ...incoming('s2', C1, ICS_USERS.carla, 'dois'), status: 'sent' } });
     transport.emit({ type: 'message', message: { ...incoming('s3', C1, ICS_USERS.carla, 'três'), status: 'sent' } });
-    transport.emit({ type: 'read', tenantId: ICS_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, upToMessageId: 's2' });
+    transport.emit({ type: 'read', tenantId: ICS_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, upToMessageId: asMessageId('s2') });
     expect(thread(session, C1).messages.map((message) => message.status)).toEqual(['read', 'read', 'sent']);
     // read de outro tenant é ignorado
-    transport.emit({ type: 'read', tenantId: BV_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, upToMessageId: 's3' });
+    transport.emit({ type: 'read', tenantId: BV_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, upToMessageId: asMessageId('s3') });
     expect(thread(session, C1).messages[2]?.status).toBe('sent');
   });
 
   it("'read' meu (outra aba) zera o não lido", async () => {
     const { transport, session } = await scripted();
     transport.emit({ type: 'message', message: incoming('m1', C2, ICS_USERS.camila) });
-    transport.emit({ type: 'read', tenantId: ICS_TENANT_ID, conversationId: C2, userId: ICS_USERS.carla, upToMessageId: 'm1' });
+    transport.emit({ type: 'read', tenantId: ICS_TENANT_ID, conversationId: C2, userId: ICS_USERS.carla, upToMessageId: asMessageId('m1') });
     expect(thread(session, C2).unread).toBe(0);
   });
 });
@@ -401,7 +418,10 @@ describe('ChatSession multi-conversa: mensagem em voo depois de reconectar', () 
     expect(status).not.toBe('sending');
     expect(['sent', 'delivered']).toContain(status);
 
-    const serverId = thread(session, C1).messages[0]?.id ?? '';
+    const serverId = thread(session, C1).messages[0]?.id;
+    if (!serverId) {
+      throw new Error('mensagem ausente após reconectar');
+    }
     await bruno.markRead({ conversationId: C1, upToMessageId: serverId });
     await vi.waitFor(() => {
       expect(thread(session, C1).messages[0]?.status).toBe('read');
@@ -428,7 +448,7 @@ describe('ChatSession multi-conversa: mensagem em voo depois de reconectar', () 
     expect(transport.sent[1]).toMatchObject({ conversationId: C2, clientId: 'voo-2' });
     expect(thread(session, C2).messages).toHaveLength(1);
 
-    transport.emit({ type: 'status', conversationId: C2, messageId: 'srv-1', clientId: 'voo-2', status: 'read' });
+    transport.emit({ type: 'status', conversationId: C2, messageId: asMessageId('srv-1'), clientId: asClientId('voo-2'), status: 'read' });
     expect(thread(session, C2).messages[0]?.status).toBe('read');
   });
 
@@ -542,12 +562,12 @@ describe('ChatSession multi-conversa: rejeição tardia e reenvio idempotente', 
         statuses.push(event.status);
       }
     });
-    await transport.send({ conversationId: C1, clientId: 'dup', payload: { type: 'text', text: 'x' } });
+    await transport.send({ conversationId: C1, clientId: asClientId('dup'), payload: { type: 'text', text: 'x' } });
     await vi.waitFor(() => {
       expect(statuses).toContain('sent');
     });
     statuses.length = 0;
-    await transport.send({ conversationId: C1, clientId: 'dup', payload: { type: 'text', text: 'x' } });
+    await transport.send({ conversationId: C1, clientId: asClientId('dup'), payload: { type: 'text', text: 'x' } });
     expect(statuses).toHaveLength(1);
     transport.disconnect();
   });
@@ -562,7 +582,7 @@ describe('ChatSession multi-conversa: rejeição tardia e reenvio idempotente', 
     transport.disconnect();
     await bruno.connect({ tenantId: ICS_TENANT_ID, userId: ICS_USERS.bruno });
     for (let index = 0; index < 55; index += 1) {
-      await bruno.send({ conversationId: C1, clientId: `b${String(index)}`, payload: { type: 'text', text: String(index) } });
+      await bruno.send({ conversationId: C1, clientId: asClientId(`b${String(index)}`), payload: { type: 'text', text: String(index) } });
     }
     await session.reconnect();
     await vi.waitFor(() => {

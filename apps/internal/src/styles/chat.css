@@ -39,6 +39,37 @@
   --success: var(--vv-lime-ink);
   --focus: var(--vv-blue-700);
   --focus-on-dark: var(--vv-lime);
+
+  /* Tokens da v1 (valores claros; tema escuro na Frente A) */
+  --alert: #fef3c7;
+  --alert-fg: #78350f;
+  --scrim: rgba(15, 27, 61, 0.56);
+  --overlay-surface: var(--vv-bg);
+  --quote-bar: var(--vv-blue-700);
+  --quote-bg: var(--vv-blue-50);
+  --reaction-bg: var(--vv-bg-soft);
+  --reaction-border: #6b7495;
+  --mention-fg: var(--vv-blue-700);
+  --link-fg: #1d4ed8;
+  --poll-bar: var(--vv-blue-700);
+  --poll-bar-track: var(--vv-blue-50);
+  --presence-available: #15803d;
+  --presence-pause: #b45309;
+  --presence-away: #64748b;
+  --presence-offline: #475569;
+  --pinned-bg: var(--vv-bg-soft);
+  --recording: var(--danger);
+  --waveform: var(--vv-muted);
+  --waveform-played: var(--vv-blue-700);
+  --debug-bg: var(--vv-bg-soft);
+  --debug-fg: var(--vv-ink);
+  --debug-api: var(--vv-blue-700);
+  --debug-ws: #15803d;
+  --debug-state: #6d28d9;
+  --debug-error: var(--danger);
+  --debug-action: #9a3412;
+  --badge-new: var(--vv-blue-700);
+
   --radius-lg: 20px;
   --radius: 12px;
   --radius-pill: 999px;
@@ -921,6 +952,105 @@ body:has(.page-shell) {
 .chat-header:focus {
   outline: 2px solid var(--focus-on-dark);
   outline-offset: -2px;
+}
+
+.conversation-picker {
+  position: fixed;
+  inset: 12% 16%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--overlay-surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.conversation-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.conversation-picker-header h2 {
+  margin: 0;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.conversation-picker-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--text);
+  padding: 8px 12px;
+}
+
+.conversation-picker-status,
+.conversation-picker-empty,
+.conversation-picker-subtitle,
+.conversation-picker-disabled-reason {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.conversation-picker-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  max-height: 40vh;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.conversation-picker-item {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 12px;
+}
+
+.conversation-picker-item:last-child {
+  border-bottom: 0;
+}
+
+.conversation-picker-item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.conversation-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.conversation-picker-actions button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+}
+
+.conversation-picker-actions button[disabled] {
+  color: var(--text-muted);
+}
+
+.conversation-picker-actions button:last-child:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
 }
 
 .emoji-picker {

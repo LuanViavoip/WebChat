@@ -5,7 +5,7 @@ import {
   conversationTimeLabel,
   conversationTitle,
   emptyConversationCopy,
-  filterConversations,
+  filterSidebarItems,
   openableColleagues,
   otherParticipant,
   roleLabel,
@@ -78,23 +78,23 @@ describe('conversationTimeLabel', () => {
   });
 });
 
-describe('filterConversations', () => {
+describe('filterSidebarItems', () => {
   const read = item({ id: asConversationId('a'), title: 'Ana', preview: 'bom dia' });
   const unread = item({ id: asConversationId('b'), title: 'Bruno', preview: 'almoço', unread: 3 });
   const broken = item({ id: asConversationId('c'), title: 'Carla', preview: 'x', activity: 'error' });
 
   it('o filtro Não lidas deixa só as com não lidas', () => {
-    expect(filterConversations([read, unread], '', 'unread').map((i) => i.title)).toEqual(['Bruno']);
-    expect(filterConversations([read], '', 'unread')).toEqual([]);
+    expect(filterSidebarItems([read, unread], '', 'unread').map((i) => i.title)).toEqual(['Bruno']);
+    expect(filterSidebarItems([read], '', 'unread')).toEqual([]);
   });
 
   it('busca por título e por prévia, sem diferenciar maiúsculas', () => {
-    expect(filterConversations([read, unread], 'ANA', 'all').map((i) => i.title)).toEqual(['Ana']);
-    expect(filterConversations([read, unread], 'almoço', 'all').map((i) => i.title)).toEqual(['Bruno']);
+    expect(filterSidebarItems([read, unread], 'ANA', 'all').map((i) => i.title)).toEqual(['Ana']);
+    expect(filterSidebarItems([read, unread], 'almoço', 'all').map((i) => i.title)).toEqual(['Bruno']);
   });
 
   it('a conversa com erro continua à vista mesmo sem casar com a busca', () => {
-    expect(filterConversations([read, broken], 'zzzz', 'all').map((i) => i.title)).toEqual(['Carla']);
+    expect(filterSidebarItems([read, broken], 'zzzz', 'all').map((i) => i.title)).toEqual(['Carla']);
   });
 });
 

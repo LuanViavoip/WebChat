@@ -6,6 +6,9 @@ import '@fontsource/space-grotesk/latin-700.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { readDebugFlags, wrapTransportForDebug } from './debug';
+import { createClockFromSearch } from './devParams';
+import { createShellSlots } from './shell/registry';
 import { MockBackend } from './transport/mock/MockBackend';
 import { LocalStorageMockStore } from './transport/mock/MockStore';
 import { MockTransport } from './transport/mock/MockTransport';
@@ -30,10 +33,12 @@ const store = new LocalStorageMockStore();
 if (params.get('reset') === '1') {
   store.clear();
 }
-const backend = new MockBackend({ store, tabSync: createTabSync() });
+const now = createClockFromSearch(window.location.search);
+const backend = new MockBackend({ store, tabSync: createTabSync(), now });
 
-const transport = new MockTransport({
+const rawTransport = new MockTransport({
   backend,
+  now,
   // Há humanos nas duas pontas: quem entrega e lê é o outro usuário (outra aba, via TabSync).
   simulateReceipts: false,
   failConnect,
@@ -49,12 +54,16 @@ const transport = new MockTransport({
 if (holdConnect) {
   const hooks = window as Window & { __releaseConnect?: () => void };
   hooks.__releaseConnect = () => {
-    transport.releaseConnect();
+    rawTransport.releaseConnect();
   };
 }
 
+const debugFlags = readDebugFlags(window.location.search, window.sessionStorage, window.localStorage);
+const transport = wrapTransportForDebug(rawTransport, debugFlags);
+const slots = createShellSlots();
+
 createRoot(root).render(
   <StrictMode>
-    <App transport={transport} />
+    <App transport={transport} slots={slots} />
   </StrictMode>,
 );

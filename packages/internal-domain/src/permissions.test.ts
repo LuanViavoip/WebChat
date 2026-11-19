@@ -1,6 +1,8 @@
 import { iid, makeDirectory, makeUser, seedDirectory, T1, T2, user } from './testing/domainFixtures';
+import type { Announcement } from './announcement';
 import { CAPABILITIES, type Capability } from './capabilities';
 import { directConversation, type Conversation, type GroupConversation, asConversationId } from './conversation';
+import { asAnnouncementId, asIsoInstant, asRevisionNo } from './ids';
 import type { Directory, StaffUser, UserId } from './identity';
 import { can, type Action } from './permissions';
 
@@ -75,6 +77,14 @@ describe('can: uma linha por Action (ok + variante cross-tenant)', () => {
       'conversation.send em grupo com membro de outro tenant',
       ag1,
       { type: 'conversation.send', conversation: group([ag1, agB]) },
+      d,
+      'cross-tenant',
+    ],
+    ['message.pin em direta (participante)', ag1, { type: 'message.pin', conversation: dm(ag1, ag2) }, d, 'ok'],
+    [
+      'message.pin em direta de outro tenant',
+      ag1,
+      { type: 'message.pin', conversation: dm(agB, supB) },
       d,
       'cross-tenant',
     ],
@@ -232,5 +242,96 @@ describe('can: casos obrigatórios', () => {
     expect(verdict(proto, { type: 'admin.console' })).toBe('unknown-actor');
     expect(verdict(ctor, { type: 'admin.console' })).toBe('unknown-actor');
     expect(verdict(ag1, { type: 'direct.open', with: ctor })).toBe('cross-tenant');
+  });
+});
+
+describe('message.pin (D-V1-11)', () => {
+  it('em direta, qualquer um dos dois participantes fixa', () => {
+    const direct = dm(ag1, ag2);
+    expect(verdict(ag1, { type: 'message.pin', conversation: direct })).toBe('ok');
+    expect(verdict(ag2, { type: 'message.pin', conversation: direct })).toBe('ok');
+    expect(verdict(ag3, { type: 'message.pin', conversation: direct })).toBe('not-participant');
+    expect(verdict(admin, { type: 'message.pin', conversation: direct })).toBe('not-participant');
+  });
+
+  it('em grupo, só quem gerencia (dono custom ou admin)', () => {
+    const custom = group([sup1, ag1]);
+    const automatico: GroupConversation = { ...custom, origin: { kind: 'ilha', ilhaId: iid('ilha-1') } };
+    expect(verdict(ag1, { type: 'message.pin', conversation: custom })).toBe('no-capability');
+    expect(verdict(sup1, { type: 'message.pin', conversation: custom })).toBe('ok');
+    expect(verdict(sup2, { type: 'message.pin', conversation: custom })).toBe('not-owner');
+    expect(verdict(admin, { type: 'message.pin', conversation: custom })).toBe('ok');
+    expect(verdict(sup1, { type: 'message.pin', conversation: automatico })).toBe('not-owner');
+    expect(verdict(admin, { type: 'message.pin', conversation: automatico })).toBe('ok');
+  });
+});
+
+describe('permissões de avisos', () => {
+  const now = asIsoInstant('2026-11-19T12:00:00.000Z');
+  const past = asIsoInstant('2026-11-19T11:00:00.000Z');
+  const future = asIsoInstant('2026-11-19T14:00:00.000Z');
+  const rev = asRevisionNo(1);
+  const gSup1 = group([sup1, ag1]);
+  const gSup2 = group([sup2, ag3]);
+  const announcement: Announcement = {
+    id: asAnnouncementId('av-1'),
+    tenantId: T1,
+    authorId: sup1.id,
+    audience: { kind: 'people', userIds: [ag1.id, ag2.id] },
+    audienceUserIds: [ag1.id, ag2.id],
+    delivery: { kind: 'board' },
+    requiresAck: true,
+    pinned: false,
+    publishedAt: past,
+    expiresAt: future,
+    revisions: [
+      {
+        no: rev,
+        content: { title: 'Aviso', body: 'Corpo', media: { kind: 'none' } },
+        editedAt: past,
+        editedBy: sup1.id,
+        material: true,
+      },
+    ],
+  };
+
+  it('valida announcement.publish em todos os tipos de público', () => {
+    expect(verdict(ag1, { type: 'announcement.publish' })).toBe('no-capability');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'all' } })).toBe('ok');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'ilhas', ilhaIds: [iid('ilha-1')] } })).toBe('ok');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'ilhas', ilhaIds: [iid('ilha-2')] } })).toBe('outside-islands');
+    expect(verdict(admin, { type: 'announcement.publish', audience: { kind: 'ilhas', ilhaIds: [iid('ilha-2')] } })).toBe('ok');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'groups', groupIds: [gSup1.id] }, groups: [gSup1] })).toBe('ok');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'groups', groupIds: [gSup2.id] }, groups: [gSup2] })).toBe('not-participant');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'people', userIds: [ag1.id, ag2.id] } })).toBe('ok');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'people', userIds: [agB.id] } })).toBe('cross-tenant');
+  });
+
+  it('recusa publicar para pessoas inativas ou sem chat.use', () => {
+    const inativo = makeUser('agent', 'inativo', { active: false });
+    const mudo = makeUser('agent', 'mudo', { grants: [] });
+    const dir = makeDirectory(T1, [...Object.values(d.users), inativo, mudo], Object.values(d.ilhas));
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'people', userIds: [inativo.id] } }, dir)).toBe('target-inactive');
+    expect(verdict(sup1, { type: 'announcement.publish', audience: { kind: 'people', userIds: [mudo.id] } }, dir)).toBe('target-no-chat-use');
+  });
+
+  it('valida edit, read, receipts, remind e forward', () => {
+    expect(verdict(sup1, { type: 'announcement.edit', announcement })).toBe('ok');
+    expect(verdict(sup2, { type: 'announcement.edit', announcement })).toBe('not-author');
+    expect(verdict(admin, { type: 'announcement.edit', announcement })).toBe('ok');
+
+    expect(verdict(ag1, { type: 'announcement.read', announcement, now })).toBe('ok');
+    expect(verdict(ag3, { type: 'announcement.read', announcement, now })).toBe('not-in-audience');
+    const expired = { ...announcement, expiresAt: past };
+    expect(verdict(ag1, { type: 'announcement.read', announcement: expired, now })).toBe('expired');
+    expect(verdict(sup1, { type: 'announcement.read', announcement: expired, now })).toBe('ok');
+
+    expect(verdict(sup1, { type: 'announcement.receipts', announcement })).toBe('ok');
+    expect(verdict(sup2, { type: 'announcement.receipts', announcement })).toBe('not-author');
+    expect(verdict(admin, { type: 'announcement.remind', announcement })).toBe('ok');
+
+    expect(verdict(ag1, { type: 'announcement.forward', announcement, target: dm(ag1, ag2), now })).toBe('ok');
+    expect(verdict(ag1, { type: 'announcement.forward', announcement, target: dm(ag1, ag3), now })).toBe('audience-not-covering');
+    expect(verdict(ag1, { type: 'announcement.forward', announcement, target: dm(agB, supB), now })).toBe('cross-tenant');
   });
 });

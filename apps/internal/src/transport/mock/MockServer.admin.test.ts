@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { CAPABILITIES, ROLE_DEFAULT, type Capability } from '@viavoip/internal-domain';
 import type { IlhaId, UserId } from '@viavoip/internal-domain';
 import { ForbiddenError } from '../errors';
@@ -400,7 +401,7 @@ describe('MockServer: operações forjadas (ForbiddenError, sem log, sem evento,
     expectForged(server, () => server.registerAgent(CARLA, { name: 'X', ilhaIds: [ICS_ILHAS.norte]}));
     expectForged(server, () => server.deactivateUser(CARLA, { userId: ICS_USERS.ana }));
     expectForged(server, () => server.addAgentToIlha(CARLA, { userId: ICS_USERS.ana, ilhaId: ICS_ILHAS.sul }));
-    expectForged(server, () => server.send(CARLA, { conversationId: 'x' as never, clientId: 'c', payload: { type: 'text', text: 'oi' } }));
+    expectForged(server, () => server.send(CARLA, { conversationId: 'x' as never, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }));
     expectForged(server, () => server.openDirect(CARLA, { with: ICS_USERS.ana }));
     expect(server.grantLog(CARLA).ok).toBe(false);
     expect(server.bootstrap(CARLA).ok).toBe(false);

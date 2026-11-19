@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
 import type { ChatEvent, ConnectRequest } from '../ChatTransport';
 import { MockBackend } from './MockBackend';
@@ -38,7 +39,7 @@ describe('MockBackend entre abas', () => {
     carlaEvents.length = 0;
     brunoEvents.length = 0;
 
-    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c-1', payload: { type: 'text', text: 'oi da aba 1' } });
+    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c-1'), payload: { type: 'text', text: 'oi da aba 1' } });
 
     const received = brunoEvents.find((event) => event.type === 'message');
     expect(received?.type === 'message' && received.message).toMatchObject({ text: 'oi da aba 1', status: 'sent' });
@@ -56,7 +57,7 @@ describe('MockBackend entre abas', () => {
     const brunoEvents = collect(bruno);
     await carla.connect(DEFAULT_SESSION);
     await bruno.connect(BRUNO);
-    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c-1', payload: { type: 'text', text: 'oi' } });
+    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c-1'), payload: { type: 'text', text: 'oi' } });
     const echo = brunoEvents.find((event) => event.type === 'message');
     if (echo?.type !== 'message') {
       throw new Error('esperava a mensagem na aba 2');
@@ -71,7 +72,7 @@ describe('MockBackend entre abas', () => {
     const { store, tab1 } = twoTabs();
     const carla = new MockTransport({ delays: instant, backend: tab1, simulateReceipts: false });
     await carla.connect(DEFAULT_SESSION);
-    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c-1', payload: { type: 'text', text: 'persistida' } });
+    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c-1'), payload: { type: 'text', text: 'persistida' } });
     const tab3 = new MockBackend({ store, tabSync: createTabSync(new FakeBus().factory) });
     const bruno = new MockTransport({ delays: instant, backend: tab3, simulateReceipts: false });
     const bootstrap = await bruno.connect(BRUNO);
@@ -100,7 +101,7 @@ describe('MockBackend entre abas', () => {
     await carla.connect(DEFAULT_SESSION);
     await paula.connect({ tenantId: 'bv' as typeof ICS_TENANT_ID, userId: 'bv-paula' as typeof ICS_USERS.carla });
     paulaEvents.length = 0;
-    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c-1', payload: { type: 'text', text: 'oi' } });
+    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c-1'), payload: { type: 'text', text: 'oi' } });
     expect(paulaEvents).toEqual([]);
   });
 
@@ -134,7 +135,7 @@ describe('MockBackend: entrada não confiável pelo canal', () => {
   };
   const real = (type: string, extra: Record<string, unknown> = {}) => ({
     to: ICS_USERS.bruno,
-    event: { type, tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, isTyping: true, ...extra },
+    event: { type, tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, activity: 'typing', ...extra },
   });
   const post = (raw: { postMessage(m: unknown): void }, ...deliveries: unknown[]) => {
     raw.postMessage({ kind: 'deliveries', deliveries });
@@ -142,7 +143,7 @@ describe('MockBackend: entrada não confiável pelo canal', () => {
 
   it('entrega o que é coerente (controle)', async () => {
     const { events, raw } = await brunoOnline();
-    post(raw, real('typing'));
+    post(raw, real('activity'));
     expect(events).toHaveLength(1);
   });
 
@@ -152,15 +153,15 @@ describe('MockBackend: entrada não confiável pelo canal', () => {
     post(
       raw,
       // tenant inexistente
-      real('typing', { tenantId: 'fantasma' }),
+      real('activity', { tenantId: 'fantasma' }),
       // destinatário que não existe no tenant do evento
-      { to: 'bv-paula', event: { type: 'typing', tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, isTyping: true } },
+      { to: 'bv-paula', event: { type: 'activity', tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, activity: 'typing' } },
       // conversa de outro tenant
-      real('typing', { conversationId: bvConv }),
+      real('activity', { conversationId: bvConv }),
       // conversa inexistente
-      real('typing', { conversationId: 'dm:ics:nada' }),
+      real('activity', { conversationId: 'dm:ics:nada' }),
       // destinatário não participa da conversa
-      { to: ICS_USERS.ana, event: real('typing').event },
+      { to: ICS_USERS.ana, event: real('activity').event },
       // mensagem com tenantId incoerente com o evento
       real('message', { message: { id: 'x', tenantId: 'bv', conversationId: LIVE_CONVERSATION_ID, authorId: ICS_USERS.carla } }),
       // mensagem que o servidor não conhece
@@ -191,9 +192,9 @@ describe('MockBackend: falha de gravação', () => {
     const carla = new MockTransport({ delays: instant, backend });
     await carla.connect(DEFAULT_SESSION);
     fail = true;
-    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c-1', payload: { type: 'text', text: 'só na memória' } });
+    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c-1'), payload: { type: 'text', text: 'só na memória' } });
     fail = false;
-    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c-2', payload: { type: 'text', text: 'segue em memória' } });
+    await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c-2'), payload: { type: 'text', text: 'segue em memória' } });
     const texts = backend.server
       .getState()
       .get(ICS_TENANT_ID)

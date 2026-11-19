@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { ChatSession } from '../../chat/ChatSession';
 import { createFakeObjectUrls } from '../../test/fakeObjectUrls';
 import { SessionAbortedError } from '../abort';
@@ -11,7 +12,7 @@ const ME = DEFAULT_SESSION;
 const OTHER: ConnectRequest = { tenantId: DEFAULT_SESSION.tenantId, userId: ICS_USERS.ana };
 const file = () => new File(['x'], 'x.png', { type: 'image/png' });
 const request = () => ({
-  conversationId: LIVE_CONVERSATION_ID,
+  target: { kind: 'conversation' as const, conversationId: LIVE_CONVERSATION_ID },
   clientId: 'up',
   file: file(),
   fileName: 'x.png',
@@ -70,7 +71,7 @@ describe('isolamento de operações entre sessões', () => {
       if (event.type === 'message' && event.message.clientId) events.push(event.message.clientId);
     });
     const first = transport.connect(ME).catch(() => {});
-    const send = transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'old', payload: { type: 'text', text: 'oi' } });
+    const send = transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('old'), payload: { type: 'text', text: 'oi' } });
     const upload = transport.upload(request());
     const rejectedSend = expect(send).rejects.toBeInstanceOf(SessionAbortedError);
     const rejectedUpload = expect(upload).rejects.toBeInstanceOf(SessionAbortedError);
@@ -110,7 +111,7 @@ describe('isolamento de operações entre sessões', () => {
       if (event.type === 'status' && event.clientId === 'old') statuses.push(event.status);
     });
     await transport.connect(ME);
-    await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'old', payload: { type: 'text', text: '1' } });
+    await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('old'), payload: { type: 'text', text: '1' } });
     await switched;
     await new Promise((resolve) => setTimeout(resolve, 140));
     expect(statuses).toEqual([]);

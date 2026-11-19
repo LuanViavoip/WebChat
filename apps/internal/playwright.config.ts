@@ -19,19 +19,35 @@ export default defineConfig({
   projects: [
     {
       name: '1366',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1366, height: 768 },
+        launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
+      },
     },
     {
       name: '1920',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1920, height: 1080 },
+        launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
+      },
     },
     {
       name: '2560',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 2560, height: 1440 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 2560, height: 1440 },
+        launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
+      },
     },
     {
       name: '390',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
+      },
     },
   ],
 });
