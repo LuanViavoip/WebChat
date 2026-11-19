@@ -80,6 +80,8 @@ export function messageFromPayload(
 
 export function payloadFromMessage(message: ChatMessage): OutboundPayload {
   switch (message.type) {
+    case 'system':
+      throw new Error('Mensagem de sistema não pode ser enviada.');
     case 'text':
       return { type: 'text', text: message.text };
     case 'image': {

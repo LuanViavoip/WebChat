@@ -832,12 +832,9 @@ export class ChatSession {
     if (!current) {
       return false;
     }
-    const merged: ChatMessage = {
-      ...current,
-      ...next,
-      id: incoming.id,
-      status: mergeStatus(current.status, next.status),
-    };
+    const merged: ChatMessage = next.type === 'system' || current.type === 'system'
+      ? { ...next, id: incoming.id, status: mergeStatus(current.status, next.status) }
+      : { ...current, ...next, id: incoming.id, status: mergeStatus(current.status, next.status) };
     if (current.clientId) {
       merged.clientId = current.clientId;
     } else if (incoming.clientId) {

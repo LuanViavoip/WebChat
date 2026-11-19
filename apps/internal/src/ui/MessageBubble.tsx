@@ -22,6 +22,9 @@ export function MessageBubble({
   onOpenImage?: (image: OpenImage, opener: HTMLElement) => void;
   onCancelUpload?: (id: string) => void;
 }) {
+  if (message.type === 'system') {
+    return <p className="system-message" role="status">{message.text}</p>;
+  }
   const body = renderBody(message, { upload, onOpenImage, onCancelUpload, onRetry });
   const showGenericRetry = outgoing && message.status === 'error' && onRetry && !upload;
   return (
@@ -59,6 +62,7 @@ function renderBody(
     onRetry?: (id: string) => void;
   },
 ) {
+  if (message.type === 'system') return <p className="bubble-text">{message.text}</p>;
   if (isTextMessage(message)) {
     return <p className="bubble-text">{message.text}</p>;
   }

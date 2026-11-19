@@ -321,7 +321,7 @@ export class MockServer {
     const deliveries: Delivery[] = [];
     for (let index = 0; index <= upTo; index += 1) {
       const item = list[index];
-      if (!item || item.authorId === actor.id || item.status === 'read') {
+      if (!item || item.type === 'system' || item.authorId === actor.id || item.status === 'read') {
         continue;
       }
       this.setStatus(list, item.id, 'read');
@@ -605,7 +605,7 @@ export class MockServer {
       }
       const list = this.messagesOf(ts, conversation.id);
       for (const item of [...list]) {
-        if (item.status === 'sent' && item.authorId !== actor.id) {
+        if (item.type !== 'system' && item.status === 'sent' && item.authorId !== actor.id) {
           this.setStatus(list, item.id, 'delivered');
           deliveries.push(statusDelivery(ts.tenant.id, item.authorId, item, 'delivered'));
         }
