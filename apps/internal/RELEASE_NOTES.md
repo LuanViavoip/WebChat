@@ -1,8 +1,8 @@
 # Chat Interno ViaVoip — Release Notes & Controle de Versão de Compilação
 
-> **Versão Atual de Compilação:** `1.0.1`  
+> **Versão Atual de Compilação:** `1.0.2`  
 > **Série Base Atual:** `1.0`  
-> **Última Atualização:** `18/11/2026`
+> **Última Atualização:** `19/11/2026`
 
 ---
 
@@ -12,7 +12,13 @@ Formato `<MAJOR>.<MINOR>.<BUILD>` sem zeros à esquerda. A cada pedido, BUILD +1
 
 ---
 
-## 📦 Histórico de Alterações — Série `1.0` (`1.0.1` a `1.0.1`)
+## 📦 Histórico de Alterações — Série `1.0` (`1.0.1` a `1.0.2`)
+
+### Build `1.0.2` — *19/11/2026*
+**Grupos de conversa no modelo de ilhas N:N**
+- Supervisor e admin criam e editam grupos; o agente vê os grupos no topo da lista (packages/internal-domain/src/group.ts, transport/mock)
+- Grupos de ilha atualizam os membros sozinhos quando alguém entra ou sai da ilha
+- Quem sai do grupo mantém o histórico só para leitura
 
 ### Build `1.0.1` — *18/11/2026*
 **Sistema de versionamento incremental e release notes do Chat Interno**
