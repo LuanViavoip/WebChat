@@ -59,7 +59,7 @@ import type {
   RenameIlhaRequest,
   SendRequest,
   SetGrantRequest,
-  TypingRequest,
+  ActivityRequest,
   UserRequest,
 } from '../ChatTransport';
 import { ACCOUNT_DEACTIVATED, ForbiddenError } from '../errors';
@@ -463,7 +463,8 @@ export class MockServer {
     );
   }
 
-  setTyping(session: Session, request: TypingRequest): Outcome<void> {
+  setActivity(session: Session, request: ActivityRequest): Outcome<void> {
+    if (!['idle', 'typing', 'recording-audio'].includes(request.activity)) return fail();
     const resolved = this.resolve(session);
     if (!resolved.ok) {
       return fail();
@@ -484,11 +485,11 @@ export class MockServer {
         .map((to) => ({
           to,
           event: {
-            type: 'typing',
+            type: 'activity',
             tenantId: ts.tenant.id,
             conversationId: conversation.id,
             userId: actor.id,
-            isTyping: request.isTyping,
+            activity: request.activity,
           },
         })),
     );

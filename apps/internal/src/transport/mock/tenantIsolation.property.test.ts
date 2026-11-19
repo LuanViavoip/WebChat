@@ -278,7 +278,7 @@ function checkDeliveries(world: World, deliveries: readonly Delivery[]): void {
         conversationId = event.conversation.id;
         break;
       case 'status':
-      case 'typing':
+      case 'activity':
       case 'read':
         conversationId = event.conversationId;
         break;
@@ -400,7 +400,7 @@ function checkStaleSessions(world: World, stats: Stats): void {
       outcomes.push(
         server.send(session, { conversationId, clientId: asClientId('stale'), payload: { type: 'text', text: 'fantasma' } }),
         server.markRead(session, { conversationId, upToMessageId: firstMessage }),
-        server.setTyping(session, { conversationId, isTyping: true }),
+        server.setActivity(session, { conversationId, activity: 'typing' }),
       );
       expect(server.authorize(session, conversationId).ok).toBe(false);
     }
@@ -508,7 +508,7 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       }
       const userId = world.actor(op.who, conversation.tenantId, op.mode);
       cross = world.tenant(userId) !== conversation.tenantId;
-      const outcome = server.setTyping(world.session(userId), { conversationId: conversation.id, isTyping: true });
+      const outcome = server.setActivity(world.session(userId), { conversationId: conversation.id, activity: 'typing' });
       deliveries = outcome.deliveries;
       accepted = outcome.result.ok;
       break;

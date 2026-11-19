@@ -79,9 +79,8 @@ function HeaderTitle({ level, children }: { level: 'h1' | 'h2'; children: string
 }
 
 function headerSubtitle(connection: TransportStatus, typing: TypingState): string {
-  if (typing.isTyping) {
-    return 'digitando…';
-  }
+  if (typing.activity === 'typing') return 'digitando…';
+  if (typing.activity === 'recording-audio') return 'gravando áudio…';
   switch (connection) {
     case 'connected':
       return 'online';

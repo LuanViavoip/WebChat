@@ -120,7 +120,7 @@ export function ChatPanel({
     return liveActivity({
       error: ownError ? full.error : null,
       connection: isSelected ? full.connection : 'connected',
-      typing: thread?.typing ?? { isTyping: false },
+      typing: thread?.typing ?? { activity: 'idle' },
       messages: thread?.messages ?? [],
       hadConnected: hadConnected.current,
       failedUpload: Object.values(thread?.uploads ?? {}).some((upload) => upload.phase === 'failed'),
@@ -388,7 +388,7 @@ export function ChatPanel({
     restoreViewerFocus(viewerOpener.current);
   }, [openImage, restoreViewerFocus]);
 
-  const emptyThread = messages.length === 0 && !typing.isTyping;
+  const emptyThread = messages.length === 0 && typing.activity === 'idle';
   const other = selectedThread && me && directory ? otherParticipant(selectedThread.conversation, me, directory) : undefined;
   const title = selectedThread && me && directory ? conversationTitle(selectedThread.conversation, me, directory) : '';
   const note = connectionNote(full.connection, hadConnected.current);

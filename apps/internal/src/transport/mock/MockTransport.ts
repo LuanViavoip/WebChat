@@ -26,7 +26,7 @@ import type {
   SendRequest,
   SetGrantRequest,
   TransportStatus,
-  TypingRequest,
+  ActivityRequest,
   UploadedMedia,
   UploadRequest,
   UserRequest,
@@ -302,12 +302,12 @@ export class MockTransport implements ChatTransport {
     });
   }
 
-  setTyping(request: TypingRequest): void {
+  setActivity(request: ActivityRequest): void {
     if (this.status !== 'connected' || !this.identity) {
       return;
     }
     const session = this.requireSession();
-    this.backend.run((server) => server.setTyping(session, request));
+    this.backend.run((server) => server.setActivity(session, request));
   }
 
   /** Mesma regra de antes: desconectado rejeita; em connecting espera o readyGate da conexão corrente. */

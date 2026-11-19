@@ -14,6 +14,7 @@ import type {
   ChatTransport,
   ConnectRequest,
   CreateGroupRequest,
+  ComposeActivity,
   UpdateGroupRequest,
   OutboundPayload,
   SessionEndReason,
@@ -34,7 +35,7 @@ import { mergeStatus } from './statusRank';
 import { beginUpload, nextUpload, type UploadEntry, type UploadView } from './uploads';
 
 export type TypingState = {
-  isTyping: boolean;
+  activity: ComposeActivity;
   actorName: string;
 };
 
@@ -110,7 +111,7 @@ export type ChatSessionOptions = {
   objectUrls?: ObjectUrlFactory;
 };
 
-const IDLE_TYPING: TypingState = { isTyping: false, actorName: '' };
+const IDLE_TYPING: TypingState = { activity: 'idle', actorName: '' };
 
 type Thread = {
   readOnly: boolean;
@@ -369,11 +370,11 @@ export class ChatSession {
     return result;
   }
 
-  setTyping(conversationId: ConversationId, isTyping: boolean): void {
+  setActivity(conversationId: ConversationId, activity: ComposeActivity): void {
     if (!this.threads.has(conversationId)) {
       return;
     }
-    this.transport.setTyping({ conversationId, isTyping });
+    this.transport.setActivity({ conversationId, activity });
   }
 
   async send(conversationId: ConversationId, input: string | OutboundPayload): Promise<void> {
@@ -762,13 +763,13 @@ export class ChatSession {
         }
         break;
       }
-      case 'typing': {
+      case 'activity': {
         const thread = this.threads.get(event.conversationId);
         if (!thread || event.userId === myId) {
           return;
         }
-        thread.typing = event.isTyping
-          ? { isTyping: true, actorName: this.directory?.users[event.userId]?.name ?? '' }
+        thread.typing = event.activity !== 'idle'
+          ? { activity: event.activity, actorName: this.directory?.users[event.userId]?.name ?? '' }
           : IDLE_TYPING;
         break;
       }

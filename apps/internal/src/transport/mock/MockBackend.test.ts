@@ -135,7 +135,7 @@ describe('MockBackend: entrada não confiável pelo canal', () => {
   };
   const real = (type: string, extra: Record<string, unknown> = {}) => ({
     to: ICS_USERS.bruno,
-    event: { type, tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, isTyping: true, ...extra },
+    event: { type, tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, activity: 'typing', ...extra },
   });
   const post = (raw: { postMessage(m: unknown): void }, ...deliveries: unknown[]) => {
     raw.postMessage({ kind: 'deliveries', deliveries });
@@ -143,7 +143,7 @@ describe('MockBackend: entrada não confiável pelo canal', () => {
 
   it('entrega o que é coerente (controle)', async () => {
     const { events, raw } = await brunoOnline();
-    post(raw, real('typing'));
+    post(raw, real('activity'));
     expect(events).toHaveLength(1);
   });
 
@@ -153,15 +153,15 @@ describe('MockBackend: entrada não confiável pelo canal', () => {
     post(
       raw,
       // tenant inexistente
-      real('typing', { tenantId: 'fantasma' }),
+      real('activity', { tenantId: 'fantasma' }),
       // destinatário que não existe no tenant do evento
-      { to: 'bv-paula', event: { type: 'typing', tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, isTyping: true } },
+      { to: 'bv-paula', event: { type: 'activity', tenantId: ICS_TENANT_ID, conversationId: LIVE_CONVERSATION_ID, userId: ICS_USERS.carla, activity: 'typing' } },
       // conversa de outro tenant
-      real('typing', { conversationId: bvConv }),
+      real('activity', { conversationId: bvConv }),
       // conversa inexistente
-      real('typing', { conversationId: 'dm:ics:nada' }),
+      real('activity', { conversationId: 'dm:ics:nada' }),
       // destinatário não participa da conversa
-      { to: ICS_USERS.ana, event: real('typing').event },
+      { to: ICS_USERS.ana, event: real('activity').event },
       // mensagem com tenantId incoerente com o evento
       real('message', { message: { id: 'x', tenantId: 'bv', conversationId: LIVE_CONVERSATION_ID, authorId: ICS_USERS.carla } }),
       // mensagem que o servidor não conhece

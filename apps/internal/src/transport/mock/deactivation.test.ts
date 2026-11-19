@@ -127,7 +127,7 @@ describe('usuário desativado', () => {
     for (const outcome of [
       server.send(stale, { conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }),
       server.openDirect(stale, { with: ICS_USERS.ana }),
-      server.setTyping(stale, { conversationId: LIVE_CONVERSATION_ID, isTyping: true }),
+      server.setActivity(stale, { conversationId: LIVE_CONVERSATION_ID, activity: 'typing' }),
       server.deliverPending(stale),
       server.setGrant(stale, { userId: ICS_USERS.ana, capability: 'chat.use', granted: false }),
     ]) {

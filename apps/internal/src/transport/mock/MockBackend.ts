@@ -266,11 +266,11 @@ export class MockBackend {
         conversationId = event.conversationId;
         break;
       }
-      case 'typing': {
+      case 'activity': {
         if (typeof event.conversationId !== 'string' || typeof event.userId !== 'string') return false;
         const conversation = own(ts.conversations, event.conversationId);
         if (!conversation || !participantsOf(conversation).includes(event.userId) ||
-            event.userId === to || typeof event.isTyping !== 'boolean' || !own(ts.directory.users, event.userId)?.active) {
+            event.userId === to || !['idle', 'typing', 'recording-audio'].includes(event.activity) || !own(ts.directory.users, event.userId)?.active) {
           return false;
         }
         conversationId = event.conversationId;
@@ -363,7 +363,7 @@ export class MockBackend {
             ? [{ to: delivery.to, event: { type: 'grantLog', tenantId: tenant.tenant.id, entries: visibleGrantLog(tenant.directory, reader, tenant.grantLog) } }]
             : [];
         }
-        case 'typing':
+        case 'activity':
           return [delivery];
         case 'session-ended':
           return [];

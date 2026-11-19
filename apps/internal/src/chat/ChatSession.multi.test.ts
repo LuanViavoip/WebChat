@@ -83,6 +83,14 @@ describe('ChatSession multi-conversa: Bootstrap e seleção', () => {
     expect(state.activeConversationId).toBeNull();
   });
 
+  it('preserva atividade de gravação e a encerra com idle', async () => {
+    const { transport, session } = await scripted();
+    transport.emit({ type: 'activity', userId: ICS_USERS.camila, activity: 'recording-audio', conversationId: C2 });
+    expect(thread(session, C2).typing).toEqual({ activity: 'recording-audio', actorName: 'Camila Ribeiro' });
+    transport.emit({ type: 'activity', userId: ICS_USERS.camila, activity: 'idle', conversationId: C2 });
+    expect(thread(session, C2).typing.activity).toBe('idle');
+  });
+
   it('selectConversation antes do Bootstrap fica pendente e vale depois dele', async () => {
     const transport = new ScriptedTransport();
     transport.holdConnect = true;
@@ -212,11 +220,11 @@ describe('ChatSession multi-conversa: isolamento entre conversas', () => {
 
   it('eventos de status e digitação ficam na conversa certa', async () => {
     const { transport, session } = await scripted();
-    transport.emit({ type: 'typing', userId: ICS_USERS.camila, isTyping: true, conversationId: C2 });
-    expect(thread(session, C2).typing).toEqual({ isTyping: true, actorName: 'Camila Ribeiro' });
-    expect(thread(session, C1).typing.isTyping).toBe(false);
-    session.setTyping(C1, true);
-    expect(transport.typing).toEqual([{ conversationId: C1, isTyping: true }]);
+    transport.emit({ type: 'activity', userId: ICS_USERS.camila, activity: 'typing', conversationId: C2 });
+    expect(thread(session, C2).typing).toEqual({ activity: 'typing', actorName: 'Camila Ribeiro' });
+    expect(thread(session, C1).typing.activity).toBe('idle');
+    session.setActivity(C1, 'typing');
+    expect(transport.typing).toEqual([{ conversationId: C1, activity: 'typing' }]);
   });
 });
 
@@ -225,10 +233,10 @@ describe('ChatSession multi-conversa: eventos', () => {
     const { transport, session } = await scripted();
     transport.emit({ type: 'message', tenantId: BV_TENANT_ID, message: { ...incoming('x', C1), tenantId: BV_TENANT_ID } });
     transport.emit({ type: 'message', tenantId: BV_TENANT_ID, message: incoming('y', C1) });
-    transport.emit({ type: 'typing', tenantId: BV_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, isTyping: true });
+    transport.emit({ type: 'activity', tenantId: BV_TENANT_ID, conversationId: C1, userId: ICS_USERS.bruno, activity: 'typing' });
     transport.emit({ type: 'status', tenantId: BV_TENANT_ID, conversationId: C1, messageId: 'x', status: 'read' });
     expect(thread(session, C1).messages).toHaveLength(0);
-    expect(thread(session, C1).typing.isTyping).toBe(false);
+    expect(thread(session, C1).typing.activity).toBe('idle');
     expect(thread(session, C1).unread).toBe(0);
   });
 

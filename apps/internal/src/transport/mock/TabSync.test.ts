@@ -7,7 +7,7 @@ const message: TabSyncMessage = {
   deliveries: [
     {
       to: ICS_USERS.bruno,
-      event: { type: 'typing', tenantId: ICS_TENANT_ID, conversationId: 'dm:x' as never, userId: ICS_USERS.carla, isTyping: true },
+      event: { type: 'activity', tenantId: ICS_TENANT_ID, conversationId: 'dm:x' as never, userId: ICS_USERS.carla, activity: 'typing' },
     },
   ],
 };

@@ -566,7 +566,7 @@ describe('MockTransport por conversa', () => {
     await vi.advanceTimersByTimeAsync(20);
     await transport.send({ conversationId: C2, clientId: asClientId('msg-c2'), payload: { type: 'text', text: 'outra' } });
     await transport.openDirect({ with: ICS_USERS.diego });
-    transport.setTyping({ conversationId: C2, isTyping: true });
+    transport.setActivity({ conversationId: C2, activity: 'typing' });
     await vi.advanceTimersByTimeAsync(20);
     await transport.markRead({ conversationId: C2, upToMessageId: await lastMessageId(transport) });
     await vi.runAllTimersAsync();
@@ -679,9 +679,9 @@ describe('MockTransport por conversa', () => {
     await transport.connect(ME);
     events.length = 0;
     const deliver = (transport as unknown as { receive(event: ChatEvent): void }).receive.bind(transport);
-    deliver({ type: 'typing', tenantId: BV_TENANT_ID, conversationId: C1, userId: BV_USERS.paula, isTyping: true });
+    deliver({ type: 'activity', tenantId: BV_TENANT_ID, conversationId: C1, userId: BV_USERS.paula, activity: 'typing' });
     expect(events).toEqual([]);
-    deliver({ type: 'typing', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, isTyping: true });
+    deliver({ type: 'activity', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, activity: 'typing' });
     expect(events).toHaveLength(1);
   });
 
@@ -779,9 +779,9 @@ describe('MockTransport entre dois usuários (backend compartilhado)', () => {
     await bruno.connect(brunoSession);
     carlaEvents.length = 0;
     brunoEvents.length = 0;
-    bruno.setTyping({ conversationId: C1, isTyping: true });
+    bruno.setActivity({ conversationId: C1, activity: 'typing' });
     expect(carlaEvents).toEqual([
-      { type: 'typing', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, isTyping: true },
+      { type: 'activity', tenantId: ME.tenantId, conversationId: C1, userId: ICS_USERS.bruno, activity: 'typing' },
     ]);
     expect(brunoEvents).toEqual([]);
   });

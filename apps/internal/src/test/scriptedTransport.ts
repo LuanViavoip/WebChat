@@ -23,7 +23,8 @@ import type {
   SendRequest,
   SetGrantRequest,
   TransportStatus,
-  TypingRequest,
+  ActivityRequest,
+  ComposeActivity,
   UploadedMedia,
   UploadRequest,
 } from '../transport/ChatTransport';
@@ -44,7 +45,7 @@ export type ScriptedEvent =
   | { type: 'connection'; status: TransportStatus }
   | { type: 'message'; message: ChatMessage }
   | { type: 'status'; messageId: string; clientId?: string; status: MessageStatus; conversationId?: ConversationId }
-  | { type: 'typing'; userId: UserId; isTyping: boolean; conversationId?: ConversationId };
+  | { type: 'activity'; userId: UserId; activity: ComposeActivity; conversationId?: ConversationId };
 
 type HeldSend = {
   request: SendRequest;
@@ -79,7 +80,7 @@ export class ScriptedTransport implements ChatTransport {
   /** Quem o Bootstrap devolve como `me` (padrão: o usuário da seed). Só para testes de UI de outros papéis. */
   asUser: UserId | undefined;
   readonly marked: MarkReadRequest[] = [];
-  readonly typing: TypingRequest[] = [];
+  readonly typing: ActivityRequest[] = [];
   failConnect = false;
   failSend = false;
   holdSend = false;
@@ -166,7 +167,7 @@ export class ScriptedTransport implements ChatTransport {
     return built?.ok ? Promise.resolve(built.value) : Promise.reject(new Error(`openDirect inválido: ${request.with}`));
   }
 
-  setTyping(request: TypingRequest): void {
+  setActivity(request: ActivityRequest): void {
     this.typing.push(request);
   }
 

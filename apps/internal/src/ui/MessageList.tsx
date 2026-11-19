@@ -39,7 +39,7 @@ export function MessageList({
       return;
     }
     node.scrollTop = node.scrollHeight;
-  }, [messages, typing.isTyping]);
+  }, [messages, typing.activity]);
 
   return (
     <div className="message-list" ref={scrollerRef} hidden={hidden}>
@@ -70,8 +70,8 @@ export function MessageList({
             </div>
           );
         })}
-        {typing.isTyping ? (
-          <p className="typing-indicator">{typing.actorName} está digitando…</p>
+        {typing.activity !== 'idle' ? (
+          <p className="typing-indicator">{typing.actorName} está {typing.activity === 'typing' ? 'digitando' : 'gravando áudio'}…</p>
         ) : null}
       </div>
     </div>

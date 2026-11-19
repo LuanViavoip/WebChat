@@ -21,7 +21,7 @@ const EMPTY: ChatSessionState = {
 };
 
 const NO_MESSAGES: ChatMessage[] = [];
-const IDLE: TypingState = { isTyping: false, actorName: '' };
+const IDLE: TypingState = { activity: 'idle', actorName: '' };
 const NO_UPLOADS: Readonly<Record<string, UploadView>> = {};
 
 /** A visão de UMA conversa: é o que o painel de chat consome. */

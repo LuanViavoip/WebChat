@@ -8,7 +8,7 @@ import {
 const idle: LiveActivityInput = {
   messages: [],
   connection: 'connected',
-  typing: { isTyping: false },
+  typing: { activity: 'idle' },
   error: null,
 };
 
@@ -25,7 +25,7 @@ describe('liveActivity', () => {
         ...idle,
         error: 'Falha ao conectar',
         connection: 'connecting',
-        typing: { isTyping: true },
+        typing: { activity: 'typing' },
         messages: [{ status: 'sending' }],
       }),
     ).toBe('error');
@@ -35,12 +35,12 @@ describe('liveActivity', () => {
     expect(liveActivity({ ...idle, connection: 'connecting' })).toBe('connecting');
     expect(liveActivity({ ...idle, connection: 'connecting', hadConnected: true })).toBe('reconnecting');
     expect(liveActivity({ ...idle, messages: [{ status: 'sending' }] })).toBe('sending');
-    expect(liveActivity({ ...idle, typing: { isTyping: true } })).toBe('typing');
+    expect(liveActivity({ ...idle, typing: { activity: 'typing' } })).toBe('typing');
     expect(liveActivity(idle)).toBe('idle');
   });
 
   it('marca mensagem não vista só depois dos estados transitórios', () => {
-    expect(liveActivity({ ...idle, unseen: true, typing: { isTyping: true } })).toBe('typing');
+    expect(liveActivity({ ...idle, unseen: true, typing: { activity: 'typing' } })).toBe('typing');
     expect(liveActivity({ ...idle, unseen: true })).toBe('unseen');
   });
 });

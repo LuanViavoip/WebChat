@@ -1,10 +1,12 @@
 import type { MessageStatus } from '@viavoip/internal-domain';
 import type { TransportStatus } from '../transport/ChatTransport';
+import type { ComposeActivity } from '../transport/ChatTransport';
 
 export type LiveActivity =
   | 'idle'
   | 'sending'
   | 'typing'
+  | 'recording-audio'
   | 'connecting'
   | 'reconnecting'
   | 'error'
@@ -13,7 +15,7 @@ export type LiveActivity =
 export type LiveActivityInput = {
   error: string | null;
   connection: TransportStatus;
-  typing: { isTyping: boolean };
+  typing: { activity: ComposeActivity };
   messages: ReadonlyArray<{ status: MessageStatus }>;
   unseen?: boolean;
   hadConnected?: boolean;
@@ -27,8 +29,8 @@ export function liveActivity(state: LiveActivityInput): LiveActivity {
   if (state.connection === 'connecting') {
     return state.hadConnected ? 'reconnecting' : 'connecting';
   }
-  if (state.typing.isTyping) {
-    return 'typing';
+  if (state.typing.activity !== 'idle') {
+    return state.typing.activity;
   }
   if (state.messages.some((message) => message.status === 'sending')) {
     return 'sending';
@@ -51,6 +53,8 @@ export function liveActivityLabel(activity: LiveActivity): string {
       return 'Enviando…';
     case 'typing':
       return 'Digitando…';
+    case 'recording-audio':
+      return 'Gravando áudio…';
     case 'unseen':
       return 'Nova mensagem';
     case 'idle':
@@ -74,6 +78,7 @@ export function liveActivityAnnouncement(activity: LiveActivity, viewingLive: bo
     case 'idle':
     case 'sending':
     case 'typing':
+    case 'recording-audio':
     case 'connecting':
       return '';
     default: {

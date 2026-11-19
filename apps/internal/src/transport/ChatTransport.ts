@@ -47,7 +47,8 @@ export type CreateGroupRequest = { readonly clientId: string; readonly title: st
 export type UpdateGroupRequest = { readonly conversationId: ConversationId; readonly title?: string; readonly add?: readonly UserId[]; readonly remove?: readonly UserId[] };
 export type LeaveGroupRequest = { readonly conversationId: ConversationId };
 export type OpenDirectRequest = { with: UserId };
-export type TypingRequest = { conversationId: ConversationId; isTyping: boolean };
+export type ComposeActivity = 'idle' | 'typing' | 'recording-audio';
+export type ActivityRequest = { conversationId: ConversationId; activity: ComposeActivity };
 
 /** O tenant e o usuário que pedem a sessão. O servidor valida ambos contra a partição do tenant. */
 export type ConnectRequest = { readonly tenantId: TenantId; readonly userId: UserId };
@@ -97,7 +98,7 @@ export type ChatEvent =
       clientId?: string;
       status: MessageStatus;
     })
-  | (Scoped & { type: 'typing'; conversationId: ConversationId; userId: UserId; isTyping: boolean })
+  | (Scoped & { type: 'activity'; conversationId: ConversationId; userId: UserId; activity: ComposeActivity })
   | (Scoped & { type: 'read'; conversationId: ConversationId; userId: UserId; upToMessageId: string })
   | (Scoped & { type: 'conversation'; conversation: Conversation })
   | (Scoped & { type: 'conversation-removed'; conversationId: ConversationId })
@@ -121,7 +122,7 @@ export interface ChatTransport {
   createGroup(request: CreateGroupRequest): Promise<GroupConversation>;
   updateGroup(request: UpdateGroupRequest): Promise<GroupConversation>;
   leaveGroup(request: LeaveGroupRequest): Promise<GroupConversation>;
-  setTyping(request: TypingRequest): void;
+  setActivity(request: ActivityRequest): void;
   subscribe(handler: ChatEventHandler): () => void;
   getStatus(): TransportStatus;
   /**
