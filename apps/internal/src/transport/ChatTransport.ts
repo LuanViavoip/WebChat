@@ -10,6 +10,7 @@ import type { GrantLogEntry } from '@viavoip/internal-domain';
 import type { Directory, Ilha, IlhaId, StaffUser, UserId } from '@viavoip/internal-domain';
 import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
 import type { Tenant, TenantId } from '@viavoip/internal-domain';
+import type { ClientId } from '@viavoip/internal-domain';
 
 export type TransportStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -23,7 +24,7 @@ export type OutboundPayload =
 
 export type SendRequest = {
   conversationId: ConversationId;
-  clientId: string;
+  clientId: ClientId;
   payload: OutboundPayload;
 };
 

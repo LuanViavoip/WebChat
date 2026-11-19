@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { ChatSession, SESSION_DEACTIVATED_TEXT } from '../../chat/ChatSession';
 import { Lab, type Probe } from '../../test/adminProbe';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
@@ -108,7 +109,7 @@ describe('usuário desativado', () => {
     await marcos.transport.deactivateUser({ userId: ICS_USERS.bruno });
     const t = bruno.transport;
     const calls: Array<Promise<unknown>> = [
-      t.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c', payload: { type: 'text', text: 'oi' } }),
+      t.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }),
       t.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'm' }),
       t.openDirect({ with: ICS_USERS.ana }),
       t.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false }),
@@ -124,7 +125,7 @@ describe('usuário desativado', () => {
     const server = backend.server;
     const before = JSON.stringify(server.toPersisted());
     for (const outcome of [
-      server.send(stale, { conversationId: LIVE_CONVERSATION_ID, clientId: 'c', payload: { type: 'text', text: 'oi' } }),
+      server.send(stale, { conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }),
       server.openDirect(stale, { with: ICS_USERS.ana }),
       server.setTyping(stale, { conversationId: LIVE_CONVERSATION_ID, isTyping: true }),
       server.deliverPending(stale),
@@ -144,7 +145,7 @@ describe('usuário desativado', () => {
     const ana = await lab.join(backend, ANA);
     const bruno = await lab.join(backend, BRUNO);
     const conversation = (await bruno.transport.openDirect({ with: ICS_USERS.ana })).id;
-    await bruno.transport.send({ conversationId: conversation, clientId: 'antes', payload: { type: 'text', text: 'mensagem de antes' } });
+    await bruno.transport.send({ conversationId: conversation, clientId: asClientId('antes'), payload: { type: 'text', text: 'mensagem de antes' } });
     const countBefore = backend.server.getState().get(ICS_TENANT_ID)?.messages[conversation]?.length;
 
     await marcos.transport.deactivateUser({ userId: ICS_USERS.bruno });

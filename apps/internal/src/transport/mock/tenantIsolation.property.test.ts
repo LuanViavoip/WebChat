@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import fc from 'fast-check';
 import { CAPABILITIES, type Capability } from '@viavoip/internal-domain';
 import type { ConversationId } from '@viavoip/internal-domain';
@@ -397,7 +398,7 @@ function checkStaleSessions(world: World, stats: Stats): void {
     if (conversationId) {
       const firstMessage = ts.messages[conversationId]?.[0]?.id ?? 'nenhuma';
       outcomes.push(
-        server.send(session, { conversationId, clientId: 'stale', payload: { type: 'text', text: 'fantasma' } }),
+        server.send(session, { conversationId, clientId: asClientId('stale'), payload: { type: 'text', text: 'fantasma' } }),
         server.markRead(session, { conversationId, upToMessageId: firstMessage }),
         server.setTyping(session, { conversationId, isTyping: true }),
       );
@@ -464,7 +465,7 @@ function apply(world: World, op: Operation, stats: Stats): { deliveries: Deliver
       cross = world.tenant(userId) !== conversation.tenantId;
       const outcome = server.send(world.session(userId), {
         conversationId: conversation.id,
-        clientId: `c-${String(op.text)}-${userId}`,
+        clientId: asClientId(`c-${String(op.text)}-${userId}`),
         payload: { type: 'text', text: `texto ${String(op.text)}` },
       });
       deliveries = outcome.deliveries;

@@ -1,4 +1,5 @@
 import type { ConversationId } from './conversation';
+import type { ClientId, MessageId } from './ids';
 import type { UserId } from './identity';
 import type { TenantId } from './tenant';
 
@@ -13,10 +14,10 @@ export type MessageAuthor = {
 };
 
 type MessageBase = {
-  id: string;
+  id: MessageId;
   tenantId: TenantId;
   conversationId: ConversationId;
-  clientId?: string;
+  clientId?: ClientId;
   authorId: UserId;
   author: MessageAuthor;
   timestamp: string;

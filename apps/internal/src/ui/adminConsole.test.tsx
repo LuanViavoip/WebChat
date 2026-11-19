@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CAPABILITIES } from '@viavoip/internal-domain';
@@ -666,7 +667,7 @@ describe('O chat continua vivo por baixo do console', () => {
 
     const camila = await r.session(ICS_USERS.camila);
     const direct = await camila.openDirect({ with: ICS_USERS.carla });
-    await camila.send({ conversationId: direct.id, clientId: 'c-1', payload: { type: 'text', text: 'Oi, Carla' } });
+    await camila.send({ conversationId: direct.id, clientId: asClientId('c-1'), payload: { type: 'text', text: 'Oi, Carla' } });
     await waitFor(() => {
       expect(element('[data-live-announcer]')).toHaveTextContent('Nova mensagem');
     });

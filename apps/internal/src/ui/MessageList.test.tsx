@@ -1,3 +1,4 @@
+import { asMessageId } from '@viavoip/internal-domain';
 import { render, screen } from '@testing-library/react';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
 import { MessageList } from './MessageList';
@@ -16,7 +17,7 @@ function text(
   body: string,
 ): TextMessage {
   return {
-    id,
+    id: asMessageId(id),
     tenantId: ICS_TENANT_ID,
     conversationId: asConversationId('c'),
     authorId,

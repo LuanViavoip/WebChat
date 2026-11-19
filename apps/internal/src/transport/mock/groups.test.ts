@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { expect, it } from 'vitest';
 import type { GroupConversation } from '@viavoip/internal-domain';
 import { MockServer } from './MockServer';
@@ -18,7 +19,7 @@ it('cria grupo apenas aos membros, de forma idempotente, e conserva histórico d
   const bootstrap = server.connect(ana);
   if (!bootstrap.result.ok) throw bootstrap.result.error;
   expect(bootstrap.result.value.conversations).toContainEqual(expect.objectContaining({ id, readOnly: true }));
-  expect(server.send(ana, { conversationId: id, clientId: 'negado', payload: { type: 'text', text: 'oi' } }).result.ok).toBe(false);
+  expect(server.send(ana, { conversationId: id, clientId: asClientId('negado'), payload: { type: 'text', text: 'oi' } }).result.ok).toBe(false);
 });
 
 it('cria grupo automático ao criar ilha e sincroniza seus membros', () => {
@@ -49,9 +50,9 @@ it('não revela as mensagens enviadas durante uma ausência após o retorno', ()
   const created = server.createGroup(carla, { clientId: 'retorno', title: 'Equipe', memberIds: [ICS_USERS.carla, ICS_USERS.ana], ilhaId: null });
   if (!created.result.ok) throw created.result.error;
   const id = created.result.value.id;
-  server.send(carla, { conversationId: id, clientId: 'presente', payload: { type: 'text', text: 'durante participação' } });
+  server.send(carla, { conversationId: id, clientId: asClientId('presente'), payload: { type: 'text', text: 'durante participação' } });
   expect(server.updateGroup(carla, { conversationId: id, remove: [ICS_USERS.ana] }).result.ok).toBe(true);
-  server.send(carla, { conversationId: id, clientId: 'ausente', payload: { type: 'text', text: 'durante ausência' } });
+  server.send(carla, { conversationId: id, clientId: asClientId('ausente'), payload: { type: 'text', text: 'durante ausência' } });
   expect(server.updateGroup(carla, { conversationId: id, add: [ICS_USERS.ana] }).result.ok).toBe(true);
   const bootstrap = server.connect(ana);
   if (!bootstrap.result.ok) throw bootstrap.result.error;
@@ -90,7 +91,7 @@ it('quem entra depois não recebe mensagens anteriores à entrada', () => {
   const created = server.createGroup(carla, { clientId: 'historico', title: 'Equipe', memberIds: [ICS_USERS.carla, ICS_USERS.ana], ilhaId: null });
   if (!created.result.ok) throw created.result.error;
   const id = created.result.value.id;
-  server.send(carla, { conversationId: id, clientId: 'antes', payload: { type: 'text', text: 'anterior à entrada' } });
+  server.send(carla, { conversationId: id, clientId: asClientId('antes'), payload: { type: 'text', text: 'anterior à entrada' } });
   expect(server.updateGroup(carla, { conversationId: id, add: [ICS_USERS.camila] }).result.ok).toBe(true);
   const bootstrap = server.connect(camila);
   if (!bootstrap.result.ok) throw bootstrap.result.error;

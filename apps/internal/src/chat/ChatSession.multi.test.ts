@@ -1,3 +1,5 @@
+import { asClientId } from '@viavoip/internal-domain';
+import { asMessageId } from '@viavoip/internal-domain';
 import { validateFiles } from '@viavoip/internal-domain';
 import { asConversationId, directConversation, directConversationId, type ConversationId } from '@viavoip/internal-domain';
 import type { TextMessage } from '@viavoip/internal-domain';
@@ -25,7 +27,7 @@ const instant = { connectMs: 0, sentMs: 0, deliveredMs: 0, readMs: 0, uploadChun
 
 function incoming(id: string, conversationId: ConversationId, authorId = ICS_USERS.bruno, text = 'oi'): TextMessage {
   return {
-    id,
+    id: asMessageId(id),
     tenantId: ICS_TENANT_ID,
     conversationId,
     authorId,
@@ -542,12 +544,12 @@ describe('ChatSession multi-conversa: rejeição tardia e reenvio idempotente', 
         statuses.push(event.status);
       }
     });
-    await transport.send({ conversationId: C1, clientId: 'dup', payload: { type: 'text', text: 'x' } });
+    await transport.send({ conversationId: C1, clientId: asClientId('dup'), payload: { type: 'text', text: 'x' } });
     await vi.waitFor(() => {
       expect(statuses).toContain('sent');
     });
     statuses.length = 0;
-    await transport.send({ conversationId: C1, clientId: 'dup', payload: { type: 'text', text: 'x' } });
+    await transport.send({ conversationId: C1, clientId: asClientId('dup'), payload: { type: 'text', text: 'x' } });
     expect(statuses).toHaveLength(1);
     transport.disconnect();
   });
@@ -562,7 +564,7 @@ describe('ChatSession multi-conversa: rejeição tardia e reenvio idempotente', 
     transport.disconnect();
     await bruno.connect({ tenantId: ICS_TENANT_ID, userId: ICS_USERS.bruno });
     for (let index = 0; index < 55; index += 1) {
-      await bruno.send({ conversationId: C1, clientId: `b${String(index)}`, payload: { type: 'text', text: String(index) } });
+      await bruno.send({ conversationId: C1, clientId: asClientId(`b${String(index)}`), payload: { type: 'text', text: String(index) } });
     }
     await session.reconnect();
     await vi.waitFor(() => {

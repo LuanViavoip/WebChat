@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { Lab, type Probe } from '../../test/adminProbe';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
 import type { UserId } from '@viavoip/internal-domain';
@@ -58,12 +59,12 @@ describe('época de sessão: desativar encerra TODAS as sessões abertas, reativ
     expect(ended(victim)).toEqual([ENDED]);
     expect(victim.transport.getStatus()).toBe('disconnected');
     await rejected(victim.transport.openDirect({ with: ICS_USERS.bruno }));
-    await rejected(victim.transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c', payload: { type: 'text', text: 'oi' } }));
+    await rejected(victim.transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }));
     await rejected(victim.transport.setGrant({ userId: ICS_USERS.bruno, capability: 'chat.use', granted: false }));
     // O servidor também recusa quem ainda carrega a época antiga, mesmo com a conta ativa.
     const stale = { ...ANA, epoch: 0 };
     expect(agentTab.server.epochOf(ICS_TENANT_ID, ICS_USERS.ana)).toBe(1);
-    expect(agentTab.server.send(stale, { conversationId: LIVE_CONVERSATION_ID, clientId: 'c', payload: { type: 'text', text: 'oi' } }).result.ok).toBe(false);
+    expect(agentTab.server.send(stale, { conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } }).result.ok).toBe(false);
     expect(agentTab.server.openDirect(stale, { with: ICS_USERS.bruno }).result.ok).toBe(false);
     expect(agentTab.server.setGrant(stale, { userId: ICS_USERS.bruno, capability: 'chat.use', granted: false }).result.ok).toBe(false);
   });
@@ -79,7 +80,7 @@ describe('época de sessão: desativar encerra TODAS as sessões abertas, reativ
   });
 
   it.each([
-    ['send', (p: Probe) => p.transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'c', payload: { type: 'text', text: 'oi' } })],
+    ['send', (p: Probe) => p.transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } })],
     ['openDirect', (p: Probe) => p.transport.openDirect({ with: ICS_USERS.bruno })],
     ['upload', (p: Probe) => p.transport.upload({ conversationId: LIVE_CONVERSATION_ID, clientId: 'upload-obsoleto', file: new Blob(['imagem'], { type: 'image/png' }), fileName: 'imagem.png', mimeType: 'image/png', signal: new AbortController().signal, onProgress: () => undefined })],
     ['markRead', (p: Probe) => p.transport.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: 'x' })],
@@ -126,7 +127,7 @@ describe('época de sessão: desativar encerra TODAS as sessões abertas, reativ
   it('(d) reconectar depois da reativação funciona, com o histórico, e o evento atrasado não derruba o login novo', async () => {
     const { agentTab, admin, victim } = await scenario();
     const conversation = (await victim.transport.openDirect({ with: ICS_USERS.bruno })).id;
-    await victim.transport.send({ conversationId: conversation, clientId: 'antes', payload: { type: 'text', text: 'mensagem de antes' } });
+    await victim.transport.send({ conversationId: conversation, clientId: asClientId('antes'), payload: { type: 'text', text: 'mensagem de antes' } });
     await bounce(admin, ICS_USERS.ana);
     const again = new MockTransport({ backend: agentTab, delays: { connectMs: 0 } });
     const bootstrap = await again.connect(ANA);

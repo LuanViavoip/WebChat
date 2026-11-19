@@ -1,3 +1,4 @@
+import { asMessageId } from '@viavoip/internal-domain';
 import { act, StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -52,7 +53,7 @@ function liveRoles(): Array<string | null> {
 
 function incomingText(conversationId: string, id: string, text: string): TextMessage {
   return {
-    id,
+    id: asMessageId(id),
     tenantId: ICS_TENANT_ID,
     conversationId: asConversationId(conversationId),
     authorId: ICS_USERS.bruno,

@@ -1,4 +1,4 @@
-import { acceptsCaption, clampCaption, type ValidAttachment } from '@viavoip/internal-domain';
+import { acceptsCaption, asClientId, asMessageId, clampCaption, type ValidAttachment } from '@viavoip/internal-domain';
 import type { ChatMessage, MessageStatus } from '@viavoip/internal-domain';
 import type { ConversationId } from '@viavoip/internal-domain';
 import type { UserId } from '@viavoip/internal-domain';
@@ -23,10 +23,10 @@ export function messageFromPayload(
   status: MessageStatus,
 ): ChatMessage {
   const base = {
-    id: origin.id,
+    id: asMessageId(origin.id),
     tenantId: origin.tenantId,
     conversationId: origin.conversationId,
-    clientId: origin.clientId,
+    clientId: asClientId(origin.clientId),
     authorId: origin.authorId,
     author: { id: origin.authorId, name: origin.authorName },
     timestamp,

@@ -1,9 +1,10 @@
+import { asMessageId } from '@viavoip/internal-domain';
 import { ICS_TENANT_ID, ICS_USERS } from './seed';
 import { asConversationId } from '@viavoip/internal-domain';
 import { previewOf, type ChatMessage, type TextMessage } from '@viavoip/internal-domain';
 
 const base = {
-  id: '1',
+  id: asMessageId('1'),
   tenantId: ICS_TENANT_ID,
   conversationId: asConversationId('c'),
   authorId: ICS_USERS.bruno,

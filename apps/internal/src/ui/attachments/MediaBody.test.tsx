@@ -1,3 +1,4 @@
+import { asMessageId } from '@viavoip/internal-domain';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AudioMessage, DocumentMessage, ImageMessage, StickerMessage, VideoMessage } from '@viavoip/internal-domain';
@@ -6,7 +7,7 @@ import { ICS_TENANT_ID, ICS_USERS } from '../../transport/mock/seed';
 import { asConversationId } from '@viavoip/internal-domain';
 
 const base = {
-  id: 'm1',
+  id: asMessageId('m1'),
   tenantId: ICS_TENANT_ID,
   conversationId: asConversationId('c'),
   authorId: ICS_USERS.carla,

@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { directConversationId, type ConversationId } from '@viavoip/internal-domain';
 import type { UserId } from '@viavoip/internal-domain';
 import type { Result } from '@viavoip/internal-domain';
@@ -43,7 +44,7 @@ function rejection<T>(outcome: Outcome<T>): ForbiddenError {
 }
 
 function sendLive(server: MockServer, from: Session, clientId: string, body = 'oi') {
-  return server.send(from, { conversationId: LIVE_CONVERSATION_ID, clientId, payload: text(body) });
+  return server.send(from, { conversationId: LIVE_CONVERSATION_ID, clientId: asClientId(clientId), payload: text(body) });
 }
 
 function recipients(deliveries: readonly Delivery[]): UserId[] {
@@ -160,7 +161,7 @@ describe('MockServer', () => {
       const server = newServer();
       const outcome = server.send(CARLA, {
         conversationId: LIVE_CONVERSATION_ID,
-        clientId: 'img-1',
+        clientId: asClientId('img-1'),
         payload: { type: 'image', mimeType: 'image/png', url: 'blob:remote/1', caption: 'rx' },
       });
       expect(value(outcome.result).message).toMatchObject({ type: 'image', url: 'blob:remote/1', caption: 'rx' });
@@ -173,7 +174,7 @@ describe('MockServer', () => {
       expect(rejection(sendLive(server, CARLA, 'c-1', '   ')).reason).toBe('invalid');
       const media = server.send(CARLA, {
         conversationId: LIVE_CONVERSATION_ID,
-        clientId: 'c-2',
+        clientId: asClientId('c-2'),
         payload: { type: 'image', mimeType: 'image/png', url: '' },
       });
       expect(rejection(media).reason).toBe('invalid');
@@ -187,10 +188,10 @@ describe('MockServer', () => {
     it('conversa inexistente ou de outro tenant: ForbiddenError sem dizer se existe', () => {
       const server = newServer();
       const bvConversation = directConversationId(BV_TENANT_ID, BV_USERS.otavio, BV_USERS.paula);
-      const foreign = server.send(CARLA, { conversationId: bvConversation, clientId: 'x', payload: text('oi') });
+      const foreign = server.send(CARLA, { conversationId: bvConversation, clientId: asClientId('x'), payload: text('oi') });
       const missing = server.send(CARLA, {
         conversationId: 'dm:ics:nao:existe' as ConversationId,
-        clientId: 'x',
+        clientId: asClientId('x'),
         payload: text('oi'),
       });
       expect(rejection(foreign).reason).toBe('forbidden');

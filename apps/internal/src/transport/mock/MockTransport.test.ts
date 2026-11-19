@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { createFakeObjectUrls } from '../../test/fakeObjectUrls';
 import { SessionAbortedError, UploadCanceledError, UploadFailedError } from '../abort';
 import type { ChatEvent, ChatTransport, ConnectRequest, UploadProgress } from '../ChatTransport';
@@ -28,7 +29,7 @@ function collect(transport: MockTransport): ChatEvent[] {
 }
 
 function sendText(transport: ChatTransport, text: string, clientId: string) {
-  return transport.send({ conversationId: C1, clientId, payload: { type: 'text', text } });
+  return transport.send({ conversationId: C1, clientId: asClientId(clientId), payload: { type: 'text', text } });
 }
 
 const instant = {
@@ -360,7 +361,7 @@ describe('MockTransport', () => {
     events.length = 0;
     await transport.send({
       conversationId: C1,
-      clientId: 'img-1',
+      clientId: asClientId('img-1'),
       payload: { type: 'image', mimeType: 'image/png', url: 'blob:remote/1', caption: 'rx' },
     });
     await vi.waitFor(() => {
@@ -382,7 +383,7 @@ describe('MockTransport', () => {
     await transport.connect(ME);
     await transport.send({
       conversationId: C1,
-      clientId: 'doc-1',
+      clientId: asClientId('doc-1'),
       payload: {
         type: 'document',
         fileName: 'guia.pdf',
@@ -563,7 +564,7 @@ describe('MockTransport por conversa', () => {
     await transport.connect(ME);
     const uploading = transport.upload(uploadRequest(C1, 'up-c1'));
     await vi.advanceTimersByTimeAsync(20);
-    await transport.send({ conversationId: C2, clientId: 'msg-c2', payload: { type: 'text', text: 'outra' } });
+    await transport.send({ conversationId: C2, clientId: asClientId('msg-c2'), payload: { type: 'text', text: 'outra' } });
     await transport.openDirect({ with: ICS_USERS.diego });
     transport.setTyping({ conversationId: C2, isTyping: true });
     await vi.advanceTimersByTimeAsync(20);
@@ -643,7 +644,7 @@ describe('MockTransport por conversa', () => {
     const foreign = 'dm:bv:bv-otavio:bv-paula' as typeof C1;
     await expect(transport.upload(uploadRequest(foreign, 'up-x'))).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
-      transport.send({ conversationId: foreign, clientId: 'x', payload: { type: 'text', text: 'oi' } }),
+      transport.send({ conversationId: foreign, clientId: asClientId('x'), payload: { type: 'text', text: 'oi' } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(transport.markRead({ conversationId: foreign, upToMessageId: 'msg:bv:1' })).rejects.toBeInstanceOf(
       ForbiddenError,

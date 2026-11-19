@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
 import { Lab, typesOf, type Probe } from '../../test/adminProbe';
 import { asConversationId } from '@viavoip/internal-domain';
@@ -290,7 +291,7 @@ describe('administração entre abas (TabSync)', () => {
     expect(bruno.transport.getStatus()).toBe('disconnected');
     expect(paula.events).toEqual([]);
     expect(paula.transport.getStatus()).toBe('connected');
-    await expect(bruno.transport.send({ conversationId: asConversationId('x'), clientId: 'c', payload: { type: 'text', text: 'oi' } })).rejects.toThrow();
+    await expect(bruno.transport.send({ conversationId: asConversationId('x'), clientId: asClientId('c'), payload: { type: 'text', text: 'oi' } })).rejects.toThrow();
     await expect(bruno.transport.setGrant({ userId: ICS_USERS.ana, capability: 'chat.use', granted: false })).rejects.toThrow();
     await expect(bruno.transport.grantLog()).rejects.toThrow();
   });

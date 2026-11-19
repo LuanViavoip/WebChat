@@ -1,3 +1,4 @@
+import { asClientId, asMessageId } from '@viavoip/internal-domain';
 import { validateFiles } from '@viavoip/internal-domain';
 import type { ConversationId } from '@viavoip/internal-domain';
 import type { ChatMessage, TextMessage } from '@viavoip/internal-domain';
@@ -15,7 +16,8 @@ const instant = {
   readMs: 0,
 };
 
-function textMessage(partial: Partial<TextMessage> & Pick<TextMessage, 'id' | 'text'>): TextMessage {
+function textMessage(partial: Omit<Partial<TextMessage>, 'id' | 'clientId'> & { id: string; text: string; clientId?: string }): TextMessage {
+  const { id, clientId, ...rest } = partial;
   return {
     tenantId: ICS_TENANT_ID,
     conversationId: LIVE_CONVERSATION_ID,
@@ -24,7 +26,9 @@ function textMessage(partial: Partial<TextMessage> & Pick<TextMessage, 'id' | 't
     timestamp: '2026-11-10T12:00:00.000Z',
     status: 'delivered',
     type: 'text',
-    ...partial,
+    ...rest,
+    id: asMessageId(id),
+    ...(clientId ? { clientId: asClientId(clientId) } : {}),
   };
 }
 

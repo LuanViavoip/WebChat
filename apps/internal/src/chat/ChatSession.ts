@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { type ValidAttachment } from '@viavoip/internal-domain';
 import type { Conversation, ConversationId, ConversationSummary, GroupConversation } from '@viavoip/internal-domain';
 import type { Capability } from '@viavoip/internal-domain';
@@ -548,7 +549,7 @@ export class ChatSession {
     generation?: number,
   ): Promise<void> {
     try {
-      await this.transport.send({ conversationId, clientId, payload });
+      await this.transport.send({ conversationId, clientId: asClientId(clientId), payload });
     } catch (error) {
       if (isSessionAborted(error)) {
         return;

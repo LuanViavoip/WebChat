@@ -1,3 +1,4 @@
+import { asClientId } from '@viavoip/internal-domain';
 import { ChatSession } from '../../chat/ChatSession';
 import { FakeBus } from '../../test/fakeBroadcastChannel';
 import { can } from '@viavoip/internal-domain';
@@ -12,7 +13,7 @@ it('não entrega texto adulterado de uma mensagem existente pelo canal', async (
   const backend = new MockBackend({ store, tabSync: createTabSync(bus.factory) });
   const transport = new MockTransport({ backend, delays: { sentMs: 0 } });
   await transport.connect(DEFAULT_SESSION);
-  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'msg', payload: { type: 'text', text: 'original' } });
+  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('msg'), payload: { type: 'text', text: 'original' } });
   const message = backend.server.getState().get(ICS_TENANT_ID)?.messages[LIVE_CONVERSATION_ID]?.[0];
   if (!message) throw new Error('mensagem não encontrada');
   const events: string[] = [];
@@ -63,7 +64,7 @@ it('não aceita status read quando o servidor ainda não registrou a leitura', a
   const store = new MemoryMockStore(); const bus = new FakeBus();
   const backend = new MockBackend({ store, tabSync: createTabSync(bus.factory) });
   const transport = new MockTransport({ backend, delays: { sentMs: 0 } }); await transport.connect(DEFAULT_SESSION);
-  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'unread', payload: { type: 'text', text: 'oi' } });
+  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('unread'), payload: { type: 'text', text: 'oi' } });
   const message = backend.server.getState().get(ICS_TENANT_ID)?.messages[LIVE_CONVERSATION_ID]?.find((item) => item.clientId === 'unread');
   if (!message) throw new Error('mensagem não encontrada');
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -79,7 +80,7 @@ it('não aceita status delivered quando o servidor ainda registra sent', async (
   const store = new MemoryMockStore(); const bus = new FakeBus();
   const backend = new MockBackend({ store, tabSync: createTabSync(bus.factory) });
   const transport = new MockTransport({ backend, delays: { sentMs: 0 } }); await transport.connect(DEFAULT_SESSION);
-  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'not-delivered', payload: { type: 'text', text: 'oi' } });
+  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('not-delivered'), payload: { type: 'text', text: 'oi' } });
   const message = backend.server.getState().get(ICS_TENANT_ID)?.messages[LIVE_CONVERSATION_ID]?.find((item) => item.clientId === 'not-delivered');
   if (!message) throw new Error('mensagem não encontrada');
   const statuses: string[] = [];
@@ -122,7 +123,7 @@ it('descarta leitura adulterada que não corresponde ao cursor persistido', asyn
   const carla = new MockTransport({ backend: writer, delays: { sentMs: 0 }, simulateReceipts: false });
   const bruno = new MockTransport({ backend: reader, simulateReceipts: false });
   await carla.connect(DEFAULT_SESSION); await bruno.connect({ tenantId: ICS_TENANT_ID, userId: ICS_USERS.bruno });
-  await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'cursor', payload: { type: 'text', text: 'oi' } });
+  await carla.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('cursor'), payload: { type: 'text', text: 'oi' } });
   const message = writer.server.getState().get(ICS_TENANT_ID)?.messages[LIVE_CONVERSATION_ID]?.find((item) => item.clientId === 'cursor');
   if (!message) throw new Error('mensagem não encontrada');
   await bruno.markRead({ conversationId: LIVE_CONVERSATION_ID, upToMessageId: message.id });
@@ -154,7 +155,7 @@ it('entrega confirmação legítima quando o estado da outra aba chega com atras
   const receiver = new MockTransport({ backend: receiverBackend, delays: { sentMs: 0 }, simulateReceipts: false });
   await sender.connect(DEFAULT_SESSION); await receiver.connect({ tenantId: ICS_TENANT_ID, userId: ICS_USERS.bruno });
   const statuses: string[] = []; sender.subscribe((event) => { if (event.type === 'status') statuses.push(event.status); });
-  await sender.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'delayed-store', payload: { type: 'text', text: 'oi' } });
+  await sender.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('delayed-store'), payload: { type: 'text', text: 'oi' } });
   expect(delayed).toBe(true);
   await vi.waitFor(() => { expect(statuses).toContain('delivered'); });
   sender.disconnect(); receiver.disconnect(); senderBackend.close(); receiverBackend.close();
@@ -165,7 +166,7 @@ it('descarta status não confirmado e cancela reconciliação ao fechar', async 
   const backend = new MockBackend({ store, tabSync: createTabSync(bus.factory) });
   const transport = new MockTransport({ backend, delays: { sentMs: 0 }, simulateReceipts: false });
   await transport.connect(DEFAULT_SESSION);
-  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'forged-retry', payload: { type: 'text', text: 'oi' } });
+  await transport.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('forged-retry'), payload: { type: 'text', text: 'oi' } });
   const message = backend.server.getState().get(ICS_TENANT_ID)?.messages[LIVE_CONVERSATION_ID]?.find((item) => item.clientId === 'forged-retry');
   if (!message) throw new Error('mensagem não encontrada');
   const statuses: string[] = []; transport.subscribe((event) => { if (event.type === 'status') statuses.push(event.status); });
@@ -214,7 +215,7 @@ it('entrega mensagem quando a gravação da outra aba fica visível com atraso',
   stale = store.load();
   const texts: string[] = [];
   carla.subscribe((event) => { if (event.type === 'message' && event.message.type === 'text') texts.push(event.message.text); });
-  await bruno.send({ conversationId: LIVE_CONVERSATION_ID, clientId: 'late-message', payload: { type: 'text', text: 'chegou' } });
+  await bruno.send({ conversationId: LIVE_CONVERSATION_ID, clientId: asClientId('late-message'), payload: { type: 'text', text: 'chegou' } });
   expect(delayed).toBe(true);
   await vi.waitFor(() => { expect(texts).toContain('chegou'); });
   carla.disconnect(); bruno.disconnect(); reader.close(); writer.close();
